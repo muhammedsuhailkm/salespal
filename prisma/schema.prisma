@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    Int    @id
+  name  String @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model Organization {
+  id       Int          @id @default(autoincrement())
+  name     String       @unique
+  managers ManagerOrg[]
+  clients  Client[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              Int               @id @default(autoincrement())
+  name            String
+  role_id         Int
+  email           String            @unique
+  password        String
+  phone           String?
+  role            Role              @relation(fields: [role_id], references: [id])
+  managerOrgs     ManagerOrg[]      @relation("ManagerOrganizations")
+  managerSalesmen ManagerSalesman[] @relation("ManagerSalesmen")
+  salesmanManager ManagerSalesman[] @relation("SalesmanManagers")
+  assignedClients Client[]          @relation("AssignedClients")
+  assignedTasks   Task[]            @relation("AssignedTasks")
+  createdTasks    Task[]            @relation("CreatedTasks")
+  clientLogs      ClientLog[]       @relation("LogAuthor")
+  kpiLogs         SalesmanKpiLog[]  @relation("SalesmanKpi")
+
+  @@map("users")
+}
+
+model ManagerOrg {
+  manager_id Int
+  org_id     Int
+  manager    User         @relation("ManagerOrganizations", fields: [manager_id], references: [id], onDelete: Cascade)
+  org        Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  @@id([manager_id, org_id])
+  @@map("manager_org")
+}
+
+model ManagerSalesman {
+  manager_id  Int
+  salesman_id Int
+  manager     User @relation("ManagerSalesmen", fields: [manager_id], references: [id], onDelete: Cascade)
+  salesman    User @relation("SalesmanManagers", fields: [salesman_id], references: [id], onDelete: Cascade)
+
+  @@id([manager_id, salesman_id])
+  @@map("manager_salesman")
+}
+
+model Client {
+  id                         Int          @id @default(autoincrement())
+  name                       String
+  contact_person_name        String
+  contact_no                 String
+  location_coordinates       String?
+  mail_id                    String?
+  contact_person_designation String?
+  assigned_salesman_id       Int
+  org_id                     Int
+  notes                      String?
+  status                     String
+  assignedSalesman           User         @relation("AssignedClients", fields: [assigned_salesman_id], references: [id])
+  organization               Organization @relation(fields: [org_id], references: [id])
+  logs                       ClientLog[]
+
+  @@map("clients")
+}
+
+model ClientLog {
+  id         Int      @id @default(autoincrement())
+  client_id  Int
+  action     String
+  created_at DateTime @default(now())
+  done_by    Int
+  client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  author     User     @relation("LogAuthor", fields: [done_by], references: [id])
+
+  @@map("client_logs")
+}
+
+model Task {
+  id             Int      @id @default(autoincrement())
+  assigned_to_id Int
+  created_by_id  Int
+  description    String
+  due_date       DateTime
+  notification   Boolean  @default(false)
+  status         String
+  assignedTo     User     @relation("AssignedTasks", fields: [assigned_to_id], references: [id])
+  createdBy      User     @relation("CreatedTasks", fields: [created_by_id], references: [id])
+
+  @@map("tasks")
+}
+
+model SalesmanKpiLog {
+  id          Int    @id @default(autoincrement())
+  salesman_id Int
+  action      String
+  salesman    User   @relation("SalesmanKpi", fields: [salesman_id], references: [id], onDelete: Cascade)
+
+  @@map("salesman_kpi_logs")
+}
