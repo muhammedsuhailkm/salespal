@@ -5,7 +5,7 @@ type SalesmanRow = { id: number; name: string; assignedClients: { status: string
 
 export function SalesmanPerfTable({ salesmen }: { salesmen: SalesmanRow[] }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-100 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Salesman</th><th className="px-4 py-3">Clients</th><th className="px-4 py-3">Top status</th><th className="px-4 py-3">KPI</th></tr></thead>
         <tbody className="divide-y divide-slate-200">

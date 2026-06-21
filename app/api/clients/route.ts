@@ -20,6 +20,26 @@ export async function POST(request: NextRequest) {
   const duplicate = await prisma.client.findFirst({ where: { OR: [{ contact_no: body.contact_no }, { mail_id: body.mail_id ?? "" }] } });
   if (duplicate) return NextResponse.json({ error: "Duplicate client", duplicate }, { status: 409 });
 
+  let orgId = body.org_id ? Number(body.org_id) : null;
+  if (!orgId) {
+    if (token.role_id === 3) {
+      const managerSalesman = await prisma.managerSalesman.findFirst({
+        where: { salesman_id: Number(token.id) },
+        include: { manager: { include: { managerOrgs: true } } }
+      });
+      orgId = managerSalesman?.manager?.managerOrgs?.[0]?.org_id ?? null;
+    } else if (token.role_id === 2) {
+      const managerOrg = await prisma.managerOrg.findFirst({
+        where: { manager_id: Number(token.id) }
+      });
+      orgId = managerOrg?.org_id ?? null;
+    }
+  }
+
+  if (!orgId) {
+    return NextResponse.json({ error: "Organization not found for the user" }, { status: 400 });
+  }
+
   const client = await prisma.client.create({
     data: {
       name: body.name,
@@ -29,7 +49,7 @@ export async function POST(request: NextRequest) {
       mail_id: body.mail_id,
       contact_person_designation: body.contact_person_designation,
       assigned_salesman_id: Number(body.assigned_salesman_id ?? token.id),
-      org_id: Number(body.org_id),
+      org_id: orgId,
       notes: body.notes,
       status: body.status ?? "new_lead",
     },

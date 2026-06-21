@@ -88,6 +88,7 @@ async function main() {
           org_id: org.id,
           notes: i % 4 === 0 ? "High value logistics opportunity." : "Regular follow-up required.",
           status: clientStatuses[i % clientStatuses.length],
+          created_at: new Date(Date.now() - (i * 2 + 1) * 24 * 60 * 60 * 1000),
         },
       }),
     );

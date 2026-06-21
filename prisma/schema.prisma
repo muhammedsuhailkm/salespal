@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Role {
@@ -76,6 +77,7 @@ model Client {
   org_id                     Int
   notes                      String?
   status                     String
+  created_at                 DateTime     @default(now())
   assignedSalesman           User         @relation("AssignedClients", fields: [assigned_salesman_id], references: [id])
   organization               Organization @relation(fields: [org_id], references: [id])
   logs                       ClientLog[]

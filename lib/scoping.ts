@@ -40,7 +40,7 @@ export async function taskScopeWhere(token: ScopedToken): Promise<Prisma.TaskWhe
     const salesmanIds = await getManagerSalesmanIds(userId);
     return { OR: [{ created_by_id: userId }, { assigned_to_id: { in: salesmanIds } }] };
   }
-  if (token.role_id === 3) return { assigned_to_id: userId };
+  if (token.role_id === 3) return { OR: [{ assigned_to_id: userId }, { created_by_id: userId }] };
   return { id: -1 };
 }
 

@@ -12,3 +12,72 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   if (!client) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({ client });
 }
+
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await context.params;
+  const body = await request.json();
+
+  const scoped = await prisma.client.findFirst({ where: { AND: [{ id: Number(id) }, await clientScopeWhere(token)] } });
+  if (!scoped) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Check duplicate contact details for other clients
+  if (body.contact_no || body.mail_id) {
+    const duplicate = await prisma.client.findFirst({
+      where: {
+        AND: [
+          { id: { not: Number(id) } },
+          {
+            OR: [
+              body.contact_no ? { contact_no: body.contact_no } : undefined,
+              body.mail_id ? { mail_id: body.mail_id } : undefined,
+            ].filter(Boolean) as any,
+          },
+        ],
+      },
+    });
+    if (duplicate) {
+      return NextResponse.json({ error: "Duplicate client details" }, { status: 409 });
+    }
+  }
+
+  const client = await prisma.client.update({
+    where: { id: Number(id) },
+    data: {
+      name: body.name ?? undefined,
+      contact_person_name: body.contact_person_name ?? undefined,
+      mail_id: body.mail_id ?? undefined,
+      contact_no: body.contact_no ?? undefined,
+      status: body.status ?? undefined,
+      notes: body.notes !== undefined ? body.notes : undefined,
+    },
+  });
+
+  await prisma.clientLog.create({
+    data: {
+      client_id: client.id,
+      action: `Client details updated: ${body.name || client.name}`,
+      done_by: Number(token.id),
+    },
+  });
+
+  if (body.status && body.status !== scoped.status) {
+    await prisma.clientLog.create({
+      data: {
+        client_id: client.id,
+        action: `Status changed to ${body.status}`,
+        done_by: Number(token.id),
+      },
+    });
+    await prisma.salesmanKpiLog.create({
+      data: {
+        salesman_id: client.assigned_salesman_id,
+        action: body.status,
+      },
+    });
+  }
+
+  return NextResponse.json({ client });
+}
