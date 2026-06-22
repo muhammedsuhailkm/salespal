@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition, useOptimistic, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
-import { formatDate, formatPhoneNumber } from "@/lib/utils";
-import { RotateCcw, Plus, X, Loader2, Search } from "lucide-react";
+import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
+import { RotateCcw, Plus, X, Loader2, Search, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -25,13 +25,32 @@ interface SalesmanClientsListProps {
   initialClients: Client[];
 }
 
-export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps) {
+export function SalesmanClientsList({
+  initialClients,
+}: SalesmanClientsListProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const [optimisticClients, setOptimisticClients] = useOptimistic(
+    initialClients,
+    (state, update: { action: "update" | "add"; client: Client }) => {
+      if (update.action === "update") {
+        return state.map((c) =>
+          c.id === update.client.id ? { ...c, ...update.client } : c,
+        );
+      }
+      if (update.action === "add") {
+        return [update.client, ...state];
+      }
+      return state;
+    },
+  );
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
 
   // Form states
   const [addForm, setAddForm] = useState({
@@ -40,7 +59,7 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
     mail_id: "",
     contact_no: "",
     status: "new_lead",
-    notes: ""
+    notes: "",
   });
 
   const [editForm, setEditForm] = useState({
@@ -49,7 +68,7 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
     mail_id: "",
     contact_no: "",
     status: "",
-    notes: ""
+    notes: "",
   });
 
   // Action states
@@ -70,7 +89,7 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
 
   // Memoized client filtering logic
   const filteredClients = useMemo(() => {
-    return initialClients.filter((client) => {
+    return optimisticClients.filter((client) => {
       // 1. Search Query (Client Name)
       if (searchQuery.trim() !== "") {
         if (!client.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -100,11 +119,19 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
         } else if (dateFilterRange === "week") {
           const sevenDaysAgo = new Date(today);
           sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (clientDate.getTime() < sevenDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
+          if (
+            clientDate.getTime() < sevenDaysAgo.getTime() ||
+            clientDate.getTime() > today.getTime()
+          )
+            return false;
         } else if (dateFilterRange === "month") {
           const thirtyDaysAgo = new Date(today);
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (clientDate.getTime() < thirtyDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
+          if (
+            clientDate.getTime() < thirtyDaysAgo.getTime() ||
+            clientDate.getTime() > today.getTime()
+          )
+            return false;
         } else if (dateFilterRange === "custom" && customDate) {
           const selectedDate = new Date(customDate);
           selectedDate.setHours(0, 0, 0, 0);
@@ -114,7 +141,13 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
 
       return true;
     });
-  }, [initialClients, searchQuery, statusFilter, dateFilterRange, customDate]);
+  }, [
+    optimisticClients,
+    searchQuery,
+    statusFilter,
+    dateFilterRange,
+    customDate,
+  ]);
 
   function handleReset() {
     setSearchQuery("");
@@ -139,8 +172,8 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
           mail_id: addForm.mail_id || null,
           contact_no: addForm.contact_no,
           status: addForm.status,
-          notes: addForm.notes || null
-        })
+          notes: addForm.notes || null,
+        }),
       });
 
       const data = await res.json();
@@ -155,7 +188,7 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
         mail_id: "",
         contact_no: "",
         status: "new_lead",
-        notes: ""
+        notes: "",
       });
       setIsAddOpen(false);
       router.refresh();
@@ -175,7 +208,7 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
       mail_id: client.mail_id || "",
       contact_no: client.contact_no,
       status: client.status,
-      notes: client.notes || ""
+      notes: client.notes || "",
     });
     setErrorMsg(null);
     setIsEditOpen(true);
@@ -188,37 +221,54 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
     setErrorMsg(null);
     setIsSaving(true);
 
-    try {
-      const res = await fetch(`/api/clients/${selectedClient.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editForm.name,
-          contact_person_name: editForm.contact_person_name,
-          mail_id: editForm.mail_id || null,
-          contact_no: editForm.contact_no,
-          status: editForm.status,
-          notes: editForm.notes || null
-        })
-      });
+    const updatedClient: Client = {
+      ...selectedClient,
+      name: editForm.name,
+      contact_person_name: editForm.contact_person_name,
+      mail_id: editForm.mail_id || null,
+      contact_no: editForm.contact_no,
+      status: editForm.status,
+      notes: editForm.notes || null,
+    };
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update client");
+    setIsEditOpen(false);
+    setSelectedClient(null);
+
+    startTransition(async () => {
+      setOptimisticClients({ action: "update", client: updatedClient });
+
+      try {
+        const res = await fetch(`/api/clients/${selectedClient.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editForm.name,
+            contact_person_name: editForm.contact_person_name,
+            mail_id: editForm.mail_id || null,
+            contact_no: editForm.contact_no,
+            status: editForm.status,
+            notes: editForm.notes || null,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to update client");
+        }
+
+        triggerToast("Client details updated!");
+        router.refresh();
+      } catch (err: any) {
+        setErrorMsg(err.message);
+        openEditModal(selectedClient);
+      } finally {
+        setIsSaving(false);
       }
-
-      triggerToast("Client details updated!");
-      setIsEditOpen(false);
-      setSelectedClient(null);
-      router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
-      setIsSaving(false);
-    }
+    });
   }
 
-  const hasActiveFilters = searchQuery !== "" || statusFilter !== "all" || dateFilterRange !== "all";
+  const hasActiveFilters =
+    searchQuery !== "" || statusFilter !== "all" || dateFilterRange !== "all";
 
   return (
     <div className="space-y-4">
@@ -226,7 +276,9 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-800">Leads List</h2>
-          <p className="text-xs text-slate-500">Filter, search, and manage your active client accounts.</p>
+          <p className="text-xs text-slate-500">
+            Filter, search, and manage your active client accounts.
+          </p>
         </div>
         <button
           onClick={() => {
@@ -268,7 +320,10 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
         <div className="flex flex-wrap items-end gap-4 border-t border-slate-100/70 pt-3.5">
           {/* Status Filter */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="status-filter">
+            <label
+              className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+              htmlFor="status-filter"
+            >
               Status
             </label>
             <select
@@ -288,7 +343,10 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
 
           {/* Date Filter Range */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="date-filter">
+            <label
+              className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+              htmlFor="date-filter"
+            >
               Date Added
             </label>
             <select
@@ -312,7 +370,10 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
           {/* Custom Date Input */}
           {dateFilterRange === "custom" && (
             <div className="flex flex-col gap-1.5 min-w-[140px] animate-in fade-in duration-200">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="custom-date">
+              <label
+                className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                htmlFor="custom-date"
+              >
                 Select Calendar Date
               </label>
               <input
@@ -345,48 +406,95 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
               <tr>
+                <th className="w-10 px-2 py-3 sm:hidden"></th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Contact</th>
-                <th className="px-4 py-3">Company</th>
-                <th className="px-4 py-3">Date Added</th>
+                <th className="px-4 py-3 hidden md:table-cell">Company</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredClients.map((client) => (
-                <tr
-                  key={client.id}
-                  onClick={() => openEditModal(client)}
-                  className="hover:bg-slate-50/60 transition cursor-pointer group"
-                >
-                  <td className="px-4 py-3 font-medium text-slate-900 group-hover:text-indigo-600 transition">
-                    {client.name}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-slate-900">
-                    {formatPhoneNumber(client.contact_no)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {client.organization?.name ?? "-"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                    {formatDate(client.created_at)}
-                  </td>
-                  <td className="px-4 py-3 flex items-center justify-between gap-2">
-                    <Badge value={client.status} />
-                    <span className="text-[10px] text-indigo-500 font-semibold opacity-0 group-hover:opacity-100 transition mr-2">
-                      Edit →
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filteredClients.map((client) => {
+                const isExpanded = expandedClientId === client.id;
+                return (
+                  <Fragment key={client.id}>
+                    <tr
+                      onClick={() => openEditModal(client)}
+                      className="hover:bg-slate-50/60 transition cursor-pointer group"
+                    >
+                      <td
+                        className="w-10 px-2 py-3 text-center sm:hidden"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedClientId(isExpanded ? null : client.id);
+                        }}
+                      >
+                        <ChevronDown
+                          size={16}
+                          className={cn(
+                            "text-slate-400 transition-transform duration-200 mx-auto",
+                            isExpanded && "rotate-180 text-indigo-500"
+                          )}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-900 group-hover:text-indigo-600 transition">
+                        {client.name}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">
+                        {formatPhoneNumber(client.contact_no)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
+                        {client.organization?.name ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
+                        {formatDate(client.created_at)}
+                      </td>
+                      <td className="px-4 py-3 flex items-center justify-between gap-2">
+                        <Badge value={client.status} />
+                        <span className="text-[10px] text-indigo-500 font-semibold opacity-0 group-hover:opacity-100 transition mr-2 hidden sm:inline-block">
+                          Edit →
+                        </span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-slate-50/30 sm:hidden">
+                        <td colSpan={4} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
+                          <div>
+                            <span className="font-semibold text-slate-500">Company:</span>{" "}
+                            <span className="text-slate-800">{client.organization?.name ?? "-"}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-500">Date Added:</span>{" "}
+                            <span className="text-slate-800">{formatDate(client.created_at)}</span>
+                          </div>
+                          {client.notes && (
+                            <div>
+                              <span className="font-semibold text-slate-500">Notes:</span>
+                              <p className="mt-1 text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200/50 leading-relaxed shadow-sm">
+                                {client.notes}
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
         /* Empty State */
         <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200 border-dashed text-center">
-          <p className="text-sm font-medium text-slate-600">No clients match your filter/search criteria.</p>
-          <p className="text-xs text-slate-400 mt-1">Try resetting the status, date filters, or search term to show all clients.</p>
+          <p className="text-sm font-medium text-slate-600">
+            No clients match your filter/search criteria.
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Try resetting the status, date filters, or search term to show all
+            clients.
+          </p>
           <button
             type="button"
             onClick={handleReset}
@@ -407,10 +515,14 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
           >
             <X size={16} />
           </button>
-          
+
           <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">Add New Client</h3>
-            <p className="text-xs text-slate-500">Create a client card. It will automatically assign to you.</p>
+            <h3 className="text-base font-bold text-slate-900">
+              Add New Client
+            </h3>
+            <p className="text-xs text-slate-500">
+              Create a client card. It will automatically assign to you.
+            </p>
           </div>
 
           {errorMsg && (
@@ -435,7 +547,9 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               type="text"
               required
               value={addForm.contact_person_name}
-              onChange={(e) => setAddForm({ ...addForm, contact_person_name: e.target.value })}
+              onChange={(e) =>
+                setAddForm({ ...addForm, contact_person_name: e.target.value })
+              }
               placeholder="Full Name"
               className="text-xs"
             />
@@ -444,7 +558,9 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               label="Email"
               type="email"
               value={addForm.mail_id}
-              onChange={(e) => setAddForm({ ...addForm, mail_id: e.target.value })}
+              onChange={(e) =>
+                setAddForm({ ...addForm, mail_id: e.target.value })
+              }
               placeholder="email@example.com"
               className="text-xs"
             />
@@ -454,19 +570,26 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               type="tel"
               required
               value={addForm.contact_no}
-              onChange={(e) => setAddForm({ ...addForm, contact_no: e.target.value })}
+              onChange={(e) =>
+                setAddForm({ ...addForm, contact_no: e.target.value })
+              }
               placeholder="e.g. +97455556666"
               className="text-xs"
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="add-status">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="add-status"
+              >
                 Status
               </label>
               <select
                 id="add-status"
                 value={addForm.status}
-                onChange={(e) => setAddForm({ ...addForm, status: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, status: e.target.value })
+                }
                 className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
               >
                 <option value="new_lead">New Lead</option>
@@ -478,13 +601,18 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="add-notes">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="add-notes"
+              >
                 Notes
               </label>
               <textarea
                 id="add-notes"
                 value={addForm.notes}
-                onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, notes: e.target.value })
+                }
                 placeholder="Details of conversations, expectations, etc."
                 rows={3}
                 className="w-full rounded-md border border-slate-300 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
@@ -525,12 +653,17 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
           >
             <X size={16} />
           </button>
-          
+
           <div className="mb-4">
             <h3 className="text-base font-bold text-slate-900">
-              Update Client: <span className="text-indigo-600 font-semibold">{selectedClient?.name}</span>
+              Update Client:{" "}
+              <span className="text-indigo-600 font-semibold">
+                {selectedClient?.name}
+              </span>
             </h3>
-            <p className="text-xs text-slate-500">Edit this lead's information, status updates, or notes.</p>
+            <p className="text-xs text-slate-500">
+              Edit this lead's information, status updates, or notes.
+            </p>
           </div>
 
           {errorMsg && (
@@ -545,7 +678,9 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               type="text"
               required
               value={editForm.name}
-              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
               className="text-xs"
             />
 
@@ -554,7 +689,12 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               type="text"
               required
               value={editForm.contact_person_name}
-              onChange={(e) => setEditForm({ ...editForm, contact_person_name: e.target.value })}
+              onChange={(e) =>
+                setEditForm({
+                  ...editForm,
+                  contact_person_name: e.target.value,
+                })
+              }
               className="text-xs"
             />
 
@@ -562,7 +702,9 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               label="Email"
               type="email"
               value={editForm.mail_id}
-              onChange={(e) => setEditForm({ ...editForm, mail_id: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, mail_id: e.target.value })
+              }
               placeholder="No email provided"
               className="text-xs"
             />
@@ -572,18 +714,25 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
               type="tel"
               required
               value={editForm.contact_no}
-              onChange={(e) => setEditForm({ ...editForm, contact_no: e.target.value })}
+              onChange={(e) =>
+                setEditForm({ ...editForm, contact_no: e.target.value })
+              }
               className="text-xs"
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="edit-status">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="edit-status"
+              >
                 Status
               </label>
               <select
                 id="edit-status"
                 value={editForm.status}
-                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, status: e.target.value })
+                }
                 className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
               >
                 <option value="new_lead">New Lead</option>
@@ -595,13 +744,18 @@ export function SalesmanClientsList({ initialClients }: SalesmanClientsListProps
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="edit-notes">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="edit-notes"
+              >
                 Notes
               </label>
               <textarea
                 id="edit-notes"
                 value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, notes: e.target.value })
+                }
                 placeholder="Add summary of conversations, deals, next steps..."
                 rows={3}
                 className="w-full rounded-md border border-slate-300 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
