@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useOptimistic, Fragment } from "react
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
-import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin } from "lucide-react";
+import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin, Navigation } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -283,10 +283,7 @@ export function SalesmanClientsList({
       {/* Top Header Row with Add Button */}
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-800">Leads List</h2>
-          <p className="text-xs text-slate-500">
-            Filter, search, and manage your active client accounts.
-          </p>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Leads List</h2>
         </div>
         <button
           onClick={() => {
@@ -439,13 +436,20 @@ export function SalesmanClientsList({
                           setExpandedClientId(isExpanded ? null : client.id);
                         }}
                       >
-                        <ChevronDown
-                          size={16}
-                          className={cn(
-                            "text-slate-400 transition-transform duration-200 mx-auto",
-                            isExpanded && "rotate-180 text-indigo-500"
-                          )}
-                        />
+                        <div className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-200 mx-auto",
+                          isExpanded
+                            ? "bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200"
+                            : "bg-slate-100/80 text-slate-500 hover:bg-slate-200 hover:text-slate-700 ring-1 ring-slate-200/50"
+                        )}>
+                          <ChevronDown
+                            size={15}
+                            className={cn(
+                              "transition-transform duration-200",
+                              isExpanded && "rotate-180"
+                            )}
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-900 group-hover:text-indigo-600 transition">
                         {client.name}
@@ -465,11 +469,11 @@ export function SalesmanClientsList({
                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-semibold rounded-lg transition duration-150 shadow-sm border border-emerald-200/50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg transition duration-150 shadow hover:shadow-md cursor-pointer border border-indigo-700/20 active:scale-95"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <MapPin size={12} className="text-emerald-600" />
-                            <span>Location</span>
+                            <Navigation size={12} className="fill-current" />
+                            <span>Navigate</span>
                           </a>
                         ) : (
                           <span className="text-xs text-slate-400">-</span>
@@ -493,18 +497,18 @@ export function SalesmanClientsList({
                             <span className="font-semibold text-slate-500">Date Added:</span>{" "}
                             <span className="text-slate-800">{formatDate(client.created_at)}</span>
                           </div>
-                          <div>
-                            <span className="font-semibold text-slate-500">Location:</span>{" "}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-500">Navigation:</span>{" "}
                             {client.location_coordinates ? (
                               <a
                                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition duration-150 font-medium ml-1"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg transition duration-150 shadow hover:shadow-md cursor-pointer active:scale-95 ml-1"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <MapPin size={10} />
-                                <span>Location</span>
+                                <Navigation size={12} className="fill-current" />
+                                <span>Navigate</span>
                               </a>
                             ) : (
                               <span className="text-slate-400 ml-1">-</span>

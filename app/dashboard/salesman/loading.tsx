@@ -4,42 +4,86 @@ export default function Loading() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Page header skeleton */}
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-36" />
-        <Skeleton className="h-4 w-72" />
+      <div className="space-y-2 mb-6">
+        <Skeleton className="h-7 w-44" />
+        <Skeleton className="h-4 w-64" />
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Status Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-xl border border-slate-200/80 bg-white p-5 space-y-3"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm border-t-[3px] border-t-slate-200 space-y-3"
           >
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-32" />
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-9 w-9 rounded-xl" />
+              <Skeleton className="h-5 w-12 rounded-full" />
+            </div>
+            <Skeleton className="h-7 w-12" />
+            <Skeleton className="h-3 w-20" />
           </div>
         ))}
       </div>
 
-      {/* Tasks section */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-slate-200/80 bg-white p-5 space-y-4">
-            <Skeleton className="h-5 w-32" />
-            {Array.from({ length: 3 }).map((_, j) => (
-              <div key={j} className="bg-slate-50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-4 w-24 rounded-full" />
-                  <Skeleton className="h-4 w-16 rounded-full" />
+      {/* KPI Score Ring + Breakdown */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Skeleton className="h-4 w-40 mb-5" />
+        <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="flex justify-center">
+            <Skeleton className="h-[180px] w-[180px] rounded-full" />
+          </div>
+          <div className="space-y-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-2.5 w-full rounded-full" />
               </div>
             ))}
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Two-column: Chart + Pipeline */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <Skeleton className="h-4 w-40 mb-4" />
+          <Skeleton className="h-[240px] w-full rounded-xl" />
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <Skeleton className="h-4 w-32 mb-1" />
+          <Skeleton className="h-3 w-24 mb-5" />
+          <div className="space-y-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-2.5 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tasks Overview */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Skeleton className="h-4 w-32 mb-5" />
+        <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between gap-4 p-4">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

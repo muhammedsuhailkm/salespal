@@ -11,7 +11,7 @@ export async function TasksSection() {
     where: { assigned_to_id: userId },
     include: { assignedTo: { select: { name: true } } },
     orderBy: { due_date: "asc" },
-    take: 5,
+    take: 50,
   });
 
   return <TaskOverview tasks={tasks} />;

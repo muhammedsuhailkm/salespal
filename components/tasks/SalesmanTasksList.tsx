@@ -77,6 +77,14 @@ export function SalesmanTasksList({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // Status priority: pending at top, unsuccessful at bottom
+  const STATUS_PRIORITY: Record<string, number> = {
+    pending: 0,
+    in_process: 1,
+    achieved: 2,
+    unsuccessful: 3,
+  };
+
   // Combine tasks into a single list
   const combinedTasks = useMemo(() => {
     const list: Array<{ id: string; date: Date; data: Task }> = [];
@@ -88,8 +96,13 @@ export function SalesmanTasksList({
       list.push({ id: `task-${t.id}`, date: new Date(t.due_date), data: t });
     });
 
-    // Sort by due date (upcoming first)
-    return list.sort((a, b) => a.date.getTime() - b.date.getTime());
+    // Sort by status priority first, then by due date within same status
+    return list.sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[a.data.status] ?? 99;
+      const priorityB = STATUS_PRIORITY[b.data.status] ?? 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      return a.date.getTime() - b.date.getTime();
+    });
   }, [myInProcessTasks, managerAssignedTasks]);
 
   // Add task submission
@@ -182,8 +195,12 @@ export function SalesmanTasksList({
       {/* Header and Add Action */}
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-800">Tasks ({combinedTasks.length})</h2>
-          <p className="text-xs text-slate-500">View and update tasks created by you and assigned by managers.</p>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Tasks ({combinedTasks.length})</h2>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-500 font-medium">
+            <span>Created by you: <strong className="text-slate-800 font-semibold">{myInProcessTasks.length}</strong></span>
+            <span className="hidden sm:inline text-slate-300">•</span>
+            <span>Assigned by managers: <strong className="text-slate-800 font-semibold">{managerAssignedTasks.length}</strong></span>
+          </div>
         </div>
 
         <button
@@ -233,8 +250,18 @@ export function SalesmanTasksList({
                 {/* Task Footer */}
                 <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-50 pt-2.5 mt-1">
                   <div className="flex items-center gap-1 text-[11px]">
-                    <Calendar size={12} className="text-slate-400" />
-                    <span>Due {formatDate(task.due_date)}</span>
+                    <Calendar size={12} className={(() => {
+                      const days = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      if (days <= 2) return "text-red-500";
+                      if (days <= 7) return "text-amber-500";
+                      return "text-emerald-500";
+                    })()} />
+                    <span className={(() => {
+                      const days = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      if (days <= 2) return "font-bold text-red-600";
+                      if (days <= 7) return "font-bold text-amber-600";
+                      return "font-bold text-emerald-600";
+                    })()}>Due {formatDate(task.due_date)}</span>
                   </div>
                   <span className="text-[10px] text-indigo-500 font-semibold opacity-0 group-hover:opacity-100 transition">
                     Edit Task →

@@ -27,7 +27,6 @@ async function TasksListSection() {
     prisma.task.findMany({
       where: {
         created_by_id: userId,
-        status: "in_process",
       },
       include: {
         assignedTo: { select: { name: true } },

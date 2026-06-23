@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
+import { useNavigation } from "@/components/layout/NavigationContext";
 import { navConfig, roleHome } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +44,7 @@ export function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
+  const { startNavigation } = useNavigation();
   const roleId = session?.user.role_id ?? 0;
   const links = navConfig[roleId] ?? [];
   const homePath = roleHome[roleId] ?? "/dashboard";
@@ -50,6 +52,12 @@ export function SideNav() {
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await signOut({ callbackUrl: "/login" });
+  };
 
   /* Hydrate from localStorage */
   useEffect(() => {
@@ -134,7 +142,10 @@ export function SideNav() {
               <div key={link.href} className="relative group">
                 <Link
                   href={link.href}
-                  onClick={() => setPendingHref(link.href)}
+                  onClick={() => {
+                    setPendingHref(link.href);
+                    startNavigation(link.href);
+                  }}
                   className={cn(
                     "flex items-center gap-3 rounded-lg transition-all duration-200 ease-in-out text-[13px] font-medium cursor-pointer",
                     active
@@ -178,13 +189,15 @@ export function SideNav() {
           {/* Sign out (Logout) */}
           <div className="relative group">
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleLogout}
+              disabled={isLoggingOut}
               className={cn(
                 "flex items-center gap-3 w-full rounded-lg transition-colors duration-200 ease-in-out cursor-pointer text-[13px] font-medium",
                 "text-slate-400 hover:bg-slate-900/60 hover:text-red-400",
                 isExpanded
                   ? "px-3 py-2"
                   : "w-10 h-10 justify-center p-0 mx-auto",
+                isLoggingOut && "opacity-50 cursor-not-allowed"
               )}
             >
               <LogOut
@@ -304,9 +317,10 @@ export function SideNav() {
               <button
                 onClick={() => {
                   setMobileProfileOpen(false);
-                  signOut({ callbackUrl: "/login" });
+                  handleLogout();
                 }}
-                className="flex items-center justify-center gap-2 w-full rounded-xl py-3 px-4 text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer border border-red-100/50"
+                disabled={isLoggingOut}
+                className="flex items-center justify-center gap-2 w-full rounded-xl py-3 px-4 text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer border border-red-100/50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <LogOut size={16} />
                 <span>Log Out of SalesPal</span>
@@ -322,10 +336,13 @@ export function SideNav() {
           const active = isActive(link.href);
           const Icon = ICON_MAP[link.label] ?? LayoutDashboard;
           return (
-            <Link
+             <Link
               href={link.href}
               key={link.href}
-              onClick={() => setPendingHref(link.href)}
+              onClick={() => {
+                setPendingHref(link.href);
+                startNavigation(link.href);
+              }}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full py-1 text-slate-400 relative transition-all duration-150 active:scale-95 cursor-pointer",
                 active ? "text-teal-600 font-semibold" : "hover:text-slate-600",
@@ -350,6 +367,24 @@ export function SideNav() {
           );
         })}
       </nav>
+
+      {/* ─── Global Logging Out Modal Box ─── */}
+      {isLoggingOut && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl p-6 w-full max-w-xs flex flex-col items-center justify-center gap-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 border border-slate-100 shadow-inner">
+              <svg className="animate-spin h-6 w-6 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-semibold text-slate-900 text-sm">Logging Out</h3>
+              <p className="text-slate-500 text-xs">Please wait while we secure your session...</p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
