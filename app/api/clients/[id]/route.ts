@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     });
   }
 
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-clients");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-clients", { expire: 0 });
   return NextResponse.json({ client });
 }

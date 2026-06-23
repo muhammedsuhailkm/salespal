@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       status: body.status ?? "pending"
     }
   });
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-tasks");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-tasks", { expire: 0 });
   return NextResponse.json({ task }, { status: 201 });
 }

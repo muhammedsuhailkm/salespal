@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const client = await prisma.client.update({ where: { id: Number(id) }, data: { status: body.status } });
   await prisma.clientLog.create({ data: { client_id: client.id, action: `Status changed to ${body.status}`, done_by: Number(token.id) } });
   await prisma.salesmanKpiLog.create({ data: { salesman_id: client.assigned_salesman_id, action: body.status } });
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-clients");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-clients", { expire: 0 });
   return NextResponse.json({ client });
 }

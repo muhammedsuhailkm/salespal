@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       status: body.status ?? "new_lead",
     },
   });
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-clients");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-clients", { expire: 0 });
   return NextResponse.json({ client }, { status: 201 });
 }

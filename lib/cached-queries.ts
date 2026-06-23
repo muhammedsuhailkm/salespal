@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 
 // 1. Salesman dashboard statistics and lists
 export const getCachedDashboardData = unstable_cache(
-  async (userId: string) => {
+  async (userId: number) => {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -98,7 +98,7 @@ export const getCachedDashboardData = unstable_cache(
 
 // 2. Salesman clients list
 export const getCachedClientsData = unstable_cache(
-  async (userId: string) => {
+  async (userId: number) => {
     return prisma.client.findMany({
       where: { assigned_salesman_id: userId },
       include: {
@@ -113,7 +113,7 @@ export const getCachedClientsData = unstable_cache(
 
 // 3. Salesman tasks list
 export const getCachedTasksData = unstable_cache(
-  async (userId: string) => {
+  async (userId: number) => {
     const [myInProcessTasks, managerAssignedTasks] = await Promise.all([
       prisma.task.findMany({
         where: {

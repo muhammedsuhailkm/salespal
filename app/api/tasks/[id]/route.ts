@@ -14,8 +14,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   const body = await request.json();
   const task = await prisma.task.update({ where: { id: Number(id) }, data: { status: body.status ?? scoped.status, due_date: body.due_date ? new Date(body.due_date) : scoped.due_date, description: body.description ?? scoped.description } });
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-tasks");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-tasks", { expire: 0 });
   return NextResponse.json({ task });
 }
 
@@ -28,7 +28,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   const scoped = await prisma.task.findFirst({ where: { AND: [{ id: Number(id) }, await taskScopeWhere(token)] } });
   if (!scoped) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await prisma.task.delete({ where: { id: Number(id) } });
-  revalidateTag("salesman-dashboard");
-  revalidateTag("salesman-tasks");
+  revalidateTag("salesman-dashboard", { expire: 0 });
+  revalidateTag("salesman-tasks", { expire: 0 });
   return NextResponse.json({ ok: true });
 }
