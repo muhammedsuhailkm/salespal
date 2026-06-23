@@ -17,15 +17,29 @@ export function LoginForm() {
     event.preventDefault();
     setLoading(true);
     setError("");
+
     const result = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
 
     if (result?.error) {
+      setLoading(false);
       setError("Invalid email or password.");
       return;
     }
 
-    router.push("/dashboard");
+    // Fetch session dynamically to get user role, allowing us to navigate
+    // directly to the role-specific dashboard page. This lets the Next.js client-side
+    // router know the target route instantly and display the correct skeleton loader immediately.
+    const sessionRes = await fetch("/api/auth/session");
+    const sessionData = await sessionRes.json();
+    const roleId = sessionData?.user?.role_id;
+
+    const dest = roleId === 1 
+      ? "/dashboard/admin" 
+      : roleId === 2 
+        ? "/dashboard/manager" 
+        : "/dashboard/salesman";
+
+    router.replace(dest);
     router.refresh();
   }
 
@@ -112,7 +126,15 @@ export function LoginForm() {
           disabled={loading}
           className="w-full h-12 bg-slate-950 hover:bg-slate-900 text-white font-semibold text-sm rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 flex items-center justify-center cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {loading ? (
+            <span className="flex items-center gap-2">
+              Signing in…
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </span>
+          ) : "Sign in"}
         </button>
       </div>
 

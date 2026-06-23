@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { navConfig, roleHome } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +41,7 @@ const ICON_MAP: Record<
    ══════════════════════════════════════════════════ */
 export function SideNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const roleId = session?.user.role_id ?? 0;
   const links = navConfig[roleId] ?? [];
@@ -48,6 +49,7 @@ export function SideNav() {
 
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   /* Hydrate from localStorage */
   useEffect(() => {
@@ -60,14 +62,26 @@ export function SideNav() {
     window.localStorage.setItem("sidebarExpanded", JSON.stringify(isExpanded));
   }, [isExpanded]);
 
-  /* Close mobile profile sheet on navigation */
+  /* Close mobile profile sheet on navigation & clear pending state */
   useEffect(() => {
     setMobileProfileOpen(false);
+    setPendingHref(null);
   }, [pathname]);
 
+  /* Navigate optimistically: highlight immediately, let Next.js show loading.tsx */
+  const navigateTo = useCallback(
+    (href: string) => {
+      setPendingHref(href);
+      router.push(href);
+    },
+    [router],
+  );
+
   function isActive(href: string) {
-    if (href === homePath) return pathname === href;
-    return pathname === href || pathname.startsWith(`${href}/`);
+    // If we have a pending navigation, use that for instant highlight
+    const activePath = pendingHref ?? pathname;
+    if (href === homePath) return activePath === href;
+    return activePath === href || activePath.startsWith(`${href}/`);
   }
 
   return (
@@ -120,8 +134,9 @@ export function SideNav() {
               <div key={link.href} className="relative group">
                 <Link
                   href={link.href}
+                  onClick={() => setPendingHref(link.href)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg transition-all duration-200 ease-in-out text-[13px] font-medium",
+                    "flex items-center gap-3 rounded-lg transition-all duration-200 ease-in-out text-[13px] font-medium cursor-pointer",
                     active
                       ? "bg-slate-800/60 text-teal-400 font-semibold shadow-inner"
                       : "text-slate-400 hover:bg-slate-900/50 hover:text-slate-200",
@@ -308,10 +323,11 @@ export function SideNav() {
           const Icon = ICON_MAP[link.label] ?? LayoutDashboard;
           return (
             <Link
-              key={link.href}
               href={link.href}
+              key={link.href}
+              onClick={() => setPendingHref(link.href)}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full py-1 text-slate-400 relative transition-all duration-150 active:scale-95",
+                "flex flex-col items-center justify-center flex-1 h-full py-1 text-slate-400 relative transition-all duration-150 active:scale-95 cursor-pointer",
                 active ? "text-teal-600 font-semibold" : "hover:text-slate-600",
               )}
             >

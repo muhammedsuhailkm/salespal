@@ -52,6 +52,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       contact_no: body.contact_no ?? undefined,
       status: body.status ?? undefined,
       notes: body.notes !== undefined ? body.notes : undefined,
+      location_coordinates: body.location_coordinates !== undefined ? body.location_coordinates : undefined,
     },
   });
 

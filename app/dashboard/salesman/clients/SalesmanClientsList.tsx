@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useOptimistic, Fragment } from "react
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
-import { RotateCcw, Plus, X, Loader2, Search, ChevronDown } from "lucide-react";
+import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -14,6 +14,7 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  location_coordinates: string | null;
   mail_id: string | null;
   status: string;
   notes: string | null;
@@ -60,6 +61,7 @@ export function SalesmanClientsList({
     contact_no: "",
     status: "new_lead",
     notes: "",
+    location_coordinates: "",
   });
 
   const [editForm, setEditForm] = useState({
@@ -69,6 +71,7 @@ export function SalesmanClientsList({
     contact_no: "",
     status: "",
     notes: "",
+    location_coordinates: "",
   });
 
   // Action states
@@ -173,6 +176,7 @@ export function SalesmanClientsList({
           contact_no: addForm.contact_no,
           status: addForm.status,
           notes: addForm.notes || null,
+          location_coordinates: addForm.location_coordinates || null,
         }),
       });
 
@@ -189,6 +193,7 @@ export function SalesmanClientsList({
         contact_no: "",
         status: "new_lead",
         notes: "",
+        location_coordinates: "",
       });
       setIsAddOpen(false);
       router.refresh();
@@ -209,6 +214,7 @@ export function SalesmanClientsList({
       contact_no: client.contact_no,
       status: client.status,
       notes: client.notes || "",
+      location_coordinates: client.location_coordinates || "",
     });
     setErrorMsg(null);
     setIsEditOpen(true);
@@ -229,6 +235,7 @@ export function SalesmanClientsList({
       contact_no: editForm.contact_no,
       status: editForm.status,
       notes: editForm.notes || null,
+      location_coordinates: editForm.location_coordinates || null,
     };
 
     setIsEditOpen(false);
@@ -248,6 +255,7 @@ export function SalesmanClientsList({
             contact_no: editForm.contact_no,
             status: editForm.status,
             notes: editForm.notes || null,
+            location_coordinates: editForm.location_coordinates || null,
           }),
         });
 
@@ -411,6 +419,7 @@ export function SalesmanClientsList({
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
+                <th className="px-4 py-3 hidden md:table-cell">Location</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -450,6 +459,22 @@ export function SalesmanClientsList({
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
                         {formatDate(client.created_at)}
                       </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {client.location_coordinates ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-semibold rounded-lg transition duration-150 shadow-sm border border-emerald-200/50"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MapPin size={12} className="text-emerald-600" />
+                            <span>Location</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 flex items-center justify-between gap-2">
                         <Badge value={client.status} />
                         <span className="text-[10px] text-indigo-500 font-semibold opacity-0 group-hover:opacity-100 transition mr-2 hidden sm:inline-block">
@@ -459,7 +484,7 @@ export function SalesmanClientsList({
                     </tr>
                     {isExpanded && (
                       <tr className="bg-slate-50/30 sm:hidden">
-                        <td colSpan={4} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
+                        <td colSpan={5} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
                           <div>
                             <span className="font-semibold text-slate-500">Company:</span>{" "}
                             <span className="text-slate-800">{client.organization?.name ?? "-"}</span>
@@ -467,6 +492,23 @@ export function SalesmanClientsList({
                           <div>
                             <span className="font-semibold text-slate-500">Date Added:</span>{" "}
                             <span className="text-slate-800">{formatDate(client.created_at)}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-500">Location:</span>{" "}
+                            {client.location_coordinates ? (
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded transition duration-150 font-medium ml-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MapPin size={10} />
+                                <span>Location</span>
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 ml-1">-</span>
+                            )}
                           </div>
                           {client.notes && (
                             <div>
@@ -574,6 +616,17 @@ export function SalesmanClientsList({
                 setAddForm({ ...addForm, contact_no: e.target.value })
               }
               placeholder="e.g. +97455556666"
+              className="text-xs"
+            />
+
+            <Input
+              label="Location Coordinates"
+              type="text"
+              value={addForm.location_coordinates}
+              onChange={(e) =>
+                setAddForm({ ...addForm, location_coordinates: e.target.value })
+              }
+              placeholder="e.g. 25.2854, 51.5310"
               className="text-xs"
             />
 
@@ -717,6 +770,17 @@ export function SalesmanClientsList({
               onChange={(e) =>
                 setEditForm({ ...editForm, contact_no: e.target.value })
               }
+              className="text-xs"
+            />
+
+            <Input
+              label="Location Coordinates"
+              type="text"
+              value={editForm.location_coordinates}
+              onChange={(e) =>
+                setEditForm({ ...editForm, location_coordinates: e.target.value })
+              }
+              placeholder="e.g. 25.2854, 51.5310"
               className="text-xs"
             />
 
