@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere } from "@/lib/scoping";
@@ -80,5 +81,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     });
   }
 
+  revalidateTag("salesman-dashboard");
+  revalidateTag("salesman-clients");
   return NextResponse.json({ client });
 }

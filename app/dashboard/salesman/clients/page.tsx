@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCachedClientsData } from "@/lib/cached-queries";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SalesmanClientsList } from "./SalesmanClientsList";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -20,13 +20,7 @@ async function ClientsListSection() {
   const session = await getSalesPalSession();
   const userId = session!.user.id;
 
-  const clients = await prisma.client.findMany({
-    where: { assigned_salesman_id: userId },
-    include: {
-      organization: { select: { name: true } }
-    },
-    orderBy: { id: "desc" }
-  });
+  const clients = await getCachedClientsData(userId);
 
   return <SalesmanClientsList initialClients={clients} />;
 }

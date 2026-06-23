@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere, isRole } from "@/lib/scoping";
@@ -54,5 +55,7 @@ export async function POST(request: NextRequest) {
       status: body.status ?? "new_lead",
     },
   });
+  revalidateTag("salesman-dashboard");
+  revalidateTag("salesman-clients");
   return NextResponse.json({ client }, { status: 201 });
 }

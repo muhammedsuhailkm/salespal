@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere } from "@/lib/scoping";
@@ -15,5 +16,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const client = await prisma.client.update({ where: { id: Number(id) }, data: { status: body.status } });
   await prisma.clientLog.create({ data: { client_id: client.id, action: `Status changed to ${body.status}`, done_by: Number(token.id) } });
   await prisma.salesmanKpiLog.create({ data: { salesman_id: client.assigned_salesman_id, action: body.status } });
+  revalidateTag("salesman-dashboard");
+  revalidateTag("salesman-clients");
   return NextResponse.json({ client });
 }

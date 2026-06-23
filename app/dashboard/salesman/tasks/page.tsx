@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCachedTasksData } from "@/lib/cached-queries";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SalesmanTasksList } from "@/components/tasks/SalesmanTasksList";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -22,30 +22,7 @@ async function TasksListSection() {
   const session = await getSalesPalSession();
   const userId = session!.user.id;
 
-  // Parallelize the queries on the server
-  const [myInProcessTasks, managerAssignedTasks] = await Promise.all([
-    prisma.task.findMany({
-      where: {
-        created_by_id: userId,
-      },
-      include: {
-        assignedTo: { select: { name: true } },
-        createdBy: { select: { name: true } },
-      },
-      orderBy: { due_date: "asc" },
-    }),
-    prisma.task.findMany({
-      where: {
-        assigned_to_id: userId,
-        created_by_id: { not: userId },
-      },
-      include: {
-        assignedTo: { select: { name: true } },
-        createdBy: { select: { name: true } },
-      },
-      orderBy: { due_date: "asc" },
-    }),
-  ]);
+  const { myInProcessTasks, managerAssignedTasks } = await getCachedTasksData(userId);
 
   return (
     <SalesmanTasksList

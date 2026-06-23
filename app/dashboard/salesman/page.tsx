@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { calculateKpiScore, groupStatusCounts, KPI_WEIGHTS } from "@/lib/kpi";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
 import { TaskOverview } from "@/components/dashboard/TaskOverview";
+import { getCachedDashboardData } from "@/lib/cached-queries";
 
 /* ── KPI Score SVG Ring ── */
 function KpiScoreRing({
@@ -84,88 +84,15 @@ export default async function SalesmanDashboardPage() {
   const session = await getSalesPalSession();
   const userId = session!.user.id;
 
-  /* ── Date boundaries ── */
-  const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-  // 6 months ago for chart
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-
-  /* ── Parallel data fetching ── */
-  const [
+  /* ── Fetch cached data ── */
+  const {
     user,
     clients,
     thisMonthLogs,
     lastMonthLogs,
     tasks,
     onboardedByMonth,
-  ] = await Promise.all([
-    // Salesman info + org via their manager relationship
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        name: true,
-        salesmanManager: {
-          select: {
-            manager: {
-              select: {
-                managerOrgs: {
-                  select: { org: { select: { name: true } } },
-                  take: 1,
-                },
-              },
-            },
-          },
-          take: 1,
-        },
-      },
-    }),
-
-    // All assigned clients with status
-    prisma.client.findMany({
-      where: { assigned_salesman_id: userId },
-      select: { status: true },
-    }),
-
-    // Client logs this month
-    prisma.clientLog.findMany({
-      where: {
-        done_by: userId,
-        created_at: { gte: thisMonthStart },
-      },
-      select: { action: true },
-    }),
-
-    // Client logs last month
-    prisma.clientLog.findMany({
-      where: {
-        done_by: userId,
-        created_at: { gte: lastMonthStart, lte: lastMonthEnd },
-      },
-      select: { action: true },
-    }),
-
-    // Tasks assigned to this salesman
-    prisma.task.findMany({
-      where: { assigned_to_id: userId },
-      include: { assignedTo: { select: { name: true } } },
-      orderBy: { due_date: "asc" },
-      take: 50,
-    }),
-
-    // Onboarded by month (last 6 months) for chart
-    prisma.clientLog.groupBy({
-      by: ["created_at"],
-      where: {
-        done_by: userId,
-        action: { contains: "onboarded" },
-        created_at: { gte: sixMonthsAgo },
-      },
-      _count: { id: true },
-    }),
-  ]);
+  } = await getCachedDashboardData(userId);
 
   /* ── Derived data ── */
   const salesmanName = user?.name ?? "Salesman";
@@ -251,6 +178,7 @@ export default async function SalesmanDashboardPage() {
   );
 
   // Monthly chart data — aggregate groupBy results into month buckets
+  const now = new Date();
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const chartDataMap: Record<string, number> = {};
   for (let i = 5; i >= 0; i--) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -47,6 +47,19 @@ export function SalesmanTasksList({
 }: SalesmanTasksListProps) {
   const router = useRouter();
 
+  // Local state for instant optimistic updates
+  const [localMyTasks, setLocalMyTasks] = useState<Task[]>(myInProcessTasks);
+  const [localManagerTasks, setLocalManagerTasks] = useState<Task[]>(managerAssignedTasks);
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalMyTasks(myInProcessTasks);
+  }, [myInProcessTasks]);
+
+  useEffect(() => {
+    setLocalManagerTasks(managerAssignedTasks);
+  }, [managerAssignedTasks]);
+
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
@@ -89,10 +102,10 @@ export function SalesmanTasksList({
   const combinedTasks = useMemo(() => {
     const list: Array<{ id: string; date: Date; data: Task }> = [];
 
-    myInProcessTasks.forEach((t) => {
+    localMyTasks.forEach((t) => {
       list.push({ id: `task-${t.id}`, date: new Date(t.due_date), data: t });
     });
-    managerAssignedTasks.forEach((t) => {
+    localManagerTasks.forEach((t) => {
       list.push({ id: `task-${t.id}`, date: new Date(t.due_date), data: t });
     });
 
@@ -103,7 +116,7 @@ export function SalesmanTasksList({
       if (priorityA !== priorityB) return priorityA - priorityB;
       return a.date.getTime() - b.date.getTime();
     });
-  }, [myInProcessTasks, managerAssignedTasks]);
+  }, [localMyTasks, localManagerTasks]);
 
   // Add task submission
   async function handleAddSubmit(e: React.FormEvent) {
@@ -136,6 +149,9 @@ export function SalesmanTasksList({
         notification: false
       });
       setIsAddOpen(false);
+      if (data.task) {
+        setLocalMyTasks((prev) => [data.task, ...prev]);
+      }
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -182,6 +198,10 @@ export function SalesmanTasksList({
       triggerToast("Task updated successfully!");
       setIsEditTaskOpen(false);
       setSelectedTask(null);
+      if (data.task) {
+        setLocalMyTasks((prev) => prev.map((t) => (t.id === data.task.id ? data.task : t)));
+        setLocalManagerTasks((prev) => prev.map((t) => (t.id === data.task.id ? data.task : t)));
+      }
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message);
