@@ -1,4 +1,16 @@
-export const clientStatuses = ["new_lead", "follow_up", "onboarded", "lost", "target"] as const;
+export const clientStatuses = [
+  "lead",
+  "contacted",
+  "follow_up",
+  "proposal_sent",
+  "negotiation",
+  "onboarding_in_progress",
+  "onboarded",
+  "active_client",
+  "inactive",
+  "lost",
+  "cancelled"
+] as const;
 export type ClientStatus = (typeof clientStatuses)[number];
 
 export type ClientListItem = {

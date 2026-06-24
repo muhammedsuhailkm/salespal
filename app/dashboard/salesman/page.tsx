@@ -133,9 +133,9 @@ export default async function SalesmanDashboardPage() {
       icon: Phone,
     },
     {
-      label: "New Leads",
-      key: "new_lead",
-      count: counts.new_lead ?? 0,
+      label: "Leads",
+      key: "lead",
+      count: counts.lead ?? 0,
       borderClass: "border-t-amber-500",
       bgClass: "bg-amber-50/60",
       textClass: "text-amber-700",
@@ -165,17 +165,6 @@ export default async function SalesmanDashboardPage() {
   const kpiScore = calculateKpiScore(counts);
   const maxScore = Math.max(totalClients * 5, 1);
 
-  // Score breakdown bars
-  const breakdownItems = [
-    { label: "Onboarded", count: counts.onboarded ?? 0, weight: KPI_WEIGHTS.onboarded, color: "bg-emerald-500" },
-    { label: "Follow Up", count: counts.follow_up ?? 0, weight: KPI_WEIGHTS.follow_up, color: "bg-indigo-500" },
-    { label: "New Leads", count: counts.new_lead ?? 0, weight: KPI_WEIGHTS.new_lead, color: "bg-amber-500" },
-    { label: "Lost", count: counts.lost ?? 0, weight: KPI_WEIGHTS.lost, color: "bg-red-500" },
-  ];
-  const maxBreakdownPoints = Math.max(
-    ...breakdownItems.map((b) => Math.abs(b.count * b.weight)),
-    1,
-  );
 
   // Monthly chart data — aggregate groupBy results into month buckets
   const now = new Date();
@@ -198,14 +187,6 @@ export default async function SalesmanDashboardPage() {
     count,
   }));
 
-  // Pipeline breakdown
-  const pipelineStatuses = [
-    { key: "onboarded", label: "Onboarded", color: "bg-emerald-500" },
-    { key: "follow_up", label: "Follow Up", color: "bg-indigo-500" },
-    { key: "new_lead", label: "New Leads", color: "bg-amber-500" },
-    { key: "target", label: "Target", color: "bg-violet-500" },
-    { key: "lost", label: "Lost", color: "bg-red-500" },
-  ];
 
   /* ══════════════════════════════════════════════════════════════
      Render
@@ -263,101 +244,22 @@ export default async function SalesmanDashboardPage() {
           })}
         </div>
 
-        {/* ─── 2. KPI Score Ring + Breakdown ─── */}
+        {/* ─── 2. KPI Score Ring ─── */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-5">
-            KPI Score Breakdown
+            KPI Score
           </h2>
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            {/* Ring */}
-            <div className="flex justify-center">
-              <KpiScoreRing score={kpiScore} maxScore={maxScore} />
-            </div>
-
-            {/* Breakdown bars */}
-            <div className="space-y-4">
-              {breakdownItems.map((item) => {
-                const points = item.count * item.weight;
-                const barPct =
-                  maxBreakdownPoints > 0
-                    ? Math.abs(points) / maxBreakdownPoints
-                    : 0;
-                return (
-                  <div key={item.label}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-semibold text-slate-700">
-                        {item.label}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">
-                        {points > 0 ? "+" : ""}
-                        {points} pts
-                        <span className="text-slate-400 font-medium ml-1">
-                          ({item.count} × {item.weight})
-                        </span>
-                      </span>
-                    </div>
-                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${item.color} transition-all duration-500 ease-out`}
-                        style={{ width: `${Math.max(barPct * 100, 2)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="flex justify-center py-4">
+            <KpiScoreRing score={kpiScore} maxScore={maxScore} />
           </div>
         </div>
 
-        {/* ─── 3. Monthly Activity Chart + Pipeline Breakdown ─── */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Monthly Activity */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">
-              Monthly Onboarded
-            </h2>
-            <MonthlyActivityChart data={chartData} />
-          </div>
-
-          {/* Pipeline Breakdown */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-1">
-              Client Pipeline
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mb-5">
-              {totalClients} total client{totalClients !== 1 ? "s" : ""}
-            </p>
-            <div className="space-y-4">
-              {pipelineStatuses.map((status) => {
-                const c = counts[status.key] ?? 0;
-                const pct =
-                  totalClients > 0
-                    ? Math.round((c / totalClients) * 100)
-                    : 0;
-                return (
-                  <div key={status.key}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-semibold text-slate-700">
-                        {status.label}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">
-                        {c}{" "}
-                        <span className="text-slate-400 font-medium">
-                          ({pct}%)
-                        </span>
-                      </span>
-                    </div>
-                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${status.color} transition-all duration-500 ease-out`}
-                        style={{ width: `${Math.max(pct, 1)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {/* ─── 3. Monthly Activity Chart ─── */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">
+            Monthly Onboarded
+          </h2>
+          <MonthlyActivityChart data={chartData} />
         </div>
 
         {/* ─── 4. Tasks Overview ─── */}

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo, useTransition, useOptimistic, Fragment } from "react";
+import { useState, useMemo, useTransition, useOptimistic, Fragment, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
 import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin, Navigation } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
+import { clientStatuses } from "@/types/client";
 
 type Client = {
   id: number;
@@ -49,9 +51,22 @@ export function SalesmanClientsList({
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
+  const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      setActiveDropdownId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeDropdownId !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [activeDropdownId, handleClickOutside]);
 
   // Form states
   const [addForm, setAddForm] = useState({
@@ -59,17 +74,7 @@ export function SalesmanClientsList({
     contact_person_name: "",
     mail_id: "",
     contact_no: "",
-    status: "new_lead",
-    notes: "",
-    location_coordinates: "",
-  });
-
-  const [editForm, setEditForm] = useState({
-    name: "",
-    contact_person_name: "",
-    mail_id: "",
-    contact_no: "",
-    status: "",
+    status: "lead",
     notes: "",
     location_coordinates: "",
   });
@@ -191,7 +196,7 @@ export function SalesmanClientsList({
         contact_person_name: "",
         mail_id: "",
         contact_no: "",
-        status: "new_lead",
+        status: "lead",
         notes: "",
         location_coordinates: "",
       });
@@ -204,76 +209,35 @@ export function SalesmanClientsList({
     }
   }
 
-  // Open Edit Modal
-  function openEditModal(client: Client) {
-    setSelectedClient(client);
-    setEditForm({
-      name: client.name,
-      contact_person_name: client.contact_person_name,
-      mail_id: client.mail_id || "",
-      contact_no: client.contact_no,
-      status: client.status,
-      notes: client.notes || "",
-      location_coordinates: client.location_coordinates || "",
-    });
-    setErrorMsg(null);
-    setIsEditOpen(true);
-  }
+  async function handleStatusChange(clientId: number, newStatus: string) {
+    setActiveDropdownId(null);
+    const clientToUpdate = optimisticClients.find((c) => c.id === clientId);
+    if (!clientToUpdate) return;
 
-  // Edit client submission
-  async function handleEditSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedClient) return;
-    setErrorMsg(null);
-    setIsSaving(true);
-
-    const updatedClient: Client = {
-      ...selectedClient,
-      name: editForm.name,
-      contact_person_name: editForm.contact_person_name,
-      mail_id: editForm.mail_id || null,
-      contact_no: editForm.contact_no,
-      status: editForm.status,
-      notes: editForm.notes || null,
-      location_coordinates: editForm.location_coordinates || null,
-    };
-
-    setIsEditOpen(false);
-    setSelectedClient(null);
+    const updatedClient = { ...clientToUpdate, status: newStatus };
 
     startTransition(async () => {
       setOptimisticClients({ action: "update", client: updatedClient });
-
       try {
-        const res = await fetch(`/api/clients/${selectedClient.id}`, {
+        const res = await fetch(`/api/clients/${clientId}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: editForm.name,
-            contact_person_name: editForm.contact_person_name,
-            mail_id: editForm.mail_id || null,
-            contact_no: editForm.contact_no,
-            status: editForm.status,
-            notes: editForm.notes || null,
-            location_coordinates: editForm.location_coordinates || null,
-          }),
+          body: JSON.stringify({ status: newStatus }),
         });
-
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || "Failed to update client");
+          throw new Error(data.error || "Failed to update status");
         }
-
-        triggerToast("Client details updated!");
+        triggerToast(`Status updated to ${newStatus.replace('_', ' ')}!`);
         router.refresh();
       } catch (err: any) {
-        setErrorMsg(err.message);
-        openEditModal(selectedClient);
-      } finally {
-        setIsSaving(false);
+        triggerToast(`Error: ${err.message}`);
+        router.refresh();
       }
     });
   }
+
+
 
   const hasActiveFilters =
     searchQuery !== "" || statusFilter !== "all" || dateFilterRange !== "all";
@@ -338,11 +302,17 @@ export function SalesmanClientsList({
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
-              <option value="new_lead">New Lead</option>
+              <option value="lead">Lead</option>
+              <option value="contacted">Contacted</option>
               <option value="follow_up">Follow Up</option>
+              <option value="proposal_sent">Proposal Sent</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="onboarding_in_progress">Onboarding In Progress</option>
               <option value="onboarded">Onboarded</option>
+              <option value="active_client">Active Client</option>
+              <option value="inactive">Inactive</option>
               <option value="lost">Lost</option>
-              <option value="target">Target</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -426,8 +396,7 @@ export function SalesmanClientsList({
                 return (
                   <Fragment key={client.id}>
                     <tr
-                      onClick={() => openEditModal(client)}
-                      className="hover:bg-slate-50/60 transition cursor-pointer group"
+                      className="hover:bg-slate-50/60 transition group"
                     >
                       <td
                         className="w-10 px-2 py-3 text-center sm:hidden"
@@ -451,8 +420,14 @@ export function SalesmanClientsList({
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900 group-hover:text-indigo-600 transition">
-                        {client.name}
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/salesman/clients/${client.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-bold text-slate-900 hover:text-indigo-600 transition"
+                        >
+                          {client.name}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {formatPhoneNumber(client.contact_no)}
@@ -479,11 +454,45 @@ export function SalesmanClientsList({
                           <span className="text-xs text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 flex items-center justify-between gap-2">
-                        <Badge value={client.status} />
-                        <span className="text-[10px] text-indigo-500 font-semibold opacity-0 group-hover:opacity-100 transition mr-2 hidden sm:inline-block">
-                          Edit →
-                        </span>
+                      <td className="px-4 py-3 relative">
+                        <div ref={activeDropdownId === client.id ? dropdownRef : undefined} className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdownId(activeDropdownId === client.id ? null : client.id);
+                            }}
+                            className="focus:outline-none transition active:scale-95 cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Badge value={client.status} />
+                            <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition" />
+                          </button>
+                          {activeDropdownId === client.id && (
+                            <div className="absolute right-0 mt-1.5 w-48 rounded-xl bg-white border border-slate-200 shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-100">
+                              {clientStatuses.map((st) => (
+                                <button
+                                  key={st}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStatusChange(client.id, st);
+                                  }}
+                                  className={cn(
+                                    "w-full px-3.5 py-2 text-left text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-2.5",
+                                    client.status === st ? "text-indigo-600 bg-indigo-50/40" : "text-slate-700"
+                                  )}
+                                >
+                                  <span className={cn("h-1.5 w-1.5 rounded-full",
+                                    st === "onboarded" || st === "active_client" ? "bg-emerald-500" :
+                                    st === "lost" || st === "cancelled" ? "bg-red-500" :
+                                    st === "lead" || st === "contacted" ? "bg-amber-500" : "bg-blue-500"
+                                  )} />
+                                  {st.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && (
@@ -649,11 +658,17 @@ export function SalesmanClientsList({
                 }
                 className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
               >
-                <option value="new_lead">New Lead</option>
+                <option value="lead">Lead</option>
+                <option value="contacted">Contacted</option>
                 <option value="follow_up">Follow Up</option>
+                <option value="proposal_sent">Proposal Sent</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="onboarding_in_progress">Onboarding In Progress</option>
                 <option value="onboarded">Onboarded</option>
+                <option value="active_client">Active Client</option>
+                <option value="inactive">Inactive</option>
                 <option value="lost">Lost</option>
-                <option value="target">Target</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
 
@@ -698,162 +713,7 @@ export function SalesmanClientsList({
         </div>
       </Modal>
 
-      {/* Edit Client Modal */}
-      <Modal open={isEditOpen}>
-        <div className="relative">
-          <button
-            onClick={() => {
-              setIsEditOpen(false);
-              setSelectedClient(null);
-            }}
-            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-          >
-            <X size={16} />
-          </button>
 
-          <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">
-              Update Client:{" "}
-              <span className="text-indigo-600 font-semibold">
-                {selectedClient?.name}
-              </span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Edit this lead's information, status updates, or notes.
-            </p>
-          </div>
-
-          {errorMsg && (
-            <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
-              {errorMsg}
-            </div>
-          )}
-
-          <form onSubmit={handleEditSubmit} className="space-y-3.5">
-            <Input
-              label="Client Name"
-              type="text"
-              required
-              value={editForm.name}
-              onChange={(e) =>
-                setEditForm({ ...editForm, name: e.target.value })
-              }
-              className="text-xs"
-            />
-
-            <Input
-              label="Contact Person"
-              type="text"
-              required
-              value={editForm.contact_person_name}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  contact_person_name: e.target.value,
-                })
-              }
-              className="text-xs"
-            />
-
-            <Input
-              label="Email"
-              type="email"
-              value={editForm.mail_id}
-              onChange={(e) =>
-                setEditForm({ ...editForm, mail_id: e.target.value })
-              }
-              placeholder="No email provided"
-              className="text-xs"
-            />
-
-            <Input
-              label="Phone Number"
-              type="tel"
-              required
-              value={editForm.contact_no}
-              onChange={(e) =>
-                setEditForm({ ...editForm, contact_no: e.target.value })
-              }
-              className="text-xs"
-            />
-
-            <Input
-              label="Location Coordinates"
-              type="text"
-              value={editForm.location_coordinates}
-              onChange={(e) =>
-                setEditForm({ ...editForm, location_coordinates: e.target.value })
-              }
-              placeholder="e.g. 25.2854, 51.5310"
-              className="text-xs"
-            />
-
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-xs font-semibold text-slate-700"
-                htmlFor="edit-status"
-              >
-                Status
-              </label>
-              <select
-                id="edit-status"
-                value={editForm.status}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, status: e.target.value })
-                }
-                className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
-              >
-                <option value="new_lead">New Lead</option>
-                <option value="follow_up">Follow Up</option>
-                <option value="onboarded">Onboarded</option>
-                <option value="lost">Lost</option>
-                <option value="target">Target</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-xs font-semibold text-slate-700"
-                htmlFor="edit-notes"
-              >
-                Notes
-              </label>
-              <textarea
-                id="edit-notes"
-                value={editForm.notes}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, notes: e.target.value })
-                }
-                placeholder="Add summary of conversations, deals, next steps..."
-                rows={3}
-                className="w-full rounded-md border border-slate-300 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditOpen(false);
-                  setSelectedClient(null);
-                }}
-                disabled={isSaving}
-                className="px-4 py-2 text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition disabled:opacity-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm"
-              >
-                {isSaving && <Loader2 size={12} className="animate-spin" />}
-                <span>Save Changes</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
 
       <Toast message={toastMsg || undefined} />
     </div>

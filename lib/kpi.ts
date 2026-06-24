@@ -1,9 +1,15 @@
 export const KPI_WEIGHTS = {
-  onboarded: 5,
+  lead: 1,
+  contacted: 1,
   follow_up: 2,
-  new_lead: 1,
+  proposal_sent: 3,
+  negotiation: 4,
+  onboarding_in_progress: 4,
+  onboarded: 5,
+  active_client: 5,
+  inactive: 0,
   lost: -1,
-  target: 0,
+  cancelled: -1,
 } as const;
 
 export type KpiStatus = keyof typeof KPI_WEIGHTS;

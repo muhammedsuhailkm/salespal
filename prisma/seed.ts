@@ -3,7 +3,19 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const clientStatuses = ["new_lead", "follow_up", "onboarded", "lost", "target"];
+const clientStatuses = [
+  "lead",
+  "contacted",
+  "follow_up",
+  "proposal_sent",
+  "negotiation",
+  "onboarding_in_progress",
+  "onboarded",
+  "active_client",
+  "inactive",
+  "lost",
+  "cancelled"
+];
 const taskStatuses = ["pending", "in_process", "achieved", "unsuccessful"];
 
 async function main() {

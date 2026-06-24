@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       assigned_salesman_id: Number(body.assigned_salesman_id ?? token.id),
       org_id: orgId,
       notes: body.notes,
-      status: body.status ?? "new_lead",
+      status: body.status ?? "lead",
     },
   });
   revalidateTag("salesman-dashboard", { expire: 0 });
