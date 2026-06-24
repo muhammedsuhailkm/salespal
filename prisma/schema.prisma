@@ -92,6 +92,8 @@ model Client {
   logs                         ClientLog[]
   clientTasks                  ClientTask[]
 
+  @@index([assigned_salesman_id])
+  @@index([org_id])
   @@map("clients")
 }
 
@@ -104,6 +106,8 @@ model ClientLog {
   client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
   author     User     @relation("LogAuthor", fields: [done_by], references: [id])
 
+  @@index([done_by, created_at])
+  @@index([client_id, created_at])
   @@map("client_logs")
 }
 
@@ -118,6 +122,8 @@ model Task {
   assignedTo     User     @relation("AssignedTasks", fields: [assigned_to_id], references: [id])
   createdBy      User     @relation("CreatedTasks", fields: [created_by_id], references: [id])
 
+  @@index([assigned_to_id, due_date])
+  @@index([created_by_id])
   @@map("tasks")
 }
 
@@ -142,5 +148,7 @@ model ClientTask {
   assignedTo     User     @relation("AssignedClientTasks", fields: [assigned_to_id], references: [id], onDelete: Cascade)
   createdBy      User     @relation("CreatedClientTasks", fields: [created_by_id], references: [id], onDelete: Cascade)
 
+  @@index([client_id, due_date])
+  @@index([assigned_to_id])
   @@map("client_tasks")
 }

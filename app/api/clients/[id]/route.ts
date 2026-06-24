@@ -9,7 +9,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await context.params;
-  const client = await prisma.client.findFirst({ where: { AND: [{ id: Number(id) }, await clientScopeWhere(token)] }, include: { logs: { include: { author: { select: { name: true } } }, orderBy: { created_at: "desc" } }, organization: true, assignedSalesman: { select: { name: true } } } });
+  const client = await prisma.client.findFirst({
+    where: { AND: [{ id: Number(id) }, await clientScopeWhere(token)] },
+    include: {
+      logs: {
+        include: { author: { select: { name: true } } },
+        orderBy: { created_at: "desc" },
+        take: 50,
+      },
+      organization: true,
+      assignedSalesman: { select: { name: true } },
+    },
+  });
   if (!client) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({ client });
 }

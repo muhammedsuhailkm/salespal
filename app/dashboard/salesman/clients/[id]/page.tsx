@@ -1,68 +1,59 @@
-"use client";
-
-import { useEffect, useState, use } from "react";
+import { Suspense } from "react";
+import { getSalesPalSession } from "@/lib/auth";
+import { getCachedClientDetail } from "@/lib/cached-queries";
 import { ClientOverview } from "./ClientOverview";
 import ClientOverviewLoading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
-  // Await params using React.use() to read params on the client side in Next.js 15+
-  const params = use(props.params);
-  const id = params?.id;
+export default async function ClientDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<ClientOverviewLoading />}>
+      <ClientDetailContent params={params} />
+    </Suspense>
+  );
+}
 
-  const [data, setData] = useState<{ client: any; tasks: any[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+async function ClientDetailContent({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const clientId = Number(id);
 
-  useEffect(() => {
-    if (!id) return;
-    
-    let active = true;
-
-    async function loadData() {
-      try {
-        const [clientRes, tasksRes] = await Promise.all([
-          fetch(`/api/clients/${id}`),
-          fetch(`/api/clients/${id}/tasks`)
-        ]);
-
-        if (!clientRes.ok || !tasksRes.ok) {
-          throw new Error("Failed to load client data");
-        }
-
-        const clientData = await clientRes.json();
-        const tasksData = await tasksRes.json();
-
-        if (active) {
-          setData({
-            client: clientData.client,
-            tasks: tasksData.tasks
-          });
-        }
-      } catch (err: any) {
-        if (active) {
-          setError(err.message || "An error occurred");
-        }
-      }
-    }
-
-    loadData();
-
-    return () => {
-      active = false;
-    };
-  }, [id]);
-
-  if (error) {
+  if (isNaN(clientId)) {
     return (
-      <div className="p-8 text-center bg-[var(--nm-surface)] rounded-2xl shadow-nm">
-        <h3 className="text-sm font-bold text-red-600">Error Loading Client Details</h3>
-        <p className="mt-2 text-xs text-slate-500">{error}</p>
+      <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-200">
+        <h3 className="text-sm font-bold text-red-600">Invalid Client ID</h3>
+        <p className="mt-2 text-xs text-slate-500">
+          The client ID provided is not valid.
+        </p>
       </div>
     );
   }
 
-  if (!data) {
-    return <ClientOverviewLoading />;
+  const session = await getSalesPalSession();
+  if (!session) redirect("/login");
+
+  const userId = session.user.id;
+  const { client, tasks } = await getCachedClientDetail(clientId, userId);
+
+  if (!client) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-200">
+        <h3 className="text-sm font-bold text-red-600">
+          Client Not Found
+        </h3>
+        <p className="mt-2 text-xs text-slate-500">
+          This client does not exist or you do not have access to it.
+        </p>
+      </div>
+    );
   }
 
-  return <ClientOverview client={data.client} initialTasks={data.tasks} />;
+  return <ClientOverview client={client} initialTasks={tasks} />;
 }

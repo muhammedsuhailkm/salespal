@@ -8,7 +8,6 @@ import {
 } from "@/lib/kpi";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Badge } from "@/components/ui/Badge";
 import {
   UserCheck,
   Phone,
@@ -20,7 +19,90 @@ import {
 } from "lucide-react";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
 import { TaskOverview } from "@/components/dashboard/TaskOverview";
-import { getCachedDashboardData } from "@/lib/cached-queries";
+import {
+  getCachedSalesmanInfo,
+  getCachedClientStatuses,
+  getCachedMonthLogs,
+  getCachedSalesmanTasks,
+  getCachedOnboardedByMonth,
+} from "@/lib/cached-queries";
+
+/* ── Skeleton fragments for each Suspense boundary ── */
+
+function KpiCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm border-t-[3px] border-t-slate-200 space-y-3 animate-pulse"
+        >
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-5 w-12 rounded-full" />
+          </div>
+          <Skeleton className="h-7 w-12" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KpiScoreSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="mt-2 h-3 w-72 max-w-full" />
+      <div className="mt-5 grid items-center gap-8 md:grid-cols-2">
+        <div className="flex flex-col items-center gap-4">
+          <Skeleton className="h-[180px] w-[180px] rounded-full" />
+          <Skeleton className="h-4 w-36" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-40" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex justify-between">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+      <Skeleton className="h-4 w-40 mb-4" />
+      <Skeleton className="h-[240px] w-full rounded-xl" />
+    </div>
+  );
+}
+
+function TasksSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+      <Skeleton className="h-4 w-32 mb-5" />
+      <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between gap-4 p-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ── KPI Score Ring + Breakdown ── */
 function KpiScoreSection({
@@ -158,94 +240,153 @@ function KpiScoreSection({
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Main Page Component (Server Component)
+   Async Server Components (each one is a Suspense boundary)
    ══════════════════════════════════════════════════════════════ */
 
-export default async function SalesmanDashboardPage() {
-  const session = await getSalesPalSession();
-  const userId = session!.user.id;
+const STATUS_CARD_CONFIG = [
+  {
+    label: "Onboarded",
+    key: "onboarded",
+    borderClass: "border-t-emerald-500",
+    bgClass: "bg-emerald-50/60",
+    textClass: "text-emerald-700",
+    icon: UserCheck,
+  },
+  {
+    label: "Follow Up",
+    key: "follow_up",
+    borderClass: "border-t-indigo-500",
+    bgClass: "bg-indigo-50/60",
+    textClass: "text-indigo-700",
+    icon: Phone,
+  },
+  {
+    label: "Leads",
+    key: "lead",
+    borderClass: "border-t-amber-500",
+    bgClass: "bg-amber-50/60",
+    textClass: "text-amber-700",
+    icon: Sparkles,
+  },
+  {
+    label: "Lost",
+    key: "lost",
+    borderClass: "border-t-red-500",
+    bgClass: "bg-red-50/60",
+    textClass: "text-red-700",
+    icon: XCircle,
+  },
+] as const;
 
-  /* ── Fetch cached data ── */
-  const {
-    user,
-    clients,
-    thisMonthLogs,
-    lastMonthLogs,
-    tasks,
-    onboardedByMonth,
-  } = await getCachedDashboardData(userId);
+function countByAction(logs: { action: string }[], keyword: string) {
+  return logs.filter((l) => l.action.toLowerCase().includes(keyword)).length;
+}
 
-  /* ── Derived data ── */
-  const salesmanName = user?.name ?? "Salesman";
-  const orgName =
-    user?.salesmanManager?.[0]?.manager?.managerOrgs?.[0]?.org?.name ?? "";
-  const subtitle = orgName
-    ? `${salesmanName} • ${orgName}`
-    : salesmanName;
+async function KpiCardsSection({ userId }: { userId: number }) {
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-  // Status counts from current clients
+  const [clients, thisMonthLogs, lastMonthLogs] = await Promise.all([
+    getCachedClientStatuses(userId),
+    getCachedMonthLogs(userId, thisMonthStart.toISOString()),
+    getCachedMonthLogs(userId, lastMonthStart.toISOString(), lastMonthEnd.toISOString()),
+  ]);
+
   const counts = groupStatusCounts(clients);
-  const totalClients = clients.length;
-  const kpiProgress = calculateKpiScoreProgress(counts, totalClients);
-  const kpiBreakdown = getKpiScoreBreakdown(counts);
 
-  // Count logs by action for this month and last month
-  function countByAction(logs: { action: string }[], keyword: string) {
-    return logs.filter((l) =>
-      l.action.toLowerCase().includes(keyword),
-    ).length;
-  }
-
-  const statusCards = [
-    {
-      label: "Onboarded",
-      key: "onboarded",
-      count: counts.onboarded ?? 0,
-      borderClass: "border-t-emerald-500",
-      bgClass: "bg-emerald-50/60",
-      textClass: "text-emerald-700",
-      icon: UserCheck,
-    },
-    {
-      label: "Follow Up",
-      key: "follow_up",
-      count: counts.follow_up ?? 0,
-      borderClass: "border-t-indigo-500",
-      bgClass: "bg-indigo-50/60",
-      textClass: "text-indigo-700",
-      icon: Phone,
-    },
-    {
-      label: "Leads",
-      key: "lead",
-      count: counts.lead ?? 0,
-      borderClass: "border-t-amber-500",
-      bgClass: "bg-amber-50/60",
-      textClass: "text-amber-700",
-      icon: Sparkles,
-    },
-    {
-      label: "Lost",
-      key: "lost",
-      count: counts.lost ?? 0,
-      borderClass: "border-t-red-500",
-      bgClass: "bg-red-50/60",
-      textClass: "text-red-700",
-      icon: XCircle,
-    },
-  ];
-
-  // % change per status
   const pctChanges: Record<string, number> = {};
-  for (const card of statusCards) {
+  for (const card of STATUS_CARD_CONFIG) {
     const thisCount = countByAction(thisMonthLogs, card.key);
     const lastCount = countByAction(lastMonthLogs, card.key);
     const denom = Math.max(lastCount, 1);
     pctChanges[card.key] = Math.round(((thisCount - lastCount) / denom) * 100);
   }
 
-  // Monthly chart data — aggregate groupBy results into month buckets
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {STATUS_CARD_CONFIG.map((card) => {
+        const Icon = card.icon;
+        const pct = pctChanges[card.key] ?? 0;
+        const count = counts[card.key as keyof typeof counts] ?? 0;
+        return (
+          <div
+            key={card.key}
+            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm border-t-[3px] ${card.borderClass} transition-all duration-200 hover:shadow-md`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div
+                className={`h-9 w-9 flex items-center justify-center rounded-xl ${card.bgClass}`}
+              >
+                <Icon size={18} className={card.textClass} />
+              </div>
+              {/* % change badge */}
+              <span
+                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  pct > 0
+                    ? "bg-emerald-50 text-emerald-700"
+                    : pct < 0
+                      ? "bg-red-50 text-red-700"
+                      : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {pct > 0 ? (
+                  <TrendingUp size={10} />
+                ) : pct < 0 ? (
+                  <TrendingDown size={10} />
+                ) : (
+                  <Minus size={10} />
+                )}
+                {pct > 0 ? "+" : ""}
+                {pct}%
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900 leading-none">
+              {count}
+            </p>
+            <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              {card.label}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+async function KpiScoreCard({ userId }: { userId: number }) {
+  const clients = await getCachedClientStatuses(userId);
+  const counts = groupStatusCounts(clients);
+  const totalClients = clients.length;
+  const kpiProgress = calculateKpiScoreProgress(counts, totalClients);
+  const kpiBreakdown = getKpiScoreBreakdown(counts);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold tracking-tight text-slate-900">
+        KPI Score
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Points from your {totalClients} client
+        {totalClients === 1 ? "" : "s"} — max {kpiProgress.maxScore} if all
+        reach onboarded
+      </p>
+      <div className="mt-5">
+        <KpiScoreSection
+          progress={kpiProgress}
+          breakdown={kpiBreakdown}
+        />
+      </div>
+    </div>
+  );
+}
+
+async function MonthlyChartSection({ userId }: { userId: number }) {
   const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const onboardedByMonth = await getCachedOnboardedByMonth(userId, sixMonthsAgo.toISOString());
+
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const chartDataMap: Record<string, number> = {};
   for (let i = 5; i >= 0; i--) {
@@ -265,102 +406,74 @@ export default async function SalesmanDashboardPage() {
     count,
   }));
 
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">
+        Monthly Onboarded
+      </h2>
+      <MonthlyActivityChart data={chartData} />
+    </div>
+  );
+}
 
-  /* ══════════════════════════════════════════════════════════════
-     Render
-     ══════════════════════════════════════════════════════════════ */
+async function TasksSection({ userId }: { userId: number }) {
+  const tasks = await getCachedSalesmanTasks(userId);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-5">
+        My Tasks
+      </h2>
+      {tasks.length > 0 ? (
+        <TaskOverview tasks={tasks} />
+      ) : (
+        <p className="text-sm text-slate-500 text-center py-8">
+          No tasks assigned yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Main Page Component — streams each section independently
+   ══════════════════════════════════════════════════════════════ */
+
+export default async function SalesmanDashboardPage() {
+  const session = await getSalesPalSession();
+  const userId = session!.user.id;
+
+  /* Header data is small — fetch it synchronously for immediate display */
+  const user = await getCachedSalesmanInfo(userId);
+  const salesmanName = user?.name ?? "Salesman";
+  const orgName =
+    user?.salesmanManager?.[0]?.manager?.managerOrgs?.[0]?.org?.name ?? "";
+  const subtitle = orgName ? `${salesmanName} • ${orgName}` : salesmanName;
+
   return (
     <>
       <PageHeader title="My Performance" subtitle={subtitle} />
 
       <div className="space-y-6">
         {/* ─── 1. KPI Status Cards ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {statusCards.map((card) => {
-            const Icon = card.icon;
-            const pct = pctChanges[card.key] ?? 0;
-            return (
-              <div
-                key={card.key}
-                className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm border-t-[3px] ${card.borderClass} transition-all duration-200 hover:shadow-md`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`h-9 w-9 flex items-center justify-center rounded-xl ${card.bgClass}`}
-                  >
-                    <Icon size={18} className={card.textClass} />
-                  </div>
-                  {/* % change badge */}
-                  <span
-                    className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      pct > 0
-                        ? "bg-emerald-50 text-emerald-700"
-                        : pct < 0
-                          ? "bg-red-50 text-red-700"
-                          : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {pct > 0 ? (
-                      <TrendingUp size={10} />
-                    ) : pct < 0 ? (
-                      <TrendingDown size={10} />
-                    ) : (
-                      <Minus size={10} />
-                    )}
-                    {pct > 0 ? "+" : ""}
-                    {pct}%
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900 leading-none">
-                  {card.count}
-                </p>
-                <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  {card.label}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+        <Suspense fallback={<KpiCardsSkeleton />}>
+          <KpiCardsSection userId={userId} />
+        </Suspense>
 
         {/* ─── 2. KPI Score ─── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold tracking-tight text-slate-900">
-            KPI Score
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Points from your {totalClients} client
-            {totalClients === 1 ? "" : "s"} — max {kpiProgress.maxScore} if all
-            reach onboarded
-          </p>
-          <div className="mt-5">
-            <KpiScoreSection
-              progress={kpiProgress}
-              breakdown={kpiBreakdown}
-            />
-          </div>
-        </div>
+        <Suspense fallback={<KpiScoreSkeleton />}>
+          <KpiScoreCard userId={userId} />
+        </Suspense>
 
         {/* ─── 3. Monthly Activity Chart ─── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">
-            Monthly Onboarded
-          </h2>
-          <MonthlyActivityChart data={chartData} />
-        </div>
+        <Suspense fallback={<ChartSkeleton />}>
+          <MonthlyChartSection userId={userId} />
+        </Suspense>
 
         {/* ─── 4. Tasks Overview ─── */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-5">
-            My Tasks
-          </h2>
-          {tasks.length > 0 ? (
-            <TaskOverview tasks={tasks} />
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-8">
-              No tasks assigned yet.
-            </p>
-          )}
-        </div>
+        <Suspense fallback={<TasksSkeleton />}>
+          <TasksSection userId={userId} />
+        </Suspense>
       </div>
     </>
   );
