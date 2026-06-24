@@ -1,26 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 
 interface MonthlyActivityChartProps {
   data: { month: string; count: number }[];
 }
 
-export function MonthlyActivityChart({ data }: MonthlyActivityChartProps) {
-  const [isMounted, setIsMounted] = useState(false);
+function subscribeToMount(onStoreChange: () => void) {
+  onStoreChange();
+  return () => {};
+}
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+function getClientSnapshot() {
+  return true;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
+export function MonthlyActivityChart({ data }: MonthlyActivityChartProps) {
+  const isMounted = useSyncExternalStore(
+    subscribeToMount,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
 
   if (!isMounted) {
     return (
@@ -32,8 +46,8 @@ export function MonthlyActivityChart({ data }: MonthlyActivityChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+      <LineChart data={data} margin={{ top: 24, right: 18, left: -16, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
           dataKey="month"
           tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
@@ -57,16 +71,28 @@ export function MonthlyActivityChart({ data }: MonthlyActivityChartProps) {
           }}
           labelStyle={{ color: "#0f172a", fontWeight: 600, marginBottom: 2 }}
           itemStyle={{ color: "#0d9488" }}
-          cursor={{ fill: "rgba(13,148,136,0.06)" }}
+          cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
         />
-        <Bar
+        <Line
           dataKey="count"
           name="Onboarded"
-          fill="#0d9488"
-          radius={[6, 6, 0, 0]}
-          maxBarSize={40}
-        />
-      </BarChart>
+          type="linear"
+          stroke="#0d9488"
+          strokeWidth={2.5}
+          dot={{ r: 4, fill: "#ffffff", stroke: "#0d9488", strokeWidth: 2 }}
+          activeDot={{ r: 6, fill: "#0d9488", stroke: "#ffffff", strokeWidth: 2 }}
+          connectNulls
+        >
+          <LabelList
+            dataKey="count"
+            position="top"
+            offset={8}
+            fill="#334155"
+            fontSize={10}
+            fontWeight={700}
+          />
+        </Line>
+      </LineChart>
     </ResponsiveContainer>
   );
 }

@@ -26,21 +26,26 @@ export default function Loading() {
         ))}
       </div>
 
-      {/* KPI Score Ring + Breakdown */}
+      {/* KPI Score */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <Skeleton className="h-4 w-40 mb-5" />
-        <div className="grid md:grid-cols-2 gap-8 items-center">
-          <div className="flex justify-center">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="mt-2 h-3 w-72 max-w-full" />
+        <div className="mt-5 grid items-center gap-8 md:grid-cols-2">
+          <div className="flex flex-col items-center gap-4">
             <Skeleton className="h-[180px] w-[180px] rounded-full" />
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-52" />
           </div>
-          <div className="space-y-5">
+          <div className="space-y-4">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-3 w-full" />
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex justify-between">
                   <Skeleton className="h-3 w-20" />
                   <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="h-2.5 w-full rounded-full" />
+                <Skeleton className="h-2 w-full rounded-full" />
               </div>
             ))}
           </div>

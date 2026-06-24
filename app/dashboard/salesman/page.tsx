@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { calculateKpiScore, groupStatusCounts, KPI_WEIGHTS } from "@/lib/kpi";
+import {
+  calculateKpiScoreProgress,
+  getKpiScoreBreakdown,
+  groupStatusCounts,
+  type KpiBreakdownItem,
+} from "@/lib/kpi";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Badge } from "@/components/ui/Badge";
@@ -17,60 +22,136 @@ import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChar
 import { TaskOverview } from "@/components/dashboard/TaskOverview";
 import { getCachedDashboardData } from "@/lib/cached-queries";
 
-/* ── KPI Score SVG Ring ── */
-function KpiScoreRing({
-  score,
-  maxScore,
+/* ── KPI Score Ring + Breakdown ── */
+function KpiScoreSection({
+  progress,
+  breakdown,
 }: {
-  score: number;
-  maxScore: number;
+  progress: ReturnType<typeof calculateKpiScoreProgress>;
+  breakdown: KpiBreakdownItem[];
 }) {
+  const { score, maxScore, percent, ringPercent, remaining, totalClients } =
+    progress;
   const radius = 70;
   const stroke = 10;
   const circumference = 2 * Math.PI * radius;
-  const safeMax = Math.max(maxScore, 1);
-  const pct = Math.min(Math.max(score / safeMax, 0), 1);
-  const dashOffset = circumference * (1 - pct);
+  const dashOffset = circumference * (1 - ringPercent / 100);
+  const strokeColor =
+    percent >= 100 ? "#059669" : percent >= 50 ? "#0d9488" : "#d97706";
 
   return (
-    <div className="relative flex items-center justify-center">
-      <svg
-        width={180}
-        height={180}
-        viewBox="0 0 180 180"
-        className="transform -rotate-90"
-      >
-        {/* Background track */}
-        <circle
-          cx={90}
-          cy={90}
-          r={radius}
-          fill="none"
-          stroke="#e2e8f0"
-          strokeWidth={stroke}
-        />
-        {/* Foreground arc */}
-        <circle
-          cx={90}
-          cy={90}
-          r={radius}
-          fill="none"
-          stroke="#0d9488"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      {/* Center label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-slate-900 leading-none">
-          {score}
-        </span>
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-1">
-          KPI Score
-        </span>
+    <div className="grid items-center gap-8 md:grid-cols-2">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative flex items-center justify-center">
+          <svg
+            width={180}
+            height={180}
+            viewBox="0 0 180 180"
+            className="-rotate-90 transform"
+            aria-hidden
+          >
+            <circle
+              cx={90}
+              cy={90}
+              r={radius}
+              fill="none"
+              stroke="#e2e8f0"
+              strokeWidth={stroke}
+            />
+            <circle
+              cx={90}
+              cy={90}
+              r={radius}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              className="transition-all duration-700 ease-out"
+            />
+          </svg>
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            aria-label={`KPI score ${score} out of ${maxScore} points`}
+          >
+            <span className="text-4xl font-bold leading-none text-slate-900 tabular-nums">
+              {score}
+            </span>
+            <span className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              KPI Score
+            </span>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <p className="text-sm font-semibold tabular-nums text-slate-900">
+            {score}
+            <span className="mx-1 font-normal text-slate-300">/</span>
+            {maxScore}
+            <span className="ml-1.5 text-xs font-medium text-slate-500">
+              points
+            </span>
+            {maxScore > 0 && (
+              <span className="ml-2 text-xs font-bold text-teal-700">
+                ({percent}%)
+              </span>
+            )}
+          </p>
+          <p className="mt-1 max-w-xs text-xs text-slate-500">
+            {totalClients === 0
+              ? "No clients assigned yet"
+              : maxScore > 0 && remaining > 0
+                ? `${remaining} pt${remaining === 1 ? "" : "s"} left if every client reaches onboarded (5 pts each)`
+                : totalClients > 0
+                  ? "Full pipeline potential reached"
+                  : null}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            How your score is built
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Each client earns points by status — leads (1 pt) up to onboarded (5
+            pts). Lost clients deduct 1 pt.
+          </p>
+        </div>
+
+        {breakdown.length > 0 ? (
+          <div className="space-y-3">
+            {breakdown.map((item) => {
+              const barPct =
+                maxScore > 0
+                  ? Math.min(Math.max((item.points / maxScore) * 100, 0), 100)
+                  : 0;
+              return (
+                <div key={item.status}>
+                  <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                    <span className="capitalize text-slate-700">{item.label}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      {item.count} × {item.weight} ={" "}
+                      <span className="font-semibold text-slate-900">
+                        {item.points} pt{item.points === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-teal-500 transition-all duration-500"
+                      style={{ width: `${barPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">No client activity yet.</p>
+        )}
       </div>
     </div>
   );
@@ -105,6 +186,8 @@ export default async function SalesmanDashboardPage() {
   // Status counts from current clients
   const counts = groupStatusCounts(clients);
   const totalClients = clients.length;
+  const kpiProgress = calculateKpiScoreProgress(counts, totalClients);
+  const kpiBreakdown = getKpiScoreBreakdown(counts);
 
   // Count logs by action for this month and last month
   function countByAction(logs: { action: string }[], keyword: string) {
@@ -160,11 +243,6 @@ export default async function SalesmanDashboardPage() {
     const denom = Math.max(lastCount, 1);
     pctChanges[card.key] = Math.round(((thisCount - lastCount) / denom) * 100);
   }
-
-  // KPI Score
-  const kpiScore = calculateKpiScore(counts);
-  const maxScore = Math.max(totalClients * 5, 1);
-
 
   // Monthly chart data — aggregate groupBy results into month buckets
   const now = new Date();
@@ -244,13 +322,21 @@ export default async function SalesmanDashboardPage() {
           })}
         </div>
 
-        {/* ─── 2. KPI Score Ring ─── */}
+        {/* ─── 2. KPI Score ─── */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-5">
+          <h2 className="text-sm font-bold tracking-tight text-slate-900">
             KPI Score
           </h2>
-          <div className="flex justify-center py-4">
-            <KpiScoreRing score={kpiScore} maxScore={maxScore} />
+          <p className="mt-1 text-xs text-slate-500">
+            Points from your {totalClients} client
+            {totalClients === 1 ? "" : "s"} — max {kpiProgress.maxScore} if all
+            reach onboarded
+          </p>
+          <div className="mt-5">
+            <KpiScoreSection
+              progress={kpiProgress}
+              breakdown={kpiBreakdown}
+            />
           </div>
         </div>
 

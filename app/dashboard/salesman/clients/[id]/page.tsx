@@ -1,55 +1,68 @@
-import { Suspense } from "react";
-import { notFound } from "next/navigation";
-import { getSalesPalSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { clientScopeWhere } from "@/lib/scoping";
+"use client";
+
+import { useEffect, useState, use } from "react";
 import { ClientOverview } from "./ClientOverview";
 import ClientOverviewLoading from "./loading";
 
-async function ClientOverviewContent({ id }: { id: string }) {
-  const session = await getSalesPalSession();
-  if (!session) return notFound();
+export default function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
+  // Await params using React.use() to read params on the client side in Next.js 15+
+  const params = use(props.params);
+  const id = params?.id;
 
-  const clientId = Number(id);
-  const scopeWhere = await clientScopeWhere(session.user);
+  const [data, setData] = useState<{ client: any; tasks: any[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Run both queries in parallel
-  const [client, tasks] = await Promise.all([
-    prisma.client.findFirst({
-      where: {
-        AND: [
-          { id: clientId },
-          scopeWhere
-        ]
-      },
-      include: {
-        organization: { select: { name: true } },
-        assignedSalesman: { select: { name: true } }
+  useEffect(() => {
+    if (!id) return;
+    
+    let active = true;
+
+    async function loadData() {
+      try {
+        const [clientRes, tasksRes] = await Promise.all([
+          fetch(`/api/clients/${id}`),
+          fetch(`/api/clients/${id}/tasks`)
+        ]);
+
+        if (!clientRes.ok || !tasksRes.ok) {
+          throw new Error("Failed to load client data");
+        }
+
+        const clientData = await clientRes.json();
+        const tasksData = await tasksRes.json();
+
+        if (active) {
+          setData({
+            client: clientData.client,
+            tasks: tasksData.tasks
+          });
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || "An error occurred");
+        }
       }
-    }),
-    prisma.clientTask.findMany({
-      where: { client_id: clientId },
-      include: {
-        assignedTo: { select: { name: true } },
-        createdBy: { select: { name: true } }
-      },
-      orderBy: { due_date: "asc" }
-    })
-  ]);
+    }
 
-  if (!client) {
-    notFound();
+    loadData();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-[var(--nm-surface)] rounded-2xl shadow-nm">
+        <h3 className="text-sm font-bold text-red-600">Error Loading Client Details</h3>
+        <p className="mt-2 text-xs text-slate-500">{error}</p>
+      </div>
+    );
   }
 
-  return <ClientOverview client={client} initialTasks={tasks} />;
-}
+  if (!data) {
+    return <ClientOverviewLoading />;
+  }
 
-export default async function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params;
-
-  return (
-    <Suspense fallback={<ClientOverviewLoading />}>
-      <ClientOverviewContent id={id} />
-    </Suspense>
-  );
+  return <ClientOverview client={data.client} initialTasks={data.tasks} />;
 }
