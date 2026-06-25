@@ -226,15 +226,15 @@ export function SideNav() {
       </aside>
 
       {/* ─── Mobile Top Bar ─── */}
-      <header className="sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-16 px-4 bg-white border-b border-slate-200">
+      <header className="sm:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-16 px-4 bg-slate-950 border-b border-slate-800/40">
         <div className="flex items-center gap-2">
           <img
             src="/logo_collapsed.png"
             alt="SalesPal"
-            className="h-8 w-8 object-contain rounded border border-slate-100 shadow-sm"
+            className="h-8 w-8 object-contain rounded border border-slate-800 shadow-sm"
           />
-          <span className="font-semibold text-slate-900 text-sm tracking-tight">
-            Sales<span className="text-teal-600">Pal</span>
+          <span className="font-semibold text-white text-sm tracking-tight">
+            Sales<span className="text-teal-400">Pal</span>
           </span>
         </div>
 
@@ -242,10 +242,10 @@ export function SideNav() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="relative p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all duration-200 cursor-pointer"
+            className="relative p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 transition-all duration-200 cursor-pointer"
           >
             <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-teal-500 ring-2 ring-white" />
+            <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-teal-500 ring-2 ring-slate-950" />
           </button>
           <button
             onClick={() => setMobileProfileOpen(true)}

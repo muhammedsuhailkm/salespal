@@ -248,7 +248,8 @@ const STATUS_CARD_CONFIG = [
     label: "Onboarded",
     key: "onboarded",
     borderClass: "border-t-emerald-500",
-    bgClass: "bg-emerald-50/60",
+    bgClass: "bg-white border border-emerald-100/50 shadow-sm",
+    cardBgClass: "bg-emerald-50/60 border-emerald-100",
     textClass: "text-emerald-700",
     icon: UserCheck,
   },
@@ -256,7 +257,8 @@ const STATUS_CARD_CONFIG = [
     label: "Follow Up",
     key: "follow_up",
     borderClass: "border-t-indigo-500",
-    bgClass: "bg-indigo-50/60",
+    bgClass: "bg-white border border-indigo-100/50 shadow-sm",
+    cardBgClass: "bg-indigo-50/60 border-indigo-100",
     textClass: "text-indigo-700",
     icon: Phone,
   },
@@ -264,7 +266,8 @@ const STATUS_CARD_CONFIG = [
     label: "Leads",
     key: "lead",
     borderClass: "border-t-amber-500",
-    bgClass: "bg-amber-50/60",
+    bgClass: "bg-white border border-amber-100/50 shadow-sm",
+    cardBgClass: "bg-amber-50/60 border-amber-100",
     textClass: "text-amber-700",
     icon: Sparkles,
   },
@@ -272,7 +275,8 @@ const STATUS_CARD_CONFIG = [
     label: "Lost",
     key: "lost",
     borderClass: "border-t-red-500",
-    bgClass: "bg-red-50/60",
+    bgClass: "bg-white border border-red-100/50 shadow-sm",
+    cardBgClass: "bg-red-50/60 border-red-100",
     textClass: "text-red-700",
     icon: XCircle,
   },
@@ -313,7 +317,7 @@ async function KpiCardsSection({ userId }: { userId: number }) {
         return (
           <div
             key={card.key}
-            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm border-t-[3px] ${card.borderClass} transition-all duration-200 hover:shadow-md`}
+            className={`rounded-2xl border ${card.cardBgClass} p-5 shadow-sm border-t-[3px] ${card.borderClass} transition-all duration-200 hover:shadow-md`}
           >
             <div className="flex items-center justify-between mb-3">
               <div
@@ -323,12 +327,12 @@ async function KpiCardsSection({ userId }: { userId: number }) {
               </div>
               {/* % change badge */}
               <span
-                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold bg-white shadow-sm border ${
                   pct > 0
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "text-emerald-700 border-emerald-100/50"
                     : pct < 0
-                      ? "bg-red-50 text-red-700"
-                      : "bg-slate-100 text-slate-500"
+                      ? "text-red-700 border-red-100/50"
+                      : "text-slate-500 border-slate-200/50"
                 }`}
               >
                 {pct > 0 ? (

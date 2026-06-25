@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default async function SalesmanClientsPage() {
   return (
     <>
-      <PageHeader title="My Clients" subtitle="Search, status updates, and lead follow-up live here." />
+      <PageHeader title="My Clients" />
       <Suspense fallback={<ClientsTableSkeleton />}>
         <ClientsListSection />
       </Suspense>

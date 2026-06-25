@@ -4,6 +4,12 @@ import { useState, useMemo, useTransition, useOptimistic, Fragment, useEffect, u
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
 import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin, Navigation } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -22,6 +28,42 @@ type Client = {
   notes: string | null;
   created_at: Date | string;
   organization?: { name: string | null };
+};
+
+const rowColors: Record<string, string> = {
+  lead: "bg-amber-100/45 hover:bg-amber-100/65",
+  contacted: "bg-sky-100/40 hover:bg-sky-100/60",
+  follow_up: "bg-indigo-100/40 hover:bg-indigo-100/60",
+  proposal_sent: "bg-violet-100/40 hover:bg-violet-100/60",
+  negotiation: "bg-orange-100/40 hover:bg-orange-100/60",
+  onboarding_in_progress: "bg-cyan-100/40 hover:bg-cyan-100/60",
+  onboarded: "bg-emerald-100/50 hover:bg-emerald-100/70",
+  active_client: "bg-green-100/40 hover:bg-green-100/60",
+  inactive: "bg-slate-100/40 hover:bg-slate-100/60",
+  lost: "bg-rose-100/45 hover:bg-rose-100/65",
+  cancelled: "bg-red-100/45 hover:bg-red-100/65",
+  pending: "bg-slate-100/40 hover:bg-slate-100/60",
+  in_process: "bg-cyan-100/40 hover:bg-cyan-100/60",
+  achieved: "bg-emerald-100/50 hover:bg-emerald-100/70",
+  unsuccessful: "bg-red-100/45 hover:bg-red-100/65",
+};
+
+const dropdownItemColors: Record<string, string> = {
+  lead: "bg-amber-100/40 hover:bg-amber-100/65 text-amber-900 focus:bg-amber-100/50 focus:text-amber-900 border-l-[3px] border-amber-500",
+  contacted: "bg-sky-100/30 hover:bg-sky-100/50 text-sky-900 focus:bg-sky-100/40 focus:text-sky-900 border-l-[3px] border-sky-500",
+  follow_up: "bg-indigo-100/30 hover:bg-indigo-100/50 text-indigo-900 focus:bg-indigo-100/40 focus:text-indigo-900 border-l-[3px] border-indigo-500",
+  proposal_sent: "bg-violet-100/30 hover:bg-violet-100/50 text-violet-900 focus:bg-violet-100/40 focus:text-violet-900 border-l-[3px] border-violet-500",
+  negotiation: "bg-orange-100/30 hover:bg-orange-100/50 text-orange-900 focus:bg-orange-100/40 focus:text-orange-900 border-l-[3px] border-orange-500",
+  onboarding_in_progress: "bg-cyan-100/30 hover:bg-cyan-100/50 text-cyan-900 focus:bg-cyan-100/40 focus:text-cyan-900 border-l-[3px] border-cyan-500",
+  onboarded: "bg-emerald-100/40 hover:bg-emerald-100/60 text-emerald-900 focus:bg-emerald-100/50 focus:text-emerald-900 border-l-[3px] border-emerald-500",
+  active_client: "bg-green-100/30 hover:bg-green-100/50 text-green-900 focus:bg-green-100/40 focus:text-green-900 border-l-[3px] border-green-500",
+  inactive: "bg-slate-100/40 hover:bg-slate-100/60 text-slate-900 focus:bg-slate-100/50 focus:text-slate-900 border-l-[3px] border-slate-400",
+  lost: "bg-rose-100/40 hover:bg-rose-100/60 text-rose-900 focus:bg-rose-100/50 focus:text-rose-900 border-l-[3px] border-rose-500",
+  cancelled: "bg-red-100/40 hover:bg-red-100/60 text-red-900 focus:bg-red-100/50 focus:text-red-900 border-l-[3px] border-red-500",
+  pending: "bg-slate-100/40 hover:bg-slate-100/60 text-slate-900 focus:bg-slate-100/50 focus:text-slate-900 border-l-[3px] border-slate-400",
+  in_process: "bg-cyan-100/30 hover:bg-cyan-100/50 text-cyan-900 focus:bg-cyan-100/40 focus:text-cyan-900 border-l-[3px] border-cyan-500",
+  achieved: "bg-emerald-100/40 hover:bg-emerald-100/60 text-emerald-900 focus:bg-emerald-100/50 focus:text-emerald-900 border-l-[3px] border-emerald-500",
+  unsuccessful: "bg-red-100/40 hover:bg-red-100/60 text-red-900 focus:bg-red-100/50 focus:text-red-900 border-l-[3px] border-red-500",
 };
 
 interface SalesmanClientsListProps {
@@ -52,21 +94,6 @@ export function SalesmanClientsList({
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
-  const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-      setActiveDropdownId(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeDropdownId !== null) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [activeDropdownId, handleClickOutside]);
 
   // Form states
   const [addForm, setAddForm] = useState({
@@ -210,7 +237,6 @@ export function SalesmanClientsList({
   }
 
   async function handleStatusChange(clientId: number, newStatus: string) {
-    setActiveDropdownId(null);
     const clientToUpdate = optimisticClients.find((c) => c.id === clientId);
     if (!clientToUpdate) return;
 
@@ -247,7 +273,7 @@ export function SalesmanClientsList({
       {/* Top Header Row with Add Button */}
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Leads List</h2>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Client List</h2>
         </div>
         <button
           onClick={() => {
@@ -396,7 +422,7 @@ export function SalesmanClientsList({
                 return (
                   <Fragment key={client.id}>
                     <tr
-                      className="hover:bg-slate-50/60 transition group"
+                      className={cn("transition group border-b border-slate-100", rowColors[client.status] ?? "bg-white hover:bg-slate-50/60")}
                     >
                       <td
                         className="w-10 px-2 py-3 text-center sm:hidden"
@@ -455,48 +481,51 @@ export function SalesmanClientsList({
                         )}
                       </td>
                       <td className="px-4 py-3 relative">
-                        <div ref={activeDropdownId === client.id ? dropdownRef : undefined} className="relative inline-block text-left">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(activeDropdownId === client.id ? null : client.id);
-                            }}
-                            className="focus:outline-none transition active:scale-95 cursor-pointer inline-flex items-center gap-1"
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="focus:outline-none transition active:scale-95 cursor-pointer inline-flex items-center gap-1 group"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Badge value={client.status} />
+                              <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent 
+                            className="w-48 bg-white border border-slate-200/80 shadow-2xl rounded-xl p-1 z-50 animate-in fade-in slide-in-from-top-2 max-h-[300px] overflow-y-auto" 
+                            align="end"
+                            side="bottom"
+                            sideOffset={6}
+                            collisionPadding={8}
                           >
-                            <Badge value={client.status} />
-                            <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition" />
-                          </button>
-                          {activeDropdownId === client.id && (
-                            <div className="absolute right-0 mt-1.5 w-48 rounded-xl bg-white border border-slate-200 shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-100">
-                              {clientStatuses.map((st) => (
-                                <button
-                                  key={st}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStatusChange(client.id, st);
-                                  }}
-                                  className={cn(
-                                    "w-full px-3.5 py-2 text-left text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-2.5",
-                                    client.status === st ? "text-indigo-600 bg-indigo-50/40" : "text-slate-700"
-                                  )}
-                                >
-                                  <span className={cn("h-1.5 w-1.5 rounded-full",
-                                    st === "onboarded" || st === "active_client" ? "bg-emerald-500" :
-                                    st === "lost" || st === "cancelled" ? "bg-red-500" :
-                                    st === "lead" || st === "contacted" ? "bg-amber-500" : "bg-blue-500"
-                                  )} />
-                                  {st.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                            {clientStatuses.map((st) => (
+                              <DropdownMenuItem
+                                key={st}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(client.id, st);
+                                }}
+                                className={cn(
+                                  "px-3 py-2 text-xs font-bold transition flex items-center gap-2 cursor-pointer outline-none rounded-lg my-0.5 mx-1",
+                                  dropdownItemColors[st] ?? "text-slate-700 focus:bg-slate-50",
+                                  client.status === st ? "ring-2 ring-indigo-500/40 ring-offset-1 font-extrabold" : ""
+                                )}
+                              >
+                                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0",
+                                  st === "onboarded" || st === "active_client" ? "bg-emerald-500" :
+                                  st === "lost" || st === "cancelled" ? "bg-red-500" :
+                                  st === "lead" || st === "contacted" ? "bg-amber-500" : "bg-blue-500"
+                                )} />
+                                {st.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className="bg-slate-50/30 sm:hidden">
+                      <tr className={cn("sm:hidden", rowColors[client.status] ?? "bg-slate-50/30")}>
                         <td colSpan={5} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
                           <div>
                             <span className="font-semibold text-slate-500">Company:</span>{" "}
