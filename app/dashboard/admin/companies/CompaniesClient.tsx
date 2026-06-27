@@ -434,19 +434,7 @@ export function CompaniesClient({
                   </div>
                 </div>
 
-                {/* White outlined Assign Manager button */}
-                <button
-                  onClick={() =>
-                    setActiveModal({
-                      type: "assign-manager",
-                      orgId: company.id,
-                      orgName: company.name
-                    })
-                  }
-                  className="flex items-center justify-center gap-1.5 border border-white text-white hover:bg-white/15 active:bg-white/20 font-bold px-4 py-2 rounded-lg text-xs transition cursor-pointer shrink-0"
-                >
-                  <Plus size={14} /> Assign Manager
-                </button>
+
               </div>
 
               {/* Body Area */}
