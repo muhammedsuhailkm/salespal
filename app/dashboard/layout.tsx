@@ -4,6 +4,7 @@ import { SideNav } from "@/components/layout/SideNav";
 import { Bell } from "lucide-react";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { DashboardContentWrapper } from "@/components/layout/DashboardContentWrapper";
+import { DesktopHeaderProfile } from "@/components/layout/DesktopHeaderProfile";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSalesPalSession();
@@ -42,9 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <Bell size={18} />
                 <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-teal-500 ring-2 ring-slate-950" />
               </button>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-slate-200 ring-1 ring-slate-700 shadow-inner">
-                {session.user.name?.charAt(0)?.toUpperCase() ?? "U"}
-              </div>
+              <DesktopHeaderProfile />
             </div>
           </header>
 

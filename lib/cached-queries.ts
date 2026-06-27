@@ -391,3 +391,98 @@ export const getCachedAdminTrendData = unstable_cache(
   ["admin-trend-data"],
   { revalidate: 300, tags: ["admin-dashboard"] }
 );
+
+// A10. Organizations with managers and clients for companies page
+export const getCachedAdminCompaniesPageOrgs = unstable_cache(
+  async () => {
+    return prisma.organization.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        clients: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+        managers: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  },
+  ["admin-companies-page-orgs"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);
+
+// A11. Managers list for companies page
+export const getCachedAdminCompaniesPageManagers = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 2 },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role_id: true,
+      },
+    });
+  },
+  ["admin-companies-page-managers"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);
+
+// A12. Salesmen list for companies page
+export const getCachedAdminCompaniesPageSalesmen = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 3 },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role_id: true,
+      },
+    });
+  },
+  ["admin-companies-page-salesmen"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);
+
+// A13. Manager salesman relations for companies page
+export const getCachedAdminCompaniesPageRelations = unstable_cache(
+  async () => {
+    return prisma.managerSalesman.findMany({
+      select: {
+        manager_id: true,
+        salesman_id: true,
+      },
+    });
+  },
+  ["admin-companies-page-relations"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);
+
+// A14. Client counts grouped by salesman and status for companies page
+export const getCachedAdminCompaniesPageClientCounts = unstable_cache(
+  async () => {
+    return prisma.client.groupBy({
+      by: ["assigned_salesman_id", "status"],
+      _count: {
+        id: true,
+      },
+    });
+  },
+  ["admin-companies-page-client-counts"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);

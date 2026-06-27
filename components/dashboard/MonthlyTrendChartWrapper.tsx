@@ -31,10 +31,12 @@ export function MonthlyTrendChartWrapper({
   companyBName: string;
 }) {
   return (
-    <MonthlyTrendChartLazy
-      data={data}
-      companyAName={companyAName}
-      companyBName={companyBName}
-    />
+    <div className="h-[300px] w-full">
+      <MonthlyTrendChartLazy
+        data={data}
+        companyAName={companyAName}
+        companyBName={companyBName}
+      />
+    </div>
   );
 }

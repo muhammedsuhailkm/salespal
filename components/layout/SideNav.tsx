@@ -54,9 +54,48 @@ export function SideNav() {
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Password reset state hooks
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isResetSubmitting, setIsResetSubmitting] = useState(false);
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await signOut({ callbackUrl: "/login" });
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setResetMessage({ type: "error", text: "Password must be at least 6 characters long" });
+      return;
+    }
+    setIsResetSubmitting(true);
+    setResetMessage(null);
+    try {
+      const res = await fetch("/api/users/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ password: newPassword }),
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResetMessage({ type: "success", text: "Password reset successfully!" });
+        setNewPassword("");
+        setTimeout(() => {
+          setResettingPassword(false);
+          setResetMessage(null);
+          setMobileProfileOpen(false);
+        }, 1500);
+      } else {
+        setResetMessage({ type: "error", text: data.error || "Reset failed" });
+      }
+    } catch (err: any) {
+      setResetMessage({ type: "error", text: "An error occurred" });
+    } finally {
+      setIsResetSubmitting(false);
+    }
   };
 
   /* Hydrate from localStorage */
@@ -310,6 +349,56 @@ export function SideNav() {
                       : "Sales Representative"}
                 </span>
               </div>
+            </div>
+
+            {/* Reset Password Option just after the System Role item */}
+            <div className="space-y-3">
+              {!resettingPassword ? (
+                <button
+                  onClick={() => {
+                    setResettingPassword(true);
+                    setResetMessage(null);
+                    setNewPassword("");
+                  }}
+                  className="flex items-center justify-between w-full text-xs text-slate-700 py-2.5 px-3.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100 transition cursor-pointer"
+                >
+                  <span className="font-semibold text-slate-700">Reset Password</span>
+                  <span className="text-[10px] text-teal-600 font-bold hover:underline">Change</span>
+                </button>
+              ) : (
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-700">New Password</span>
+                    <button
+                      type="button"
+                      onClick={() => setResettingPassword(false)}
+                      className="text-[9px] text-slate-400 hover:text-slate-650 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    placeholder="At least 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-8 w-full rounded-lg border border-slate-200 px-3 text-[11px] outline-none focus:border-slate-400 bg-white transition"
+                  />
+                  {resetMessage && (
+                    <p className={cn("text-[9px] font-bold", resetMessage.type === "success" ? "text-emerald-600" : "text-rose-600")}>
+                      {resetMessage.text}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isResetSubmitting}
+                    className="w-full flex items-center justify-center py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] transition cursor-pointer"
+                  >
+                    {isResetSubmitting ? "Updating..." : "Save Password"}
+                  </button>
+                </form>
+              )}
             </div>
 
             {/* Actions */}

@@ -23,7 +23,7 @@ export function MonthlyTrendChart({ data, companyAName, companyBName }: {
   companyBName: string;
 }) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 16, right: 18, left: -16, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
