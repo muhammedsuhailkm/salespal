@@ -486,3 +486,42 @@ export const getCachedAdminCompaniesPageClientCounts = unstable_cache(
   ["admin-companies-page-client-counts"],
   { revalidate: 300, tags: ["admin-companies"] }
 );
+
+// A15. All clients list with org name and salesman name for admin clients page
+export const getCachedAdminClientsList = unstable_cache(
+  async () => {
+    return prisma.client.findMany({
+      include: {
+        organization: { select: { id: true, name: true } },
+        assignedSalesman: { select: { name: true } },
+      },
+      orderBy: { id: "desc" },
+    });
+  },
+  ["admin-clients-list"],
+  { revalidate: 30, tags: ["admin-clients"] }
+);
+
+// A16. Managers list for admin clients page
+export const getCachedAdminManagersList = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 2 },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["admin-managers-list"],
+  { revalidate: 300, tags: ["admin-clients"] }
+);
+
+// A17. Manager-salesman relations for admin clients page
+export const getCachedAdminRelationsList = unstable_cache(
+  async () => {
+    return prisma.managerSalesman.findMany({
+      select: { manager_id: true, salesman_id: true },
+    });
+  },
+  ["admin-relations-list"],
+  { revalidate: 300, tags: ["admin-clients"] }
+);

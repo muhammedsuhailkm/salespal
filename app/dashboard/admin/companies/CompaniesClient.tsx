@@ -385,26 +385,26 @@ export function CompaniesClient({
           );
           const totalStaff = assignedManagersIds.length + assignedSalesmen.length;
 
-          // Redesign variables mapping: Company A gets Teal, Company B gets Violet
-          const headerBg = isCompanyA ? "bg-teal-600" : "bg-violet-600";
-          const bodyBg = isCompanyA ? "bg-teal-50 border-teal-100" : "bg-violet-50 border-violet-100";
-          const labelText = isCompanyA ? "text-teal-700" : "text-violet-700";
-          const labelAccentText = isCompanyA ? "text-teal-600" : "text-violet-600";
-          const managerCardBorder = isCompanyA ? "border-l-teal-600 border-teal-100" : "border-l-violet-600 border-violet-100";
-          const managerAvatarBg = isCompanyA ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700";
-          const teamKpiText = isCompanyA ? "text-3xl font-extrabold text-teal-600" : "text-3xl font-extrabold text-violet-600";
-          const salesmanRowBorder = isCompanyA ? "border-teal-100" : "border-violet-100";
-          const salesmanAvatarBg = isCompanyA ? "bg-teal-50 text-teal-700" : "bg-violet-50 text-violet-700";
-          const salesmanKpiPill = isCompanyA ? "bg-teal-100 text-teal-800 border-teal-200" : "bg-violet-100 text-violet-800 border-violet-200";
+          // Redesign variables mapping: Company A gets Teal, Company B gets Blue
+          const headerBg = isCompanyA ? "bg-teal-600" : "bg-blue-600";
+          const bodyBg = isCompanyA ? "bg-teal-50 border-teal-100" : "bg-blue-50 border-blue-100";
+          const labelText = isCompanyA ? "text-teal-700" : "text-blue-700";
+          const labelAccentText = isCompanyA ? "text-teal-600" : "text-blue-600";
+          const managerCardBorder = isCompanyA ? "border-l-teal-600 border-teal-100" : "border-l-blue-600 border-blue-100";
+          const managerAvatarBg = isCompanyA ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700";
+          const teamKpiText = isCompanyA ? "text-3xl font-extrabold text-teal-600" : "text-3xl font-extrabold text-blue-600";
+          const salesmanRowBorder = isCompanyA ? "border-teal-100" : "border-blue-100";
+          const salesmanAvatarBg = isCompanyA ? "bg-teal-50 text-teal-700" : "bg-blue-50 text-blue-700";
+          const salesmanKpiPill = isCompanyA ? "bg-teal-100 text-teal-800 border-teal-200" : "bg-blue-100 text-blue-800 border-blue-200";
           const dashedSalesmanBtn = isCompanyA
             ? "w-full flex items-center justify-center gap-1.5 border border-dashed border-teal-300 text-teal-700 bg-teal-50/20 hover:bg-teal-50 rounded-lg py-2.5 text-xs font-bold transition cursor-pointer"
-            : "w-full flex items-center justify-center gap-1.5 border border-dashed border-violet-300 text-violet-700 bg-violet-50/20 hover:bg-violet-50 rounded-lg py-2.5 text-xs font-bold transition cursor-pointer";
+            : "w-full flex items-center justify-center gap-1.5 border border-dashed border-blue-300 text-blue-700 bg-blue-50/20 hover:bg-blue-50 rounded-lg py-2.5 text-xs font-bold transition cursor-pointer";
           const dashedManagerBtn = isCompanyA
             ? "w-full flex items-center justify-center gap-2 border border-dashed border-teal-300 text-teal-700 bg-teal-50/30 hover:bg-teal-100/30 rounded-xl py-3.5 text-xs font-bold transition cursor-pointer"
-            : "w-full flex items-center justify-center gap-2 border border-dashed border-violet-300 text-violet-700 bg-violet-50/30 hover:bg-violet-100/30 rounded-xl py-3.5 text-xs font-bold transition cursor-pointer";
+            : "w-full flex items-center justify-center gap-2 border border-dashed border-blue-300 text-blue-700 bg-blue-50/30 hover:bg-blue-100/30 rounded-xl py-3.5 text-xs font-bold transition cursor-pointer";
           const unassignedActionBtn = isCompanyA
             ? "w-full mt-3 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-bold transition cursor-pointer"
-            : "w-full mt-3 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold transition cursor-pointer";
+            : "w-full mt-3 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition cursor-pointer";
 
           return (
             <div
@@ -679,10 +679,10 @@ export function CompaniesClient({
           ? modalOrg.name.toLowerCase().includes("company a") || modalOrg.name.toLowerCase().endsWith("a")
           : true;
 
-        const modalTextAccent = isModalTeal ? "text-teal-700" : "text-violet-700";
-        const modalBorderAccent = isModalTeal ? "hover:border-teal-200 hover:bg-teal-50/30" : "hover:border-violet-200 hover:bg-violet-50/30";
-        const modalAvatarBg = isModalTeal ? "bg-teal-50 text-teal-700" : "bg-violet-50 text-violet-700";
-        const modalBtnAccent = isModalTeal ? "text-teal-700 bg-teal-50" : "text-violet-700 bg-violet-50";
+        const modalTextAccent = isModalTeal ? "text-teal-700" : "text-blue-700";
+        const modalBorderAccent = isModalTeal ? "hover:border-teal-200 hover:bg-teal-50/30" : "hover:border-blue-200 hover:bg-blue-50/30";
+        const modalAvatarBg = isModalTeal ? "bg-teal-50 text-teal-700" : "bg-blue-50 text-blue-700";
+        const modalBtnAccent = isModalTeal ? "text-teal-700 bg-teal-50" : "text-blue-700 bg-blue-50";
 
         const isUserTeal = activeModal?.type === "add-user"
           ? activeModal.roleId === 2

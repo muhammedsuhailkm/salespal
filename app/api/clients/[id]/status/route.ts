@@ -18,5 +18,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   await prisma.salesmanKpiLog.create({ data: { salesman_id: client.assigned_salesman_id, action: body.status } });
   revalidateTag("salesman-dashboard", { expire: 0 });
   revalidateTag("salesman-clients", { expire: 0 });
+  revalidateTag("admin-clients", { expire: 0 });
   return NextResponse.json({ client });
 }
