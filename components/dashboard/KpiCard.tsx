@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface KpiCardProps {
   label: string;
-  value: string | number;
+  value: ReactNode;
   hint?: string;
   icon?: ReactNode;
   iconBgClass?: string;

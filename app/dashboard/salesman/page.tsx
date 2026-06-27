@@ -193,16 +193,6 @@ function KpiScoreSection({
       </div>
 
       <div className="space-y-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            How your score is built
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Each client earns points by status — leads (1 pt) up to onboarded (5
-            pts). Lost clients deduct 1 pt.
-          </p>
-        </div>
-
         {breakdown.length > 0 ? (
           <div className="space-y-3">
             {breakdown.map((item) => {

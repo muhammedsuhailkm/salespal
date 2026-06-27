@@ -205,3 +205,189 @@ export const getCachedClientDetail = unstable_cache(
   ["client-detail"],
   { revalidate: 15, tags: ["salesman-clients"] }
 );
+
+
+/* ═══════════════════════════════════════════════════════
+   Admin / Owner Dashboard — cached queries
+   Each query is independent so Suspense boundaries
+   can stream them in parallel.
+   ═══════════════════════════════════════════════════════ */
+
+// A1. Organizations (rarely changes)
+export const getCachedAdminOrgs = unstable_cache(
+  async () => {
+    return prisma.organization.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["admin-orgs"],
+  { revalidate: 300, tags: ["admin-dashboard"] }
+);
+
+// A2. All clients with status + org + salesman (core data)
+export const getCachedAdminClients = unstable_cache(
+  async (orgId?: number) => {
+    const where = orgId ? { org_id: orgId } : {};
+    return prisma.client.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        org_id: true,
+        assigned_salesman_id: true,
+        created_at: true,
+        organization: { select: { name: true } },
+        assignedSalesman: { select: { id: true, name: true } },
+      },
+    });
+  },
+  ["admin-clients"],
+  { revalidate: 30, tags: ["admin-dashboard"] }
+);
+
+// A3. Client logs filtered by action keyword + date range
+export const getCachedAdminLogsByAction = unstable_cache(
+  async (actionContains: string, sinceIso: string, untilIso?: string) => {
+    const dateFilter: Record<string, Date> = { gte: new Date(sinceIso) };
+    if (untilIso) dateFilter.lte = new Date(untilIso);
+    return prisma.clientLog.findMany({
+      where: {
+        action: { contains: actionContains },
+        created_at: dateFilter,
+      },
+      select: {
+        id: true,
+        action: true,
+        done_by: true,
+        client_id: true,
+        created_at: true,
+        client: { select: { name: true, org_id: true, status: true, organization: { select: { name: true } } } },
+        author: { select: { id: true, name: true } },
+      },
+    });
+  },
+  ["admin-logs-by-action"],
+  { revalidate: 30, tags: ["admin-dashboard"] }
+);
+
+// A4. Count of logs by action keyword + date range
+export const getCachedAdminLogCount = unstable_cache(
+  async (actionContains: string, sinceIso: string, untilIso?: string) => {
+    const dateFilter: Record<string, Date> = { gte: new Date(sinceIso) };
+    if (untilIso) dateFilter.lte = new Date(untilIso);
+    return prisma.clientLog.count({
+      where: {
+        action: { contains: actionContains },
+        created_at: dateFilter,
+      },
+    });
+  },
+  ["admin-log-count"],
+  { revalidate: 30, tags: ["admin-dashboard"] }
+);
+
+// A5. All tasks with status
+export const getCachedAdminTasks = unstable_cache(
+  async () => {
+    return prisma.task.findMany({
+      select: { id: true, status: true, description: true, due_date: true, assigned_to_id: true },
+    });
+  },
+  ["admin-tasks"],
+  { revalidate: 30, tags: ["admin-dashboard"] }
+);
+
+// A6. Salesmen with assigned clients + manager info
+export const getCachedAdminSalesmen = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 3 },
+      select: {
+        id: true,
+        name: true,
+        assignedClients: { select: { status: true, org_id: true } },
+        salesmanManager: {
+          select: {
+            manager: {
+              select: {
+                name: true,
+                managerOrgs: { select: { org: { select: { name: true } } } },
+              },
+            },
+          },
+          take: 1,
+        },
+      },
+    });
+  },
+  ["admin-salesmen"],
+  { revalidate: 60, tags: ["admin-dashboard"] }
+);
+
+// A7. Latest activity feed (client_logs + user/client names)
+export const getCachedAdminActivityFeed = unstable_cache(
+  async () => {
+    return prisma.clientLog.findMany({
+      orderBy: { created_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        action: true,
+        created_at: true,
+        author: { select: { name: true } },
+        client: { select: { name: true } },
+      },
+    });
+  },
+  ["admin-activity-feed"],
+  { revalidate: 15, tags: ["admin-dashboard"] }
+);
+
+// A8. Managers with their org assignments
+export const getCachedAdminManagers = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 2 },
+      select: {
+        id: true,
+        name: true,
+        managerOrgs: {
+          select: { org: { select: { id: true, name: true } } },
+        },
+        managerSalesmen: {
+          select: {
+            salesman: {
+              select: {
+                id: true,
+                name: true,
+                assignedClients: { select: { status: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+  },
+  ["admin-managers"],
+  { revalidate: 300, tags: ["admin-dashboard"] }
+);
+
+// A9. Onboarded logs for trend chart (last 6 months, grouped by month + org)
+export const getCachedAdminTrendData = unstable_cache(
+  async (sinceIso: string) => {
+    return prisma.clientLog.findMany({
+      where: {
+        action: { contains: "onboarded" },
+        created_at: { gte: new Date(sinceIso) },
+      },
+      select: {
+        created_at: true,
+        client: { select: { org_id: true } },
+      },
+    });
+  },
+  ["admin-trend-data"],
+  { revalidate: 300, tags: ["admin-dashboard"] }
+);
