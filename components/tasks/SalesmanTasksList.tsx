@@ -23,6 +23,9 @@ type Task = {
   assignedTo?: { name: string | null };
   createdBy?: { name: string | null };
   created_by_id?: number;
+  isClientTask?: boolean;
+  clientId?: number | null;
+  clientName?: string | null;
 };
 
 interface SalesmanTasksListProps {
@@ -55,6 +58,9 @@ export function SalesmanTasksList({
   useEffect(() => {
     setLocalManagerTasks(managerAssignedTasks);
   }, [managerAssignedTasks]);
+
+  // Type filter: "all" | "general" | "client"
+  const [typeFilter, setTypeFilter] = useState<"all" | "general" | "client">("all");
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -91,20 +97,29 @@ export function SalesmanTasksList({
     const list: Array<{ id: string; date: Date; data: Task }> = [];
 
     localMyTasks.forEach((t) => {
-      list.push({ id: `task-${t.id}`, date: new Date(t.due_date), data: t });
+      const prefix = t.isClientTask ? "client-task" : "task";
+      list.push({ id: `${prefix}-${t.id}`, date: new Date(t.due_date), data: t });
     });
     localManagerTasks.forEach((t) => {
-      list.push({ id: `task-${t.id}`, date: new Date(t.due_date), data: t });
+      const prefix = t.isClientTask ? "client-task" : "task";
+      list.push({ id: `${prefix}-${t.id}`, date: new Date(t.due_date), data: t });
+    });
+
+    // Apply type filter
+    const filtered = list.filter((item) => {
+      if (typeFilter === "general") return !item.data.isClientTask;
+      if (typeFilter === "client") return !!item.data.isClientTask;
+      return true;
     });
 
     // Sort by status priority first, then by due date within same status
-    return list.sort((a, b) => {
+    return filtered.sort((a, b) => {
       const priorityA = STATUS_PRIORITY[a.data.status] ?? 99;
       const priorityB = STATUS_PRIORITY[b.data.status] ?? 99;
       if (priorityA !== priorityB) return priorityA - priorityB;
       return a.date.getTime() - b.date.getTime();
     });
-  }, [localMyTasks, localManagerTasks]);
+  }, [localMyTasks, localManagerTasks, typeFilter]);
 
   // Add task submission
   async function handleAddSubmit(e: React.FormEvent) {
@@ -148,11 +163,15 @@ export function SalesmanTasksList({
     }
   }
 
-  async function handleStatusChange(taskId: number, newStatus: string) {
+  async function handleStatusChange(taskId: number, newStatus: string, isClientTask?: boolean, clientId?: number) {
     setUpdatingTaskId(taskId);
 
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
+      const url = isClientTask
+        ? `/api/clients/${clientId}/tasks/${taskId}`
+        : `/api/tasks/${taskId}`;
+
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -166,10 +185,10 @@ export function SalesmanTasksList({
       triggerToast("Task status updated");
       if (data.task) {
         setLocalMyTasks((prev) =>
-          prev.map((t) => (t.id === data.task.id ? data.task : t)),
+          prev.map((t) => (t.id === data.task.id ? { ...t, status: data.task.status } : t)),
         );
         setLocalManagerTasks((prev) =>
-          prev.map((t) => (t.id === data.task.id ? data.task : t)),
+          prev.map((t) => (t.id === data.task.id ? { ...t, status: data.task.status } : t)),
         );
       }
       router.refresh();
@@ -207,6 +226,28 @@ export function SalesmanTasksList({
         </button>
       </div>
 
+      {/* Type filter tabs */}
+      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+        {([
+          { key: "all" as const, label: "All Tasks" },
+          { key: "general" as const, label: "General" },
+          { key: "client" as const, label: "Client Tasks" },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setTypeFilter(tab.key)}
+            className={cn(
+              "px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer",
+              typeFilter === tab.key
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60"
+                : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Unified Single Vertical List Layout */}
       <div className="max-w-2xl mx-auto space-y-4">
         {combinedTasks.length > 0 ? (
@@ -224,6 +265,11 @@ export function SalesmanTasksList({
                       <ListTodo size={10} />
                       <span>Task</span>
                     </span>
+                    {task.isClientTask && task.clientName && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-250 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                        <span>Client: {task.clientName}</span>
+                      </span>
+                    )}
                     <span className="text-[11px] font-medium text-slate-400">
                       {task.createdBy?.name ? `Assigned by ${task.createdBy.name}` : "Created by you"}
                     </span>
@@ -238,7 +284,7 @@ export function SalesmanTasksList({
                     <select
                       value={task.status}
                       onChange={(e) =>
-                        handleStatusChange(task.id, e.target.value)
+                        handleStatusChange(task.id, e.target.value, task.isClientTask, task.clientId ?? undefined)
                       }
                       disabled={updatingTaskId === task.id}
                       aria-label={`Update status for ${task.description}`}

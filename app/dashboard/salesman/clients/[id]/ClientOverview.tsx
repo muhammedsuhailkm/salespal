@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
-import { formatPhoneNumber, formatDate } from "@/lib/utils";
+import { formatPhoneNumber, formatDate, cn, titleCase } from "@/lib/utils";
 import { 
   ArrowLeft, 
   Edit3, 
@@ -16,7 +16,8 @@ import {
   Loader2, 
   Check, 
   Clock,
-  X
+  X,
+  ListTodo
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -51,6 +52,15 @@ type ClientTask = {
   status: string;
   assignedTo?: { name: string | null } | null;
   createdBy?: { name: string | null } | null;
+};
+
+const taskStatuses = ["pending", "in_process", "achieved", "unsuccessful"] as const;
+
+const STATUS_SELECT_COLORS: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-700 ring-slate-200",
+  in_process: "bg-cyan-50 text-cyan-700 ring-cyan-200",
+  achieved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  unsuccessful: "bg-red-50 text-red-700 ring-red-200",
 };
 
 interface ClientOverviewProps {
@@ -227,9 +237,11 @@ export function ClientOverview({ client: initialClient, initialTasks }: ClientOv
     }
   }
 
-  // Toggle task status handler
-  async function handleToggleTaskStatus(taskId: number, currentStatus: string) {
-    const newStatus = currentStatus === "completed" ? "pending" : "completed";
+  // Universal task status handler
+  async function handleStatusChange(taskId: number, newStatus: string) {
+    const originalTask = tasks.find((t) => t.id === taskId);
+    if (!originalTask) return;
+    const currentStatus = originalTask.status;
 
     // Optimistic Update
     setTasks((prev) =>
@@ -394,21 +406,9 @@ export function ClientOverview({ client: initialClient, initialTasks }: ClientOv
                 {tasks.map((task) => (
                   <div key={task.id} className="py-3 flex items-center justify-between gap-4 group">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTaskStatus(task.id, task.status)}
-                        className="mt-0.5 text-slate-400 hover:text-indigo-600 transition cursor-pointer focus:outline-none flex-shrink-0"
-                      >
-                        {task.status === "completed" ? (
-                          <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-50" />
-                        ) : (
-                          <Circle size={18} />
-                        )}
-                      </button>
+                      <ListTodo className="text-slate-400 mt-0.5 flex-shrink-0" size={16} />
                       <div className="min-w-0">
-                        <p className={`text-sm font-semibold text-slate-800 break-words ${
-                          task.status === "completed" ? "line-through text-slate-400 font-medium" : ""
-                        }`}>
+                        <p className="text-sm font-semibold text-slate-800 break-words">
                           {task.description}
                         </p>
                         <div className="flex items-center gap-3 mt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -416,25 +416,39 @@ export function ClientOverview({ client: initialClient, initialTasks }: ClientOv
                             <Calendar size={11} />
                             {formatDate(task.due_date)}
                           </span>
-                          {task.status === "completed" ? (
-                            <span className="inline-flex items-center gap-0.5 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                              <Check size={8} strokeWidth={3} /> Completed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-0.5 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                              <Clock size={8} /> Pending
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="text-slate-400 hover:text-red-600 transition cursor-pointer focus:outline-none opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 flex-shrink-0"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="relative">
+                        <select
+                          value={task.status}
+                          onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                          className={cn(
+                            "cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-7 text-[10px] font-bold uppercase tracking-wider ring-1 outline-none transition focus:ring-2 focus:ring-indigo-200",
+                            STATUS_SELECT_COLORS[task.status] ?? STATUS_SELECT_COLORS.pending
+                          )}
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "right 0.5rem center",
+                          }}
+                        >
+                          {taskStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {titleCase(status)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="text-slate-400 hover:text-red-600 transition cursor-pointer focus:outline-none opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 flex-shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

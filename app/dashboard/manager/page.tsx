@@ -1,21 +1,98 @@
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getSalesPalSession } from "@/lib/auth";
-import { getManagerSalesmanIds, getManagerOrgIds } from "@/lib/scoping";
-import { prisma } from "@/lib/prisma";
-import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
+import { getCachedManagerOrg, getCachedManagerSalesmen } from "@/lib/cached-queries";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { KpiCard } from "@/components/dashboard/KpiCard";
-import { SalesmanPerfTable } from "@/components/dashboard/SalesmanPerfTable";
-import { TaskOverview } from "@/components/dashboard/TaskOverview";
+import {
+  ManagerKpiCardsRow,
+  SalesmanPerformanceSection,
+  FunnelAndTasksSection,
+  ManagerActivityFeed,
+  ManagerKpiSkeleton,
+  ManagerPerfSkeleton,
+  ManagerFunnelTasksSkeleton,
+  ManagerActivitySkeleton,
+} from "@/components/dashboard/ManagerDashboardSections";
 
-export default async function ManagerDashboardPage() {
+type PeriodKey = "this_month" | "last_month";
+
+/* ── Period Selector ── */
+function PeriodSelector({ current }: { current: PeriodKey }) {
+  return (
+    <form className="flex items-center gap-2">
+      <select
+        name="period"
+        defaultValue={current}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm cursor-pointer hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200"
+      >
+        <option value="this_month">This Month</option>
+        <option value="last_month">Last Month</option>
+      </select>
+      <button
+        type="submit"
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+      >
+        Apply
+      </button>
+    </form>
+  );
+}
+
+export default async function ManagerDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const session = await getSalesPalSession();
-  const managerId = session!.user.id;
-  const [salesmanIds, orgIds] = await Promise.all([getManagerSalesmanIds(managerId), getManagerOrgIds(managerId)]);
-  const [salesmen, clients, tasks] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: salesmanIds } }, include: { assignedClients: { select: { status: true } } } }),
-    prisma.client.findMany({ where: { org_id: { in: orgIds } }, select: { status: true } }),
-    prisma.task.findMany({ where: { assigned_to_id: { in: salesmanIds } }, include: { assignedTo: { select: { name: true } } }, take: 5, orderBy: { due_date: "asc" } }),
+  if (!session) redirect("/login");
+
+  const managerId = session.user.id;
+  const params = await searchParams;
+  const period = (
+    ["this_month", "last_month"].includes(params.period ?? "")
+      ? params.period
+      : "this_month"
+  ) as PeriodKey;
+
+  // Fast cached data for header — org info + salesman count
+  const [orgs, salesmen] = await Promise.all([
+    getCachedManagerOrg(managerId),
+    getCachedManagerSalesmen(managerId),
   ]);
-  const counts = groupStatusCounts(clients);
-  return <><PageHeader title="Manager overview" subtitle="Team sales activity for your assigned organization." /><div className="grid gap-4 md:grid-cols-3"><KpiCard label="Team KPI" value={calculateKpiScore(counts)} /><KpiCard label="Team clients" value={clients.length} /><KpiCard label="Salesmen" value={salesmen.length} /></div><div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]"><SalesmanPerfTable salesmen={salesmen} /><TaskOverview tasks={tasks} /></div></>;
+
+  const orgName = orgs.map((o) => o.name).join(" & ") || "Your Organization";
+  const salesmanCount = salesmen.length;
+  const subtitle = `${orgName} · ${salesmanCount} salesman${salesmanCount !== 1 ? "en" : ""}`;
+
+  return (
+    <>
+      <PageHeader
+        title="My Team Dashboard"
+        subtitle={subtitle}
+        action={<PeriodSelector current={period} />}
+      />
+
+      <div className="space-y-6">
+        {/* ─── 1. KPI Summary Cards ─── */}
+        <Suspense fallback={<ManagerKpiSkeleton />}>
+          <ManagerKpiCardsRow managerId={managerId} period={period} />
+        </Suspense>
+
+        {/* ─── 3. Salesman Performance (Spotlight + Leaderboard) ─── */}
+        <Suspense fallback={<ManagerPerfSkeleton />}>
+          <SalesmanPerformanceSection managerId={managerId} />
+        </Suspense>
+
+        {/* ─── 4. Conversion Funnel + Pending Tasks ─── */}
+        <Suspense fallback={<ManagerFunnelTasksSkeleton />}>
+          <FunnelAndTasksSection managerId={managerId} />
+        </Suspense>
+
+        {/* ─── 5. Team Activity Feed ─── */}
+        <Suspense fallback={<ManagerActivitySkeleton />}>
+          <ManagerActivityFeed managerId={managerId} />
+        </Suspense>
+      </div>
+    </>
+  );
 }

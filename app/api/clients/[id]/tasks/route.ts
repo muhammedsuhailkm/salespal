@@ -62,6 +62,8 @@ export async function POST(
 
   revalidateTag("salesman-dashboard", { expire: 0 });
   revalidateTag("salesman-clients", { expire: 0 });
+  revalidateTag("salesman-tasks", { expire: 0 });
+  revalidateTag("manager-dashboard", { expire: 0 });
 
   return NextResponse.json({ task }, { status: 201 });
 }
