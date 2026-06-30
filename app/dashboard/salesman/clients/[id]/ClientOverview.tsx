@@ -66,9 +66,10 @@ const STATUS_SELECT_COLORS: Record<string, string> = {
 interface ClientOverviewProps {
   client: Client;
   initialTasks: ClientTask[];
+  backLink?: string;
 }
 
-export function ClientOverview({ client: initialClient, initialTasks }: ClientOverviewProps) {
+export function ClientOverview({ client: initialClient, initialTasks, backLink }: ClientOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -311,7 +312,7 @@ export function ClientOverview({ client: initialClient, initialTasks }: ClientOv
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard/salesman/clients"
+            href={backLink || "/dashboard/salesman/clients"}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer shadow-sm active:scale-95"
           >
             <ArrowLeft size={14} />

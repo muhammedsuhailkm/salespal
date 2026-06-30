@@ -75,6 +75,7 @@ export function ManagerTasksList({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [salesmanFilter, setSalesmanFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "general" | "client">("all");
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -114,6 +115,14 @@ export function ManagerTasksList({
   const filteredTasks = useMemo(() => {
     return localTasks
       .filter((task) => {
+        // Type filter: all, general, client
+        if (typeFilter === "general" && task.isClientTask) {
+          return false;
+        }
+        if (typeFilter === "client" && !task.isClientTask) {
+          return false;
+        }
+
         // Status filter
         if (statusFilter !== "all" && task.status !== statusFilter) {
           return false;
@@ -150,7 +159,7 @@ export function ManagerTasksList({
           new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
         );
       });
-  }, [localTasks, statusFilter, salesmanFilter, searchQuery]);
+  }, [localTasks, statusFilter, salesmanFilter, searchQuery, typeFilter]);
 
   // Submit task handler
   async function handleAddSubmit(e: React.FormEvent) {
@@ -379,6 +388,28 @@ export function ManagerTasksList({
 
       {/* Task List */}
       <div className="max-w-3xl mx-auto space-y-4">
+        {/* Type filter tabs */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+          {([
+            { key: "all" as const, label: "All Tasks" },
+            { key: "general" as const, label: "General" },
+            { key: "client" as const, label: "Client Tasks" },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setTypeFilter(tab.key)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer",
+                typeFilter === tab.key
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {filteredTasks.length > 0 ? (
           filteredTasks.map((task) => {
             const isOverdue =
