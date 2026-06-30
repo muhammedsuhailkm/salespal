@@ -18,6 +18,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   revalidateTag("salesman-tasks", { expire: 0 });
   revalidateTag("salesman-clients", { expire: 0 });
   revalidateTag("manager-dashboard", { expire: 0 });
+  revalidateTag("manager-tasks", { expire: 0 });
   return NextResponse.json({ task });
 }
 
@@ -34,5 +35,6 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   revalidateTag("salesman-tasks", { expire: 0 });
   revalidateTag("salesman-clients", { expire: 0 });
   revalidateTag("manager-dashboard", { expire: 0 });
+  revalidateTag("manager-tasks", { expire: 0 });
   return NextResponse.json({ ok: true });
 }

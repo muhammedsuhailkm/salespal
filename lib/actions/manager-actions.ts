@@ -55,6 +55,9 @@ export async function createSalesmanAction(data: {
     });
 
     revalidateTag("manager-dashboard", { expire: 0 });
+    revalidateTag("manager-team", { expire: 0 });
+    revalidateTag("manager-tasks", { expire: 0 });
+    revalidateTag("manager-clients", { expire: 0 });
     revalidatePath("/dashboard/manager/team");
     return { success: true, userId: result.id };
   } catch (error: any) {
@@ -76,6 +79,9 @@ export async function removeSalesmanAction(salesmanId: number) {
     });
 
     revalidateTag("manager-dashboard", { expire: 0 });
+    revalidateTag("manager-team", { expire: 0 });
+    revalidateTag("manager-tasks", { expire: 0 });
+    revalidateTag("manager-clients", { expire: 0 });
     revalidatePath("/dashboard/manager/team");
     return { success: true };
   } catch (error: any) {

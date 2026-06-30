@@ -681,3 +681,134 @@ export const getCachedManagerActivityFeed = unstable_cache(
   ["manager-activity-feed"],
   { revalidate: 15, tags: ["manager-dashboard"] }
 );
+
+// M6. Manager tasks page data
+export const getCachedManagerTasksPageData = unstable_cache(
+  async (managerId: number) => {
+    const [salesmanRelations, orgRelations] = await Promise.all([
+      prisma.managerSalesman.findMany({
+        where: { manager_id: managerId },
+        select: { salesman_id: true },
+      }),
+      prisma.managerOrg.findMany({
+        where: { manager_id: managerId },
+        select: { org_id: true },
+      }),
+    ]);
+
+    const salesmanIds = salesmanRelations.map((item) => item.salesman_id);
+    const orgIds = orgRelations.map((item) => item.org_id);
+
+    const [salesmen, clients, regularTasks, clientTasks] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: salesmanIds } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.client.findMany({
+        where: { org_id: { in: orgIds } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.task.findMany({
+        where: { assigned_to_id: { in: salesmanIds } },
+        include: {
+          assignedTo: { select: { name: true } },
+          createdBy: { select: { name: true } },
+        },
+        orderBy: { due_date: "asc" },
+      }),
+      prisma.clientTask.findMany({
+        where: { assigned_to_id: { in: salesmanIds } },
+        include: {
+          assignedTo: { select: { name: true } },
+          createdBy: { select: { name: true } },
+          client: { select: { id: true, name: true } },
+        },
+        orderBy: { due_date: "asc" },
+      }),
+    ]);
+
+    const mappedRegularTasks = regularTasks.map((task) => ({
+      ...task,
+      isClientTask: false,
+      clientId: null,
+      clientName: null,
+    }));
+
+    const mappedClientTasks = clientTasks.map((task) => ({
+      ...task,
+      isClientTask: true,
+      clientId: task.client_id,
+      clientName: task.client.name,
+    }));
+
+    const tasks = [...mappedRegularTasks, ...mappedClientTasks].sort(
+      (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    );
+
+    return { salesmen, clients, tasks };
+  },
+  ["manager-tasks-page"],
+  { revalidate: 30, tags: ["manager-dashboard", "manager-tasks"] }
+);
+
+// M7. Manager clients page data
+export const getCachedManagerClientsPageData = unstable_cache(
+  async (managerId: number) => {
+    const salesmanRelations = await prisma.managerSalesman.findMany({
+      where: { manager_id: managerId },
+      select: { salesman_id: true },
+    });
+
+    const salesmanIds = salesmanRelations.map((item) => item.salesman_id);
+
+    const [salesmen, clients] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: salesmanIds } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.client.findMany({
+        where: { assigned_salesman_id: { in: salesmanIds } },
+        include: {
+          organization: { select: { name: true } },
+          assignedSalesman: { select: { name: true } },
+        },
+        orderBy: { id: "desc" },
+      }),
+    ]);
+
+    return { salesmen, clients };
+  },
+  ["manager-clients-page"],
+  { revalidate: 30, tags: ["manager-dashboard", "manager-clients"] }
+);
+
+// M8. Manager team page data
+export const getCachedManagerTeamPageData = unstable_cache(
+  async (managerId: number) => {
+    const relations = await prisma.managerSalesman.findMany({
+      where: { manager_id: managerId },
+      select: { salesman_id: true },
+    });
+
+    const salesmanIds = relations.map((item) => item.salesman_id);
+
+    return prisma.user.findMany({
+      where: { id: { in: salesmanIds } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        assignedClients: {
+          select: { status: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["manager-team-page"],
+  { revalidate: 60, tags: ["manager-dashboard", "manager-team"] }
+);
