@@ -11,7 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
-import { RotateCcw, X, ChevronDown, Navigation, User, Search, Building } from "lucide-react";
+import { RotateCcw, X, ChevronDown, Navigation, User, Search, Building, Plus, Loader2, MapPin } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
 import { clientStatuses } from "@/types/client";
 
@@ -85,11 +87,14 @@ export function ManagerClientsList({
 
   const [optimisticClients, setOptimisticClients] = useOptimistic(
     initialClients,
-    (state, update: { action: "update"; client: Client }) => {
+    (state, update: { action: "update" | "add"; client: Client }) => {
       if (update.action === "update") {
         return state.map((c) =>
           c.id === update.client.id ? { ...c, ...update.client } : c
         );
+      }
+      if (update.action === "add") {
+        return [update.client, ...state];
       }
       return state;
     }
@@ -97,6 +102,21 @@ export function ManagerClientsList({
 
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Add Client modal state
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    contact_person_name: "",
+    mail_id: "",
+    contact_no: "",
+    status: "lead",
+    notes: "",
+    location_coordinates: "",
+    assigned_salesman_id: "",
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -213,18 +233,75 @@ export function ManagerClientsList({
     });
   }
 
+  // Add client submission
+  async function handleAddSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorMsg(null);
+    setIsSaving(true);
+
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: addForm.name,
+          contact_person_name: addForm.contact_person_name,
+          mail_id: addForm.mail_id || null,
+          contact_no: addForm.contact_no,
+          status: addForm.status,
+          notes: addForm.notes || null,
+          location_coordinates: addForm.location_coordinates || null,
+          assigned_salesman_id: addForm.assigned_salesman_id ? Number(addForm.assigned_salesman_id) : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create client");
+      }
+
+      triggerToast("Client added successfully!");
+      setAddForm({
+        name: "",
+        contact_person_name: "",
+        mail_id: "",
+        contact_no: "",
+        status: "lead",
+        notes: "",
+        location_coordinates: "",
+        assigned_salesman_id: "",
+      });
+      setIsAddOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const hasActiveFilters =
     searchQuery !== "" || statusFilter !== "all" || salesmanFilter !== "all" || dateFilterRange !== "all";
 
   return (
     <div className="space-y-4">
-      {/* Top Header Row */}
+      {/* Top Header Row with Add Button */}
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
             Organization Clients ({filteredClients.length})
           </h2>
         </div>
+        <button
+          onClick={() => {
+            setErrorMsg(null);
+            setIsAddOpen(true);
+          }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+        >
+          <Plus size={14} />
+          <span>Add Client</span>
+        </button>
       </div>
 
       {/* Search and Filters Toolbar */}
@@ -592,6 +669,184 @@ export function ManagerClientsList({
           </button>
         </div>
       )}
+
+      {/* Add Client Modal */}
+      <Modal open={isAddOpen}>
+        <div className="relative">
+          <button
+            onClick={() => setIsAddOpen(false)}
+            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+
+          <div className="mb-4">
+            <h3 className="text-base font-bold text-slate-900">
+              Add New Client
+            </h3>
+            <p className="text-xs text-slate-500">
+              Create a client card and assign it to a salesman.
+            </p>
+          </div>
+
+          {errorMsg && (
+            <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleAddSubmit} className="space-y-3.5">
+            <Input
+              label="Client Name"
+              type="text"
+              required
+              value={addForm.name}
+              onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+              placeholder="e.g. Acme Corp"
+              className="text-xs"
+            />
+
+            <Input
+              label="Contact Person"
+              type="text"
+              required
+              value={addForm.contact_person_name}
+              onChange={(e) =>
+                setAddForm({ ...addForm, contact_person_name: e.target.value })
+              }
+              placeholder="Full Name"
+              className="text-xs"
+            />
+
+            <Input
+              label="Email"
+              type="email"
+              value={addForm.mail_id}
+              onChange={(e) =>
+                setAddForm({ ...addForm, mail_id: e.target.value })
+              }
+              placeholder="email@example.com"
+              className="text-xs"
+            />
+
+            <Input
+              label="Phone Number"
+              type="tel"
+              required
+              value={addForm.contact_no}
+              onChange={(e) =>
+                setAddForm({ ...addForm, contact_no: e.target.value })
+              }
+              placeholder="e.g. +97455556666"
+              className="text-xs"
+            />
+
+            <Input
+              label="Location Coordinates"
+              type="text"
+              value={addForm.location_coordinates}
+              onChange={(e) =>
+                setAddForm({ ...addForm, location_coordinates: e.target.value })
+              }
+              placeholder="e.g. 25.2854, 51.5310"
+              className="text-xs"
+            />
+
+            {/* Assign Salesman - Manager exclusive field */}
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="add-salesman"
+              >
+                Assign Salesman
+              </label>
+              <select
+                id="add-salesman"
+                required
+                value={addForm.assigned_salesman_id}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, assigned_salesman_id: e.target.value })
+                }
+                className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
+              >
+                <option value="">Select a salesman...</option>
+                {salesmen.map((s) => (
+                  <option key={s.id} value={s.id.toString()}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="add-status"
+              >
+                Status
+              </label>
+              <select
+                id="add-status"
+                value={addForm.status}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, status: e.target.value })
+                }
+                className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
+              >
+                <option value="lead">Lead</option>
+                <option value="contacted">Contacted</option>
+                <option value="follow_up">Follow Up</option>
+                <option value="proposal_sent">Proposal Sent</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="onboarding_in_progress">Onboarding In Progress</option>
+                <option value="onboarded">Onboarded</option>
+                <option value="active_client">Active Client</option>
+                <option value="inactive">Inactive</option>
+                <option value="lost">Lost</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-xs font-semibold text-slate-700"
+                htmlFor="add-notes"
+              >
+                Notes
+              </label>
+              <textarea
+                id="add-notes"
+                value={addForm.notes}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, notes: e.target.value })
+                }
+                placeholder="Details of conversations, expectations, etc."
+                rows={3}
+                className="w-full rounded-md border border-slate-300 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(false)}
+                disabled={isSaving}
+                className="px-4 py-2 text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {isSaving && <Loader2 size={12} className="animate-spin" />}
+                <span>Save Client</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
 
       <Toast message={toastMsg || undefined} />
     </div>
