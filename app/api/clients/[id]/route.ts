@@ -55,47 +55,56 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     }
   }
 
-  const client = await prisma.client.update({
-    where: { id: Number(id) },
-    data: {
-      name: body.name ?? undefined,
-      contact_person_name: body.contact_person_name ?? undefined,
-      mail_id: body.mail_id ?? undefined,
-      contact_no: body.contact_no ?? undefined,
-      status: body.status ?? undefined,
-      notes: body.notes !== undefined ? body.notes : undefined,
-      location_coordinates: body.location_coordinates !== undefined ? body.location_coordinates : undefined,
-    },
-  });
+  try {
+    const client = await prisma.$transaction(async (tx) => {
+      const updatedClient = await tx.client.update({
+        where: { id: Number(id) },
+        data: {
+          name: body.name ?? undefined,
+          contact_person_name: body.contact_person_name ?? undefined,
+          mail_id: body.mail_id ?? undefined,
+          contact_no: body.contact_no ?? undefined,
+          status: body.status ?? undefined,
+          notes: body.notes !== undefined ? body.notes : undefined,
+          location_coordinates: body.location_coordinates !== undefined ? body.location_coordinates : undefined,
+        },
+      });
 
-  await prisma.clientLog.create({
-    data: {
-      client_id: client.id,
-      action: `Client details updated: ${body.name || client.name}`,
-      done_by: Number(token.id),
-    },
-  });
+      await tx.clientLog.create({
+        data: {
+          client_id: updatedClient.id,
+          action: `Client details updated: ${body.name || updatedClient.name}`,
+          done_by: Number(token.id),
+        },
+      });
 
-  if (body.status && body.status !== scoped.status) {
-    await prisma.clientLog.create({
-      data: {
-        client_id: client.id,
-        action: `Status changed to ${body.status}`,
-        done_by: Number(token.id),
-      },
+      if (body.status && body.status !== scoped.status) {
+        await tx.clientLog.create({
+          data: {
+            client_id: updatedClient.id,
+            action: `Status changed to ${body.status}`,
+            done_by: Number(token.id),
+          },
+        });
+        await tx.salesmanKpiLog.create({
+          data: {
+            salesman_id: updatedClient.assigned_salesman_id,
+            action: body.status,
+          },
+        });
+      }
+
+      return updatedClient;
     });
-    await prisma.salesmanKpiLog.create({
-      data: {
-        salesman_id: client.assigned_salesman_id,
-        action: body.status,
-      },
-    });
+
+    revalidateTag("salesman-dashboard", { expire: 0 });
+    revalidateTag("salesman-clients", { expire: 0 });
+    revalidateTag("admin-clients", { expire: 0 });
+    revalidateTag("manager-dashboard", { expire: 0 });
+    revalidateTag("manager-clients", { expire: 0 });
+    return NextResponse.json({ client });
+  } catch (error) {
+    console.error("Client update transaction error:", error);
+    return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }
-
-  revalidateTag("salesman-dashboard", { expire: 0 });
-  revalidateTag("salesman-clients", { expire: 0 });
-  revalidateTag("admin-clients", { expire: 0 });
-  revalidateTag("manager-dashboard", { expire: 0 });
-  revalidateTag("manager-clients", { expire: 0 });
-  return NextResponse.json({ client });
 }

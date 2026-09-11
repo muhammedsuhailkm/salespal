@@ -10,8 +10,46 @@ export async function POST(request: NextRequest) {
   if (!isRole(token, 2)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await request.json();
+  const email = String(body.email || "").toLowerCase().trim();
+  if (!email || !body.name) {
+    return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+  }
+
   const password = await bcrypt.hash(body.password ?? "password123", 10);
-  const user = await prisma.user.create({ data: { name: body.name, role_id: 3, email: String(body.email).toLowerCase(), password, phone: body.phone } });
-  await prisma.managerSalesman.create({ data: { manager_id: Number(token.id), salesman_id: user.id } });
-  return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role_id: user.role_id } }, { status: 201 });
+
+  try {
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: body.name,
+          role_id: 3,
+          email,
+          password,
+          phone: body.phone || null,
+        },
+      });
+
+      await tx.managerSalesman.create({
+        data: {
+          manager_id: Number(token.id),
+          salesman_id: newUser.id,
+        },
+      });
+
+      return newUser;
+    });
+
+    return NextResponse.json(
+      { user: { id: user.id, name: user.name, email: user.email, role_id: user.role_id } },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Salesman creation transaction error:", error);
+    return NextResponse.json({ error: "Failed to create salesman" }, { status: 500 });
+  }
 }

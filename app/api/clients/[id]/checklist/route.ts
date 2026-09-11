@@ -36,26 +36,35 @@ export async function PATCH(
   });
   if (!scoped) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Update client
-  const client = await prisma.client.update({
-    where: { id: Number(id) },
-    data: { [key]: value },
-  });
-
   const label = labelMap[key] || key;
   const actionText = value ? `Checked checklist: ${label}` : `Unchecked checklist: ${label}`;
 
-  // Log action
-  await prisma.clientLog.create({
-    data: {
-      client_id: client.id,
-      action: actionText,
-      done_by: Number(token.id),
-    },
-  });
+  try {
+    const client = await prisma.$transaction(async (tx) => {
+      // 1. Update client checklist
+      const updatedClient = await tx.client.update({
+        where: { id: Number(id) },
+        data: { [key]: value },
+      });
 
-  revalidateTag("salesman-dashboard", { expire: 0 });
-  revalidateTag("salesman-clients", { expire: 0 });
+      // 2. Insert audit log
+      await tx.clientLog.create({
+        data: {
+          client_id: updatedClient.id,
+          action: actionText,
+          done_by: Number(token.id),
+        },
+      });
 
-  return NextResponse.json({ client });
+      return updatedClient;
+    });
+
+    revalidateTag("salesman-dashboard", { expire: 0 });
+    revalidateTag("salesman-clients", { expire: 0 });
+
+    return NextResponse.json({ client });
+  } catch (error) {
+    console.error("Checklist update transaction error:", error);
+    return NextResponse.json({ error: "Failed to update checklist item" }, { status: 500 });
+  }
 }
