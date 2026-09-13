@@ -120,7 +120,9 @@ export function DesktopHeaderProfile() {
                 ? "Administrator"
                 : roleId === 2
                   ? "Manager"
-                  : "Sales Representative"}
+                  : roleId === 4
+                    ? "Accountant"
+                    : "Sales Representative"}
             </span>
           </div>
 

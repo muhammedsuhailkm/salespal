@@ -42,6 +42,8 @@ model User {
   kpiLogs         SalesmanKpiLog[]  @relation("SalesmanKpi")
   assignedClientTasks ClientTask[]  @relation("AssignedClientTasks")
   createdClientTasks  ClientTask[]  @relation("CreatedClientTasks")
+  createdOrders       Order[]       @relation("OrderCreatedBy")
+  updatedShippingRates ShippingRate[] @relation("ShippingRateUpdatedBy")
 
   @@map("users")
 }
@@ -91,6 +93,7 @@ model Client {
   organization                 Organization @relation(fields: [org_id], references: [id])
   logs                         ClientLog[]
   clientTasks                  ClientTask[]
+  orders                       Order[]
 
   @@index([assigned_salesman_id])
   @@index([org_id])
@@ -151,4 +154,47 @@ model ClientTask {
   @@index([client_id, due_date])
   @@index([assigned_to_id])
   @@map("client_tasks")
+}
+
+model Order {
+  id                Int      @id @default(autoincrement())
+  client_id         Int
+  mode              String
+  description       String
+  payment_mode      String
+  amount            Decimal  @default(0) @db.Decimal(12, 2)
+  advance_amount    Decimal  @default(0) @db.Decimal(12, 2)
+  from              String
+  to                String
+  status            String   @default("draft")
+  accounts_approval String   @default("pending")
+  manager_approval  String   @default("pending")
+  created_by_id     Int
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  client            Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  createdBy         User     @relation("OrderCreatedBy", fields: [created_by_id], references: [id])
+
+  @@index([client_id])
+  @@index([created_by_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("orders")
+}
+
+model ShippingRate {
+  id            Int      @id @default(autoincrement())
+  location      String
+  port          String
+  mode          String
+  container     String
+  price         Decimal  @default(0) @db.Decimal(12, 2)
+  updated_by_id Int
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  updatedBy     User     @relation("ShippingRateUpdatedBy", fields: [updated_by_id], references: [id])
+
+  @@unique([location, port, mode, container])
+  @@index([location, port])
+  @@map("shipping_rates")
 }

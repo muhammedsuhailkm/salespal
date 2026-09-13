@@ -34,6 +34,7 @@ async function main() {
       { id: 1, name: "Admin" },
       { id: 2, name: "Manager" },
       { id: 3, name: "Salesman" },
+      { id: 4, name: "Accountant" },
     ],
   });
 

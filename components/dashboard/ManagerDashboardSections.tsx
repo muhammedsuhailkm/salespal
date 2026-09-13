@@ -4,8 +4,11 @@ import {
   getCachedManagerLogs,
   getCachedManagerTasks,
   getCachedManagerActivityFeed,
+  getMonthlyOrderStats,
 } from "@/lib/cached-queries";
+import { orderStatsScope } from "@/lib/scoping";
 import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
+import { OrderMonthlyChart } from "@/components/orders/OrderMonthlyChart";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn, formatDate } from "@/lib/utils";
@@ -988,6 +991,40 @@ export async function ManagerActivityFeed({
 }
 
 
+const ORDER_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export async function ManagerOrderStatsSection({ managerId }: { managerId: number }) {
+  const scope = await orderStatsScope({ id: managerId, role_id: 2 });
+  const stats = await getMonthlyOrderStats(scope);
+
+  const now = new Date();
+  const chartDataMap: Record<string, { totalCollected: number; totalPending: number; orderCount: number }> = {};
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${ORDER_MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+    chartDataMap[key] = { totalCollected: 0, totalPending: 0, orderCount: 0 };
+  }
+  for (const row of stats) {
+    const d = new Date(row.month);
+    const key = `${ORDER_MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+    if (key in chartDataMap) {
+      chartDataMap[key] = {
+        totalCollected: row.totalCollected,
+        totalPending: row.totalPending,
+        orderCount: row.orderCount,
+      };
+    }
+  }
+  const chartData = Object.entries(chartDataMap).map(([month, values]) => ({ month, ...values }));
+
+  return (
+    <Card className="rounded-2xl">
+      <h3 className="text-sm font-semibold text-slate-900 mb-4">Team Orders — Collected vs Pending</h3>
+      <OrderMonthlyChart data={chartData} />
+    </Card>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════
    Skeleton Fallbacks
    ═══════════════════════════════════════════════════════ */
@@ -1100,6 +1137,15 @@ export function ManagerActivitySkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+export function ManagerOrderStatsSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      <Skeleton className="h-4 w-56" />
+      <Skeleton className="h-[280px] w-full rounded-xl" />
     </div>
   );
 }

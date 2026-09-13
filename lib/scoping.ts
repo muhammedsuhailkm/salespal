@@ -33,6 +33,31 @@ export async function clientScopeWhere(token: ScopedToken): Promise<Prisma.Clien
   return { id: -1 };
 }
 
+export async function orderScopeWhere(token: ScopedToken): Promise<Prisma.OrderWhereInput> {
+  const userId = getTokenUserId(token);
+  // Accounts approval is a company-wide finance function — accountants aren't tied
+  // to an org like managers are, so they see every order (same as Admin).
+  if (token.role_id === 1 || token.role_id === 4) return {};
+  if (token.role_id === 2) {
+    const orgIds = token.org_ids?.length ? token.org_ids : await getManagerOrgIds(userId);
+    return { client: { org_id: { in: orgIds } } };
+  }
+  if (token.role_id === 3) return { created_by_id: userId };
+  return { id: -1 };
+}
+
+export type OrderStatsScope = { role_id: number; userId: number; orgIds: number[] };
+
+/** Same role branching as orderScopeWhere, reshaped into plain values a raw SQL query can filter by. */
+export async function orderStatsScope(token: ScopedToken): Promise<OrderStatsScope> {
+  const userId = getTokenUserId(token);
+  if (token.role_id === 2) {
+    const orgIds = token.org_ids?.length ? token.org_ids : await getManagerOrgIds(userId);
+    return { role_id: 2, userId, orgIds };
+  }
+  return { role_id: token.role_id ?? 0, userId, orgIds: [] };
+}
+
 export async function taskScopeWhere(token: ScopedToken): Promise<Prisma.TaskWhereInput> {
   const userId = getTokenUserId(token);
   if (token.role_id === 1) return {};

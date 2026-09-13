@@ -114,3 +114,37 @@ export async function createUserAction(data: {
   revalidatePath("/dashboard/admin/companies");
   return { success: true, userId: newUser.id };
 }
+
+/** Accountant role (id 4) — owner/admin-only, no org or manager assignment. */
+export async function createAccountantAction(data: {
+  name: string;
+  email: string;
+  phone?: string;
+}) {
+  await verifyAdmin();
+
+  const email = data.email.toLowerCase();
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    return { success: false, error: "A user with this email address already exists." };
+  }
+
+  const defaultPasswordHash = bcrypt.hashSync("salespal123", 10);
+
+  try {
+    const newUser = await prisma.user.create({
+      data: {
+        name: data.name,
+        email,
+        phone: data.phone || null,
+        role_id: 4,
+        password: defaultPasswordHash,
+      },
+    });
+
+    revalidatePath("/dashboard/admin/users");
+    return { success: true, userId: newUser.id };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to create accountant." };
+  }
+}

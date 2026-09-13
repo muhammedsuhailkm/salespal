@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
+import { Prisma } from "@prisma/client";
+import type { OrderStatsScope } from "@/lib/scoping";
 
 /* ═══════════════════════════════════════════════════════
    Salesman Dashboard — split into independent cached queries
@@ -811,4 +813,149 @@ export const getCachedManagerTeamPageData = unstable_cache(
   },
   ["manager-team-page"],
   { revalidate: 60, tags: ["manager-dashboard", "manager-team"] }
+);
+
+
+/* ═══════════════════════════════════════════════════════
+   Orders — cached queries
+   ═══════════════════════════════════════════════════════ */
+
+// Prisma's Decimal isn't safely serializable across the unstable_cache / RSC
+// boundary, so every order query converts amount/advance_amount to plain numbers
+// and computes `balance` here rather than persisting it, to avoid drift.
+function serializeOrder<T extends { amount: { toNumber(): number }; advance_amount: { toNumber(): number } }>(order: T) {
+  const amount = order.amount.toNumber();
+  const advance_amount = order.advance_amount.toNumber();
+  return { ...order, amount, advance_amount, balance: amount - advance_amount };
+}
+
+// O1. Orders created by a salesman
+export const getSalesmanOrders = unstable_cache(
+  async (userId: number) => {
+    const orders = await prisma.order.findMany({
+      where: { created_by_id: userId },
+      include: {
+        client: { select: { id: true, name: true } },
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+    return orders.map(serializeOrder);
+  },
+  ["salesman-orders"],
+  { revalidate: 30, tags: ["salesman-orders"] }
+);
+
+// O2. Orders scoped to a manager's org(s)
+export const getManagerOrders = unstable_cache(
+  async (managerId: number) => {
+    const orgs = await prisma.managerOrg.findMany({
+      where: { manager_id: managerId },
+      select: { org_id: true },
+    });
+    const orgIds = orgs.map((o) => o.org_id);
+
+    const orders = await prisma.order.findMany({
+      where: { client: { org_id: { in: orgIds } } },
+      include: {
+        client: { select: { id: true, name: true } },
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+    return orders.map(serializeOrder);
+  },
+  ["manager-orders"],
+  { revalidate: 30, tags: ["manager-orders"] }
+);
+
+// O2b. All orders, for accountants (company-wide accounts approval — not org-scoped)
+export const getAccountantOrders = unstable_cache(
+  async () => {
+    const orders = await prisma.order.findMany({
+      include: {
+        client: { select: { id: true, name: true } },
+        createdBy: { select: { name: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+    return orders.map(serializeOrder);
+  },
+  ["accountant-orders"],
+  { revalidate: 30, tags: ["accountant-orders"] }
+);
+
+// O3. Single order detail
+export const getOrderById = unstable_cache(
+  async (orderId: number) => {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        client: { select: { id: true, name: true, org_id: true } },
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+    return order ? serializeOrder(order) : null;
+  },
+  ["order-detail"],
+  { revalidate: 15, tags: ["salesman-orders", "manager-orders", "accountant-orders"] }
+);
+
+// O4. Monthly order stats (orderCount, totalAmount, totalCollected, totalPending), raw-SQL aggregated
+export const getMonthlyOrderStats = unstable_cache(
+  async (scope: OrderStatsScope) => {
+    let whereClause: Prisma.Sql;
+    if (scope.role_id === 1) {
+      whereClause = Prisma.sql`TRUE`;
+    } else if (scope.role_id === 2) {
+      whereClause = scope.orgIds.length ? Prisma.sql`c.org_id IN (${Prisma.join(scope.orgIds)})` : Prisma.sql`FALSE`;
+    } else if (scope.role_id === 3) {
+      whereClause = Prisma.sql`o.created_by_id = ${scope.userId}`;
+    } else {
+      whereClause = Prisma.sql`FALSE`;
+    }
+
+    const rows = await prisma.$queryRaw<
+      { month: Date; orderCount: number; totalAmount: number; totalCollected: number; totalPending: number }[]
+    >(Prisma.sql`
+      SELECT
+        date_trunc('month', o.created_at) AS month,
+        COUNT(*)::int AS "orderCount",
+        COALESCE(SUM(o.amount), 0)::float8 AS "totalAmount",
+        COALESCE(SUM(o.advance_amount), 0)::float8 AS "totalCollected",
+        COALESCE(SUM(o.amount - o.advance_amount), 0)::float8 AS "totalPending"
+      FROM orders o
+      JOIN clients c ON c.id = o.client_id
+      WHERE ${whereClause}
+      GROUP BY month
+      ORDER BY month ASC
+    `);
+
+    return rows.map((row) => ({
+      month: row.month,
+      orderCount: Number(row.orderCount),
+      totalAmount: Number(row.totalAmount),
+      totalCollected: Number(row.totalCollected),
+      totalPending: Number(row.totalPending),
+    }));
+  },
+  ["order-monthly-stats"],
+  { revalidate: 60, tags: ["order-stats"] }
+);
+
+
+/* ═══════════════════════════════════════════════════════
+   Shipping Rates — set by accountants, read by everyone
+   ═══════════════════════════════════════════════════════ */
+
+export const getShippingRates = unstable_cache(
+  async () => {
+    const rates = await prisma.shippingRate.findMany({
+      include: { updatedBy: { select: { name: true } } },
+      orderBy: [{ location: "asc" }, { port: "asc" }],
+    });
+    return rates.map((rate) => ({ ...rate, price: rate.price.toNumber() }));
+  },
+  ["shipping-rates"],
+  { revalidate: 60, tags: ["shipping-rates"] }
 );

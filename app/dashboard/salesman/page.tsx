@@ -18,6 +18,7 @@ import {
   Minus,
 } from "lucide-react";
 import { MonthlyActivityChart } from "@/components/dashboard/MonthlyActivityChart";
+import { OrderMonthlyChart } from "@/components/orders/OrderMonthlyChart";
 import { TaskOverview } from "@/components/dashboard/TaskOverview";
 import {
   getCachedSalesmanInfo,
@@ -25,7 +26,9 @@ import {
   getCachedMonthLogs,
   getCachedSalesmanTasks,
   getCachedOnboardedByMonth,
+  getMonthlyOrderStats,
 } from "@/lib/cached-queries";
+import { orderStatsScope } from "@/lib/scoping";
 
 /* ── Skeleton fragments for each Suspense boundary ── */
 
@@ -410,6 +413,40 @@ async function MonthlyChartSection({ userId }: { userId: number }) {
   );
 }
 
+const ORDER_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+async function OrderStatsSection({ userId }: { userId: number }) {
+  const scope = await orderStatsScope({ id: userId, role_id: 3 });
+  const stats = await getMonthlyOrderStats(scope);
+
+  const now = new Date();
+  const chartDataMap: Record<string, { totalCollected: number; totalPending: number; orderCount: number }> = {};
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${ORDER_MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+    chartDataMap[key] = { totalCollected: 0, totalPending: 0, orderCount: 0 };
+  }
+  for (const row of stats) {
+    const d = new Date(row.month);
+    const key = `${ORDER_MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+    if (key in chartDataMap) {
+      chartDataMap[key] = {
+        totalCollected: row.totalCollected,
+        totalPending: row.totalPending,
+        orderCount: row.orderCount,
+      };
+    }
+  }
+  const chartData = Object.entries(chartDataMap).map(([month, values]) => ({ month, ...values }));
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">Orders — Collected vs Pending</h2>
+      <OrderMonthlyChart data={chartData} />
+    </div>
+  );
+}
+
 async function TasksSection({ userId }: { userId: number }) {
   const tasks = await getCachedSalesmanTasks(userId);
 
@@ -464,7 +501,12 @@ export default async function SalesmanDashboardPage() {
           <MonthlyChartSection userId={userId} />
         </Suspense>
 
-        {/* ─── 4. Tasks Overview ─── */}
+        {/* ─── 4. Order Stats Chart ─── */}
+        <Suspense fallback={<ChartSkeleton />}>
+          <OrderStatsSection userId={userId} />
+        </Suspense>
+
+        {/* ─── 5. Tasks Overview ─── */}
         <Suspense fallback={<TasksSkeleton />}>
           <TasksSection userId={userId} />
         </Suspense>

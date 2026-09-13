@@ -8,10 +8,12 @@ import {
   SalesmanPerformanceSection,
   FunnelAndTasksSection,
   ManagerActivityFeed,
+  ManagerOrderStatsSection,
   ManagerKpiSkeleton,
   ManagerPerfSkeleton,
   ManagerFunnelTasksSkeleton,
   ManagerActivitySkeleton,
+  ManagerOrderStatsSkeleton,
 } from "@/components/dashboard/ManagerDashboardSections";
 
 type PeriodKey = "this_month" | "last_month";
@@ -91,6 +93,11 @@ export default async function ManagerDashboardPage({
         {/* ─── 5. Team Activity Feed ─── */}
         <Suspense fallback={<ManagerActivitySkeleton />}>
           <ManagerActivityFeed managerId={managerId} />
+        </Suspense>
+
+        {/* ─── 6. Order Stats Chart ─── */}
+        <Suspense fallback={<ManagerOrderStatsSkeleton />}>
+          <ManagerOrderStatsSection managerId={managerId} />
         </Suspense>
       </div>
     </>

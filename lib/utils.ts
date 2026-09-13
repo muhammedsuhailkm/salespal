@@ -10,6 +10,10 @@ export function titleCase(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+export function formatAmount(value: number | string) {
+  return new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
+}
+
 export function formatPhoneNumber(phone: string | null | undefined) {
   if (!phone) return "-";
   const trimmed = phone.trim();

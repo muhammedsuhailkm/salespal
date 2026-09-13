@@ -16,6 +16,8 @@ import {
   BarChart3,
   UsersRound,
   ListTodo,
+  Package,
+  Ship,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -38,6 +40,8 @@ const ICON_MAP: Record<
   Reports: BarChart3,
   Team: UsersRound,
   Tasks: ListTodo,
+  Orders: Package,
+  "Shipping Rates": Ship,
 };
 
 /* ══════════════════════════════════════════════════
@@ -358,7 +362,9 @@ export function SideNav() {
                     ? "Administrator"
                     : roleId === 2
                       ? "Manager"
-                      : "Sales Representative"}
+                      : roleId === 4
+                        ? "Accountant"
+                        : "Sales Representative"}
                 </span>
               </div>
             </div>
