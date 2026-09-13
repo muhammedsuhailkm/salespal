@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { roleHome } from "@/lib/nav-config";
 
 export function LoginForm() {
   const router = useRouter();
@@ -33,11 +34,7 @@ export function LoginForm() {
     const sessionData = await sessionRes.json();
     const roleId = sessionData?.user?.role_id;
 
-    const dest = roleId === 1 
-      ? "/dashboard/admin" 
-      : roleId === 2 
-        ? "/dashboard/manager" 
-        : "/dashboard/salesman";
+    const dest = roleHome[roleId] ?? "/dashboard";
 
     router.replace(dest);
     router.refresh();

@@ -1,7 +1,7 @@
 export const roleHome: Record<number, string> = {
   1: "/dashboard/admin",
   2: "/dashboard/manager",
-  3: "/dashboard/salesman",
+  3: "/dashboard/salesman/dashboard-org",
 };
 
 export const navConfig: Record<number, { label: string; href: string }[]> = {
@@ -19,6 +19,7 @@ export const navConfig: Record<number, { label: string; href: string }[]> = {
     { label: "Clients", href: "/dashboard/manager/clients" },
   ],
   3: [
+    { label: "Dashboard", href: "/dashboard/salesman/dashboard-org" },
     { label: "Overview", href: "/dashboard/salesman" },
     { label: "Tasks", href: "/dashboard/salesman/tasks" },
     { label: "Clients", href: "/dashboard/salesman/clients" },

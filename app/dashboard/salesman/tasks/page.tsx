@@ -45,7 +45,7 @@ function TasksListSkeleton() {
       </div>
 
       {/* Mock Task Cards */}
-      <div className="max-w-2xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
             <div className="flex items-center justify-between">

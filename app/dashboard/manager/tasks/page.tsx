@@ -54,7 +54,7 @@ function ManagerTasksSkeleton() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
           <Skeleton className="h-7 w-20 rounded-lg" />
           <Skeleton className="h-7 w-16 rounded-lg" />

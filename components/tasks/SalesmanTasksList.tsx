@@ -249,7 +249,7 @@ export function SalesmanTasksList({
       </div>
 
       {/* Unified Single Vertical List Layout */}
-      <div className="max-w-2xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {combinedTasks.length > 0 ? (
           combinedTasks.map((item) => {
             const task = item.data;

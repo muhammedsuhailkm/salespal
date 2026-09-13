@@ -387,7 +387,7 @@ export function ManagerTasksList({
       </div>
 
       {/* Task List */}
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Type filter tabs */}
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
           {([

@@ -13,13 +13,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  // Determine role title for display in the header
-  const roleName = session.user.role_id === 1 
-    ? "Admin Dashboard" 
-    : session.user.role_id === 2 
-      ? "Manager Dashboard" 
-      : "Salesman Dashboard";
-
   return (
     <NavigationProvider>
       <div className="flex h-screen bg-slate-50">
@@ -31,9 +24,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <h2 className="text-sm font-semibold text-white leading-tight">
                 Welcome back, {session.user.name}
               </h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {roleName}
-              </p>
             </div>
             <div className="flex items-center gap-3.5">
               <button 

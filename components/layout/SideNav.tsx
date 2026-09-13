@@ -9,6 +9,7 @@ import { navConfig, roleHome } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Building2,
   Users,
   UserCheck,
@@ -28,7 +29,9 @@ const ICON_MAP: Record<
   string,
   React.ComponentType<{ size?: number; className?: string }>
 > = {
-  Overview: LayoutDashboard,
+  "Dashboard-Org": LayoutDashboard,
+  Dashboard: LayoutDashboard,
+  Overview: LayoutGrid,
   Companies: Building2,
   Users: Users,
   Clients: UserCheck,
@@ -127,7 +130,14 @@ export function SideNav() {
   function isActive(href: string) {
     // If we have a pending navigation, use that for instant highlight
     const activePath = pendingHref ?? pathname;
-    if (href === homePath) return activePath === href;
+    if (
+      href === homePath ||
+      href === "/dashboard/salesman" ||
+      href === "/dashboard/admin" ||
+      href === "/dashboard/manager"
+    ) {
+      return activePath === href;
+    }
     return activePath === href || activePath.startsWith(`${href}/`);
   }
 
@@ -143,26 +153,28 @@ export function SideNav() {
         {/* Brand */}
         <div
           className={cn(
-            "flex items-center shrink-0 border-b border-slate-800/40 justify-center",
-            isExpanded ? "h-20 px-3" : "h-16 px-2",
+            "flex items-center shrink-0 border-b border-slate-800/40",
+            isExpanded ? "h-16 px-4" : "h-16 px-2 justify-center",
           )}
         >
           <Link
             href="/dashboard"
-            className="flex items-center justify-center w-full"
+            className={cn(
+              "flex items-center transition-opacity hover:opacity-90",
+              isExpanded ? "gap-2.5 w-full" : "justify-center w-full",
+            )}
           >
-            {isExpanded ? (
-              <img
-                src="/logo_expanded_org.png"
-                alt="SalesPal Logo"
-                className="max-h-12 w-auto object-contain rounded"
-              />
-            ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-1 shadow-sm ring-1 ring-white/10">
               <img
                 src="/logo_collapsed.png"
-                alt="S"
-                className="h-9 w-9 object-contain rounded"
+                alt="SalesPal Logo"
+                className="h-full w-full object-contain rounded"
               />
+            </div>
+            {isExpanded && (
+              <span className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
+                Sales<span className="text-teal-400">Pal</span>
+              </span>
             )}
           </Link>
         </div>
@@ -257,7 +269,7 @@ export function SideNav() {
         {/* Collapse / expand toggle */}
         <button
           type="button"
-          className="absolute top-20 -right-3.5 z-50 flex h-7 w-7 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-500 shadow-md hover:shadow-lg hover:text-slate-800 transition-all duration-200 cursor-pointer"
+          className="absolute top-16 -translate-y-1/2 -right-3.5 z-50 flex h-7 w-7 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-500 shadow-md hover:shadow-lg hover:text-slate-800 transition-all duration-200 cursor-pointer"
           onClick={() => setIsExpanded((prev) => !prev)}
         >
           {isExpanded ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}

@@ -390,7 +390,7 @@ export function CompaniesClient({
           const bodyBg = isCompanyA ? "bg-teal-50 border-teal-100" : "bg-blue-50 border-blue-100";
           const labelText = isCompanyA ? "text-teal-700" : "text-blue-700";
           const labelAccentText = isCompanyA ? "text-teal-600" : "text-blue-600";
-          const managerCardBorder = isCompanyA ? "border-l-teal-600 border-teal-100" : "border-l-blue-600 border-blue-100";
+          const managerCardBorder = isCompanyA ? "border-teal-500 ring-1 ring-teal-500/20" : "border-blue-500 ring-1 ring-blue-500/20";
           const managerAvatarBg = isCompanyA ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700";
           const teamKpiText = isCompanyA ? "text-3xl font-extrabold text-teal-600" : "text-3xl font-extrabold text-blue-600";
           const salesmanRowBorder = isCompanyA ? "border-teal-100" : "border-blue-100";
@@ -458,7 +458,7 @@ export function CompaniesClient({
                       return (
                         <div
                           key={manager.id}
-                          className={`bg-white rounded-2xl p-5 shadow-sm min-w-[320px] max-w-[340px] border border-slate-100 flex-shrink-0 flex flex-col justify-between border-l-4 ${managerCardBorder}`}
+                          className={`bg-white rounded-2xl p-5 shadow-sm min-w-[320px] max-w-[340px] flex-shrink-0 flex flex-col justify-between border-2 ${managerCardBorder}`}
                         >
                           <div className="space-y-4">
                             {/* Manager Block Header */}
