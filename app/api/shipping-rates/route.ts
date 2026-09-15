@@ -38,15 +38,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A rate for this location, port, mode and container already exists — edit it instead" }, { status: 409 });
   }
 
+  const carrier = body.carrier !== undefined ? (body.carrier ? String(body.carrier).trim() : null) : null;
+  const currency = body.currency === "QAR" ? "QAR" : "USD";
+
   const rate = await prisma.shippingRate.create({
     data: {
       location,
       port,
+      carrier,
+      currency,
       mode: body.mode,
       container: body.container,
       price,
       updated_by_id: Number(token.id),
-    },
+    } as any,
   });
 
   revalidateTag("shipping-rates", { expire: 0 });

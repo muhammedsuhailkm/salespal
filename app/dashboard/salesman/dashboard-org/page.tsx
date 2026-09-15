@@ -22,11 +22,7 @@ export default function SalesmanDashboardOrgPage() {
 async function ShippingRatesSection() {
   const rates = await getShippingRates();
 
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <ShippingRateTable initialRates={rates} />
-    </div>
-  );
+  return <ShippingRateTable initialRates={rates} />;
 }
 
 function ShippingRatesSkeleton() {

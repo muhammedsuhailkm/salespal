@@ -37,9 +37,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: "Another rate already exists for this location, port, mode and container" }, { status: 409 });
   }
 
+  const carrier = body.carrier !== undefined ? (body.carrier ? String(body.carrier).trim() : null) : (existing as any).carrier;
+  const currency = body.currency !== undefined ? (body.currency === "QAR" ? "QAR" : "USD") : (existing as any).currency ?? "USD";
+
   const rate = await prisma.shippingRate.update({
     where: { id: existing.id },
-    data: { location, port, mode, container, price, updated_by_id: Number(token.id) },
+    data: { location, port, carrier, currency, mode, container, price, updated_by_id: Number(token.id) } as any,
   });
 
   revalidateTag("shipping-rates", { expire: 0 });
