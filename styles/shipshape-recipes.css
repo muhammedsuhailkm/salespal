@@ -1,0 +1,362 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ShipShape UI — Component Recipes
+   Reusable CSS classes for badges, surfaces, and typography
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── BADGE BASE ─── */
+
+.ss-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-xs);
+  padding: var(--ds-space-2xs) var(--ds-space-sm);
+  font-family: var(--ds-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--ds-radius-full);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Badge variants */
+.ss-badge-positive {
+  background: var(--ds-status-positive-bg);
+  color: var(--ds-status-positive-text);
+  border-color: var(--ds-status-positive-border);
+}
+
+.ss-badge-warning {
+  background: var(--ds-status-warning-bg);
+  color: var(--ds-status-warning-text);
+  border-color: var(--ds-status-warning-border);
+}
+
+.ss-badge-negative {
+  background: var(--ds-status-negative-bg);
+  color: var(--ds-status-negative-text);
+  border-color: var(--ds-status-negative-border);
+}
+
+.ss-badge-info {
+  background: var(--ds-status-info-bg);
+  color: var(--ds-status-info-text);
+  border-color: var(--ds-status-info-border);
+}
+
+.ss-badge-accent {
+  background: var(--ds-status-accent-bg);
+  color: var(--ds-status-accent-text);
+  border-color: var(--ds-status-accent-border);
+}
+
+.ss-badge-neutral {
+  background: var(--ds-surface-sunken);
+  color: var(--ds-text-secondary);
+  border-color: var(--ds-border-default);
+}
+
+
+/* ─── SURFACE RECIPES ─── */
+
+.ss-card {
+  background: var(--ds-surface-card);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-xs);
+}
+
+.ss-card-selected {
+  background: var(--ds-surface-selected);
+  border: 2px solid var(--ds-border-brand);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.ss-card-elevated {
+  background: var(--ds-surface-card);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-md);
+}
+
+.ss-table-surface {
+  background: var(--ds-surface-card);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--ds-shadow-xs);
+}
+
+.ss-table-header {
+  background: var(--ds-surface-sunken);
+  border-bottom: 1px solid var(--ds-border-default);
+}
+
+
+/* ─── TYPOGRAPHY RECIPES ─── */
+
+.ss-type-section-title {
+  font-family: var(--ds-font-sans);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--ds-text-primary);
+}
+
+.ss-type-heading {
+  font-family: var(--ds-font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ds-text-primary);
+}
+
+.ss-type-body {
+  font-family: var(--ds-font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ds-text-primary);
+}
+
+.ss-type-body-sm {
+  font-family: var(--ds-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ds-text-primary);
+}
+
+.ss-type-price-hero {
+  font-family: var(--ds-font-sans);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-feature-settings: var(--ds-font-tabular);
+  color: var(--ds-price-primary);
+}
+
+.ss-type-price-lg {
+  font-family: var(--ds-font-sans);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-feature-settings: var(--ds-font-tabular);
+  color: var(--ds-price-primary);
+}
+
+.ss-type-price-md {
+  font-family: var(--ds-font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-feature-settings: var(--ds-font-tabular);
+  color: var(--ds-price-primary);
+}
+
+.ss-type-price-sm {
+  font-family: var(--ds-font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-feature-settings: var(--ds-font-tabular);
+  color: var(--ds-price-primary);
+}
+
+.ss-type-data-cell {
+  font-family: var(--ds-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.35;
+  font-feature-settings: var(--ds-font-tabular);
+}
+
+.ss-type-label {
+  font-family: var(--ds-font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-text-secondary);
+}
+
+.ss-type-overline {
+  font-family: var(--ds-font-sans);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-text-muted);
+}
+
+.ss-type-caption {
+  font-family: var(--ds-font-sans);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ds-text-muted);
+}
+
+
+/* ─── RATE TABLE RECIPES ─── */
+
+.ss-rate-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ss-rate-table th {
+  padding: var(--ds-space-sm) var(--ds-space-lg);
+  font-family: var(--ds-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ds-text-secondary);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--ds-surface-sunken);
+  border-bottom: 1px solid var(--ds-border-default);
+}
+
+.ss-rate-table td {
+  padding: var(--ds-space-md) var(--ds-space-lg);
+  font-family: var(--ds-font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.ss-rate-table tbody tr {
+  cursor: default;
+  transition: background var(--ds-motion-fast) var(--ds-motion-ease);
+}
+
+.ss-rate-table tbody tr:hover {
+  background: var(--ds-surface-card-hover);
+}
+
+/* Striped rows */
+.ss-rate-table tbody tr:nth-child(even) {
+  background: var(--ds-surface-stripe);
+}
+
+.ss-rate-table tbody tr:nth-child(even):hover {
+  background: var(--ds-surface-card-hover);
+}
+
+/* Selected row */
+.ss-rate-table tbody tr.ss-row-selected {
+  background: var(--ds-surface-selected) !important;
+}
+
+.ss-rate-table tbody tr.ss-row-selected:hover {
+  background: var(--ds-surface-selected-strong) !important;
+}
+
+/* Expired row */
+.ss-rate-table tbody tr.ss-row-expired {
+  opacity: 0.5;
+}
+
+.ss-rate-table tbody tr.ss-row-expired:hover {
+  background: transparent;
+}
+
+/* Best price highlight */
+.ss-price-best {
+  color: var(--ds-price-savings) !important;
+}
+
+
+/* ─── RATE CARD RECIPE ─── */
+
+.ss-rate-card {
+  background: var(--ds-surface-card);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-xs);
+  padding: var(--ds-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-md);
+  transition:
+    border-color var(--ds-motion-fast) var(--ds-motion-ease),
+    box-shadow var(--ds-motion-fast) var(--ds-motion-ease);
+}
+
+.ss-rate-card:hover {
+  border-color: var(--ds-border-strong);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.ss-rate-card--selected {
+  background: var(--ds-surface-selected);
+  border: 2px solid var(--ds-border-brand);
+  box-shadow: var(--ds-shadow-sm);
+  padding: calc(var(--ds-space-lg) - 1px);
+}
+
+.ss-rate-card--expired {
+  opacity: 0.55;
+}
+
+.ss-rate-card--expired:hover {
+  border-color: var(--ds-border-default);
+  box-shadow: var(--ds-shadow-xs);
+}
+
+
+/* ─── UTILITY CLASSES ─── */
+
+.ss-tabular {
+  font-feature-settings: var(--ds-font-tabular);
+}
+
+.ss-text-primary { color: var(--ds-text-primary); }
+.ss-text-secondary { color: var(--ds-text-secondary); }
+.ss-text-muted { color: var(--ds-text-muted); }
+.ss-text-brand { color: var(--ds-text-brand); }
+.ss-text-savings { color: var(--ds-price-savings); }
+.ss-text-expensive { color: var(--ds-price-expensive); }
+
+.ss-carrier-name {
+  font-weight: 600;
+  color: var(--ds-text-primary);
+}
+
+
+/* ─── FILTER SELECT ─── */
+
+.ss-filter-select {
+  height: 2rem;
+  padding: 0 var(--ds-space-sm);
+  font-family: var(--ds-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ds-text-secondary);
+  background: var(--ds-surface-sunken);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radius-md);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--ds-motion-fast) var(--ds-motion-ease);
+  appearance: auto;
+}
+
+.ss-filter-select:hover {
+  background: var(--ds-surface-card-hover);
+}
+
+.ss-filter-select:focus {
+  border-color: var(--ds-border-brand);
+}
+
