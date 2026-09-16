@@ -14,6 +14,13 @@ import { Card } from "@/components/ui/Card";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SectionCard } from "@/components/dashboard/SectionCard";
+import { StatCard, type StatCardTheme } from "@/components/dashboard/StatCard";
+import {
+  CompanyComparisonCard,
+  PIPELINE_STAGE_COLORS,
+  type ComparisonStatus,
+} from "@/components/dashboard/CompanyComparisonCard";
 import {
   SmartAlertBanner,
   type AlertItem,
@@ -201,131 +208,65 @@ export async function KpiCardsRow({
   const activePipeline = (counts.follow_up ?? 0) + (counts.lead ?? 0);
   const conversionRate =
     totalClients > 0 ? Math.round((onboardedClients / totalClients) * 100) : 0;
-  const achievedTasks = tasks.filter((t) => t.status === "achieved").length;
-  const taskCompletionRate =
-    tasks.length > 0 ? Math.round((achievedTasks / tasks.length) * 100) : 0;
+
+  const onboardedDiff = onboardedThisPeriod - onboardedPrevPeriod;
+  const onboardedPct = onboardedPrevPeriod > 0
+    ? Math.round((onboardedDiff / onboardedPrevPeriod) * 100)
+    : onboardedThisPeriod > 0
+      ? 100
+      : 0;
+
+  const lostDiff = lostThisPeriod - lostPrevPeriod;
+  const lostPct = lostPrevPeriod > 0
+    ? Math.round((lostDiff / lostPrevPeriod) * 100)
+    : lostThisPeriod > 0
+      ? 100
+      : 0;
 
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-      {/* Onboarded Card */}
-      <div className="rounded-2xl border bg-emerald-50/60 border-emerald-100 p-5 shadow-sm border-t-[3px] border-t-emerald-500 transition-all duration-200 hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-emerald-100/50 shadow-sm">
-            <UserCheck size={18} className="text-emerald-700" />
-          </div>
-          <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold bg-white shadow-sm border text-emerald-700 border-emerald-100/50">
-            <TrendingUp size={10} />
-            {onboardedThisPeriod - onboardedPrevPeriod > 0 ? "+" : ""}
-            {onboardedPrevPeriod > 0
-              ? Math.round(((onboardedThisPeriod - onboardedPrevPeriod) / onboardedPrevPeriod) * 100)
-              : onboardedThisPeriod > 0
-                ? 100
-                : 0}%
-          </span>
-        </div>
-        <p className="text-2xl font-bold text-slate-900 leading-none">
-          {onboardedThisPeriod}
-        </p>
-        <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-          Onboarded
-        </p>
-        <p className="mt-1 text-xs text-slate-400 font-medium">
-          {onboardedClients} total onboarded
-        </p>
-      </div>
-
-      {/* Active Pipeline Card */}
-      <div className="rounded-2xl border bg-blue-50/60 border-blue-100 p-5 shadow-sm border-t-[3px] border-t-blue-500 transition-all duration-200 hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-blue-100/50 shadow-sm">
-            <Users size={18} className="text-blue-700" />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-slate-900 leading-none">
-          {activePipeline}
-        </p>
-        <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-          Active Pipeline
-        </p>
-        <p className="mt-1 text-xs text-slate-400 font-medium">
-          Leads + follow-ups
-        </p>
-      </div>
-
-      {/* Conversion Rate Card */}
-      <div className="rounded-2xl border bg-amber-50/60 border-amber-100 p-5 shadow-sm border-t-[3px] border-t-amber-500 transition-all duration-200 hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-amber-100/50 shadow-sm">
-            <BarChart3 size={18} className="text-amber-700" />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-slate-900 leading-none">
-          {conversionRate}%
-        </p>
-        <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-          Conversion Rate
-        </p>
-        <p className="mt-1 text-xs text-slate-400 font-medium">
-          {totalClients} leads → {onboardedClients} converted
-        </p>
-      </div>
-
-      {/* Lost Clients Card */}
-      <div className="rounded-2xl border bg-red-50/60 border-red-100 p-5 shadow-sm border-t-[3px] border-t-red-500 transition-all duration-200 hover:shadow-md">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-red-100/50 shadow-sm">
-            <XCircle size={18} className="text-red-700" />
-          </div>
-          <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold bg-white shadow-sm border ${
-            lostThisPeriod - lostPrevPeriod > 0
-              ? "text-red-700 border-red-100/50"
-              : lostThisPeriod - lostPrevPeriod < 0
-                ? "text-emerald-700 border-emerald-100/50"
-                : "text-slate-500 border-slate-200/50"
-          }`}>
-            {lostThisPeriod - lostPrevPeriod > 0 ? (
-              <TrendingUp size={10} />
-            ) : lostThisPeriod - lostPrevPeriod < 0 ? (
-              <TrendingDown size={10} />
-            ) : (
-              <Minus size={10} />
-            )}
-            {lostThisPeriod - lostPrevPeriod > 0 ? "+" : ""}
-            {lostPrevPeriod > 0
-              ? Math.round(((lostThisPeriod - lostPrevPeriod) / lostPrevPeriod) * 100)
-              : lostThisPeriod > 0
-                ? 100
-                : 0}%
-          </span>
-        </div>
-        <p className="text-2xl font-bold text-slate-900 leading-none">
-          {lostThisPeriod}
-        </p>
-        <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-          Lost Clients
-        </p>
-      </div>
+      <StatCard
+        icon={UserCheck}
+        label="Onboarded"
+        value={onboardedThisPeriod}
+        badgeLabel={`${onboardedDiff > 0 ? "+" : ""}${onboardedPct}%`}
+        badgeDirection={onboardedDiff > 0 ? "up" : onboardedDiff < 0 ? "down" : "flat"}
+        caption={<>{onboardedClients} total onboarded</>}
+        theme={{ bg: "bg-teal-600" }}
+      />
+      <StatCard
+        icon={Users}
+        label="Active Pipeline"
+        value={activePipeline}
+        caption={<>Leads + follow-ups</>}
+        theme={{ bg: "bg-blue-600" }}
+      />
+      <StatCard
+        icon={BarChart3}
+        label="Conversion Rate"
+        value={`${conversionRate}%`}
+        caption={
+          <>
+            {totalClients} leads &rarr; {onboardedClients} converted
+          </>
+        }
+        theme={{ bg: "bg-violet-600" }}
+      />
+      <StatCard
+        icon={XCircle}
+        label="Lost Clients"
+        value={lostThisPeriod}
+        badgeLabel={`${lostDiff > 0 ? "+" : ""}${lostPct}%`}
+        badgeDirection={lostDiff > 0 ? "up" : lostDiff < 0 ? "down" : "flat"}
+        theme={{ bg: "bg-slate-800" }}
+      />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
-   Section 3: Company Hero Comparison
+   Section 3: Company Comparison Scorecards
    ═══════════════════════════════════════════════════════ */
-
-const STATUS_BAR_COLORS: Record<string, string> = {
-  lead: "bg-amber-400",
-  contacted: "bg-sky-400",
-  follow_up: "bg-indigo-400",
-  proposal_sent: "bg-violet-400",
-  negotiation: "bg-orange-400",
-  onboarding_in_progress: "bg-cyan-400",
-  onboarded: "bg-emerald-400",
-  active_client: "bg-green-400",
-  inactive: "bg-slate-300",
-  lost: "bg-rose-400",
-  cancelled: "bg-red-400",
-};
 
 export async function CompanyHeroSection({
   period,
@@ -386,138 +327,53 @@ export async function CompanyHeroSection({
     .sort((a, b) => a.orgName.localeCompare(b.orgName));
 
   const betterIdx = orgData[0].kpiScore >= orgData[1].kpiScore ? 0 : 1;
+  const maxTeamKpi = Math.max(orgData[0].teamKpi, orgData[1].teamKpi, 1);
 
   // If filtering by a single org, only show that one
   const displayData = orgId ? orgData.filter((d) => d.oid === orgId) : orgData;
 
   return (
-    <div
-      className={cn(
-        "grid gap-4",
-        displayData.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1",
-      )}
-    >
-      {displayData.map((d, idx) => {
-        const isBetter = orgData.indexOf(d) === betterIdx && !orgId;
-        return (
-          <Card
-            key={d.oid}
-            className={cn(
-              "rounded-2xl overflow-hidden",
-              isBetter
-                ? "ring-2 ring-emerald-200 bg-gradient-to-br from-white to-emerald-50/30"
-                : "",
-            )}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-slate-900">
-                {d.orgName}
-              </h3>
-              {!orgId && (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
-                    isBetter
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-amber-100 text-amber-700",
-                  )}
-                >
-                  {isBetter ? "★ Better Performer" : "⚠ Needs Attention"}
-                </span>
-              )}
-            </div>
+    <div className="space-y-4">
+      <div
+        className={cn(
+          "grid gap-4 items-stretch",
+          displayData.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1",
+        )}
+      >
+        {displayData.map((d) => {
+          const isComparing = !orgId;
+          const status: ComparisonStatus = !isComparing
+            ? "neutral"
+            : orgData.indexOf(d) === betterIdx
+              ? "success"
+              : "warning";
 
-            {/* Stat boxes */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="rounded-xl bg-emerald-50/70 px-3 py-2.5 text-center">
-                <p className="text-lg font-bold text-emerald-700">
-                  {d.counts.onboarded ?? 0}
-                </p>
-                <p className="text-[10px] font-semibold text-emerald-600 uppercase">
-                  Onboarded
-                </p>
-              </div>
-              <div className="rounded-xl bg-blue-50/70 px-3 py-2.5 text-center">
-                <p className="text-lg font-bold text-blue-700">
-                  {(d.counts.lead ?? 0) + (d.counts.follow_up ?? 0)}
-                </p>
-                <p className="text-[10px] font-semibold text-blue-600 uppercase">
-                  Active Leads
-                </p>
-              </div>
-              <div className="rounded-xl bg-rose-50/70 px-3 py-2.5 text-center">
-                <p className="text-lg font-bold text-rose-700">
-                  {d.counts.lost ?? 0}
-                </p>
-                <p className="text-[10px] font-semibold text-rose-600 uppercase">
-                  Lost
-                </p>
-              </div>
-            </div>
+          const pipelineBreakdown = Object.entries(d.counts)
+            .filter(([, count]) => count > 0)
+            .sort(
+              ([a], [b]) =>
+                Object.keys(PIPELINE_STAGE_COLORS).indexOf(a) -
+                Object.keys(PIPELINE_STAGE_COLORS).indexOf(b),
+            )
+            .map(([status, count]) => ({ status, count }));
 
-            {/* Pipeline breakdown bars */}
-            <div className="space-y-1.5 mb-4">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                Pipeline Breakdown
-              </p>
-              {d.total > 0 && (
-                <div className="flex h-3 rounded-full overflow-hidden bg-slate-100">
-                  {Object.entries(d.counts)
-                    .filter(([, count]) => count > 0)
-                    .sort(
-                      ([a], [b]) =>
-                        Object.keys(STATUS_BAR_COLORS).indexOf(a) -
-                        Object.keys(STATUS_BAR_COLORS).indexOf(b),
-                    )
-                    .map(([status, count]) => (
-                      <div
-                        key={status}
-                        className={cn(
-                          "h-full transition-all duration-300",
-                          STATUS_BAR_COLORS[status] ?? "bg-slate-300",
-                        )}
-                        style={{ width: `${(count / d.total) * 100}%` }}
-                        title={`${titleCase(status)}: ${count}`}
-                      />
-                    ))}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {Object.entries(d.counts)
-                  .filter(([, count]) => count > 0)
-                  .map(([status, count]) => (
-                    <span
-                      key={status}
-                      className="flex items-center gap-1 text-[10px] text-slate-500"
-                    >
-                      <span
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          STATUS_BAR_COLORS[status] ?? "bg-slate-300",
-                        )}
-                      />
-                      {titleCase(status)} ({count})
-                    </span>
-                  ))}
-              </div>
-            </div>
-
-            {/* Manager + team KPI */}
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 border border-slate-100">
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Manager</p>
-                <p className="text-sm font-semibold text-slate-800">
-                  {d.managerName}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-500 font-medium">Team KPI</p>
-                <p className="text-sm font-bold text-slate-900">{d.teamKpi}</p>
-              </div>
-            </div>
-          </Card>
-        );
-      })}
+          return (
+            <CompanyComparisonCard
+              key={d.oid}
+              orgName={d.orgName}
+              status={status}
+              onboarded={d.counts.onboarded ?? 0}
+              activeLeads={(d.counts.lead ?? 0) + (d.counts.follow_up ?? 0)}
+              lost={d.counts.lost ?? 0}
+              pipelineBreakdown={pipelineBreakdown}
+              totalClients={d.total}
+              managerName={d.managerName}
+              teamKpi={d.teamKpi}
+              maxTeamKpi={maxTeamKpi}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -663,13 +519,14 @@ export async function TaskHealthSection({
       : 0;
 
   return (
-    <Card className={cn("rounded-2xl h-[400px] flex flex-col", className)}>
-      <div className="flex items-center gap-2 mb-4 shrink-0">
-        <ClipboardCheck size={16} className="text-violet-500" />
-        <h3 className="text-sm font-semibold text-slate-900">Task Health</h3>
-      </div>
-
-      <div className="overflow-y-auto flex-1 pr-1">
+    <SectionCard
+      title="Task Health"
+      icon={ClipboardCheck}
+      iconClassName="text-violet-500"
+      className={cn("h-[400px] flex flex-col", className)}
+      bodyClassName="flex-1 min-h-0"
+    >
+      <div className="overflow-y-auto h-full pr-1">
         {/* Task status counts */}
         <div className="grid grid-cols-2 gap-2 mb-3">
           {Object.entries(taskStatusColors).map(([status, color]) => (
@@ -746,7 +603,7 @@ export async function TaskHealthSection({
           ))}
         </div>
       </div>
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -759,12 +616,14 @@ export async function LiveActivitySection({
   const activityFeed = await getCachedAdminActivityFeed();
 
   return (
-    <Card className={cn("rounded-2xl h-[340px] flex flex-col", className)}>
-      <div className="flex items-center gap-2 mb-4 shrink-0">
-        <Clock size={16} className="text-blue-500" />
-        <h3 className="text-sm font-semibold text-slate-900">Live Activity</h3>
-      </div>
-      <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto flex-1 pr-1">
+    <SectionCard
+      title="Live Activity"
+      icon={Clock}
+      iconClassName="text-blue-500"
+      className={cn("h-[340px] flex flex-col", className)}
+      bodyClassName="flex-1 min-h-0"
+    >
+      <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto h-full pr-1">
         {activityFeed.map((log) => {
           const timeAgo = getTimeAgo(log.created_at);
           return (
@@ -802,7 +661,7 @@ export async function LiveActivitySection({
           </p>
         )}
       </div>
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -927,21 +786,19 @@ export async function MonthlyTrendSection({
   }));
 
   return (
-    <Card className={cn("rounded-2xl h-[400px] flex flex-col", className)}>
-      <div className="flex items-center gap-2 mb-2 shrink-0">
-        <BarChart3 size={16} className="text-teal-500" />
-        <h3 className="text-sm font-semibold text-slate-900">
-          Monthly Onboarding Trend
-        </h3>
-      </div>
-      <div className="flex-1 min-h-0">
-        <MonthlyTrendChartWrapper
-          data={trendData}
-          companyAName={orgA?.name ?? "Company A"}
-          companyBName={orgB?.name ?? "Company B"}
-        />
-      </div>
-    </Card>
+    <SectionCard
+      title="Monthly Onboarding Trend"
+      icon={BarChart3}
+      iconClassName="text-teal-500"
+      className={cn("h-[400px] flex flex-col", className)}
+      bodyClassName="flex-1 min-h-0"
+    >
+      <MonthlyTrendChartWrapper
+        data={trendData}
+        companyAName={orgA?.name ?? "Company A"}
+        companyBName={orgB?.name ?? "Company B"}
+      />
+    </SectionCard>
   );
 }
 
@@ -955,13 +812,16 @@ export function KpiSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 border-t-[3px] border-t-slate-200 space-y-3"
-        >
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-7 w-14" />
-          <Skeleton className="h-3 w-28" />
+        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 animate-pulse">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-4 rounded-full" />
+          </div>
+          <div className="mt-5 flex items-end justify-between gap-2">
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <Skeleton className="mt-4 h-3 w-28" />
         </div>
       ))}
     </div>
@@ -969,24 +829,22 @@ export function KpiSkeleton() {
 }
 
 export function HeroSkeleton() {
+  const dark = "animate-pulse rounded-lg bg-slate-800";
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {[0, 1].map((i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
-        >
+        <div key={i} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-6 pt-7">
           <div className="flex justify-between">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-5 w-32 rounded-full" />
+            <div className={cn(dark, "h-6 w-28")} />
+            <div className={cn(dark, "h-6 w-28 rounded-full")} />
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[0, 1, 2].map((j) => (
-              <Skeleton key={j} className="h-16 rounded-xl" />
+              <div key={j} className={cn(dark, "h-[86px] rounded-xl")} />
             ))}
           </div>
-          <Skeleton className="h-3 rounded-full" />
-          <Skeleton className="h-14 rounded-xl" />
+          <div className={cn(dark, "h-2.5 rounded-full")} />
+          <div className={cn(dark, "h-16 rounded-xl")} />
         </div>
       ))}
     </div>

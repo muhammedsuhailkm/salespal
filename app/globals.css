@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap');
 @import "../styles/shipshape-tokens.css";
 @import "../styles/shipshape-recipes.css";
 @import "tailwindcss";
@@ -13,6 +13,7 @@
   --color-foreground: var(--foreground);
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: "Courier New", monospace;
+  --font-display: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 * {

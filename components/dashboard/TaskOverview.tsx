@@ -1,5 +1,6 @@
+import { Clock } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type TaskItem = { id: number; description: string; due_date: Date | string; status: string; assignedTo?: { name: string | null } };
 
@@ -31,18 +32,26 @@ export function TaskOverview({ tasks }: { tasks: TaskItem[] }) {
   const displayedTasks = sortedTasks.slice(0, 5);
 
   return (
-    <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
       {displayedTasks.map((task) => {
         const colors = getDueDateColor(task.due_date);
         return (
-          <div className="flex items-center justify-between gap-4 p-4" key={task.id}>
-            <div>
-              <p className="text-sm font-medium text-slate-900">{task.description}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                {task.assignedTo?.name ?? "Unassigned"} - <span className={colors.text}>due {formatDate(task.due_date)}</span>
+          <div
+            className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-slate-50"
+            key={task.id}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-900">{task.description}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                <span>{task.assignedTo?.name ?? "Unassigned"}</span>
+                <span aria-hidden>·</span>
+                <span className={cn("inline-flex items-center gap-1", colors.text)}>
+                  <Clock size={11} className={colors.icon} />
+                  due {formatDate(task.due_date)}
+                </span>
               </p>
             </div>
-            <Badge value={task.status} />
+            <Badge value={task.status} className="shrink-0" />
           </div>
         );
       })}

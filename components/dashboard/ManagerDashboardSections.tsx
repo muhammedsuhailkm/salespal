@@ -9,8 +9,9 @@ import {
 import { orderStatsScope } from "@/lib/scoping";
 import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
 import { OrderMonthlyChart } from "@/components/orders/OrderMonthlyChart";
-import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SectionCard } from "@/components/dashboard/SectionCard";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { cn, formatDate } from "@/lib/utils";
 import {
   TrendingUp,
@@ -217,90 +218,50 @@ export async function ManagerKpiCardsRow({
     {
       label: "Team Onboarded",
       value: onboardedThis,
-      badge: `${onboardedPct > 0 ? "+" : ""}${onboardedPct}% vs last month`,
-      badgeColor: "text-emerald-700 border-emerald-100/50",
-      bgColor: "bg-emerald-50/60 border-emerald-100",
-      borderColor: "border-t-emerald-500",
-      iconBg: "bg-white border border-emerald-100/50 shadow-sm",
-      iconColor: "text-emerald-700",
+      badgeLabel: `${onboardedPct > 0 ? "+" : ""}${onboardedPct}% vs last month`,
+      direction: onboardedPct > 0 ? "up" : onboardedPct < 0 ? "down" : "flat",
       Icon: UserCheck,
-      pctValue: onboardedPct,
+      bg: "bg-teal-600",
     },
     {
       label: "Active Pipeline",
       value: activePipeline,
-      badge: `+${weekNew} this week`,
-      badgeColor: "text-blue-700 border-blue-100/50",
-      bgColor: "bg-blue-50/60 border-blue-100",
-      borderColor: "border-t-blue-500",
-      iconBg: "bg-white border border-blue-100/50 shadow-sm",
-      iconColor: "text-blue-700",
+      badgeLabel: `+${weekNew} this week`,
+      direction: weekNew > 0 ? "up" : "flat",
       Icon: Users,
-      pctValue: weekNew,
+      bg: "bg-blue-600",
     },
     {
       label: "Team KPI Score",
       value: avgKpi,
-      badge: `${kpiChangePct > 0 ? "+" : ""}${kpiChangePct}% change`,
-      badgeColor: "text-violet-700 border-violet-100/50",
-      bgColor: "bg-violet-50/60 border-violet-100",
-      borderColor: "border-t-violet-500",
-      iconBg: "bg-white border border-violet-100/50 shadow-sm",
-      iconColor: "text-violet-700",
+      badgeLabel: `${kpiChangePct > 0 ? "+" : ""}${kpiChangePct}% change`,
+      direction: kpiChangePct > 0 ? "up" : kpiChangePct < 0 ? "down" : "flat",
       Icon: BarChart3,
-      pctValue: kpiChangePct,
+      bg: "bg-violet-600",
     },
     {
       label: "Overdue Tasks",
       value: overdueTasks.length,
-      badge: `${overdueTasks.length} pending`,
-      badgeColor: "text-red-700 border-red-100/50",
-      bgColor: "bg-red-50/60 border-red-100",
-      borderColor: "border-t-red-500",
-      iconBg: "bg-white border border-red-100/50 shadow-sm",
-      iconColor: "text-red-700",
+      badgeLabel: `${overdueTasks.length} pending`,
+      direction: overdueTasks.length > 0 ? "up" : "flat",
       Icon: XCircle,
-      pctValue: overdueTasks.length > 0 ? overdueTasks.length : 0,
+      bg: "bg-slate-800",
     },
-  ];
+  ] as const;
 
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => {
-        const Icon = card.Icon;
-        return (
-          <div
-            key={card.label}
-            className={`rounded-2xl border ${card.bgColor} p-5 shadow-sm border-t-[3px] ${card.borderColor} transition-all duration-200 hover:shadow-md`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`h-9 w-9 flex items-center justify-center rounded-xl ${card.iconBg}`}
-              >
-                <Icon size={18} className={card.iconColor} />
-              </div>
-              <span
-                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold bg-white shadow-sm border ${card.badgeColor}`}
-              >
-                {card.pctValue > 0 ? (
-                  <TrendingUp size={10} />
-                ) : card.pctValue < 0 ? (
-                  <TrendingDown size={10} />
-                ) : (
-                  <Minus size={10} />
-                )}
-                {card.badge}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900 leading-none">
-              {card.value}
-            </p>
-            <p className="mt-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              {card.label}
-            </p>
-          </div>
-        );
-      })}
+      {cards.map((card) => (
+        <StatCard
+          key={card.label}
+          icon={card.Icon}
+          label={card.label}
+          value={card.value}
+          badgeLabel={card.badgeLabel}
+          badgeDirection={card.direction}
+          theme={{ bg: card.bg }}
+        />
+      ))}
     </div>
   );
 }
@@ -340,11 +301,11 @@ export async function SalesmanPerformanceSection({
           </h2>
           <p className="text-xs text-slate-500">this month</p>
         </div>
-        <Card className="rounded-2xl p-10 text-center">
-          <p className="text-sm text-slate-400">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
+          <p className="text-sm text-slate-500">
             No salesmen assigned to your team yet.
           </p>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -396,82 +357,82 @@ export async function SalesmanPerformanceSection({
         <p className="text-xs text-slate-500">this month</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
         {/* ── LEFT: Top Performer Spotlight ── */}
-        <Card className="rounded-2xl p-0 overflow-hidden">
-          {/* Green gradient top border */}
-          <div className="h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
+        <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+          <span className="absolute inset-x-0 top-0 h-[3px] bg-emerald-500" aria-hidden />
 
-          <div className="p-5">
+          <div className="p-4 pt-5 flex flex-col flex-1">
             {/* Top badge */}
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-4">
-              🏆 Top Performer
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-emerald-500/20 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase tracking-wide mb-3">
+              <Trophy size={11} strokeWidth={2.5} />
+              Top Performer
             </span>
 
             {/* Avatar + Name + Score */}
-            <div className="flex items-center gap-4 mb-5">
+            <div className="flex items-center gap-3 mb-4">
               <div
                 className={cn(
-                  "h-[54px] w-[54px] shrink-0 flex items-center justify-center rounded-full text-white text-lg font-bold ring-[3px] ring-emerald-400",
+                  "h-11 w-11 shrink-0 flex items-center justify-center rounded-full text-white text-sm font-bold ring-2 ring-emerald-500/40",
                   getAvatarColor(topSalesman.name)
                 )}
               >
                 {getInitials(topSalesman.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-slate-900 truncate">
+                <p className="text-sm font-semibold text-white truncate">
                   {topSalesman.name}
                 </p>
-                <p className="text-xs text-slate-500">Salesman · {orgName}</p>
+                <p className="text-xs text-slate-400 truncate">Salesman · {orgName}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[32px] font-bold leading-none text-slate-900 tabular-nums">
+                <p className="font-display text-2xl font-bold leading-none text-emerald-400 tabular-nums">
                   {topSalesman.kpiScore}
                 </p>
-                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-1">
+                <p className="text-[9px] text-slate-500 font-medium uppercase tracking-wider mt-1">
                   KPI Score
                 </p>
               </div>
             </div>
 
             {/* 4 stat boxes */}
-            <div className="grid grid-cols-4 gap-2 mb-5">
-              <div className="rounded-xl bg-emerald-50/70 px-2 py-2 text-center">
-                <p className="text-base font-bold text-emerald-700">
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
+              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-bold text-emerald-400">
                   {topOnboarded}
                 </p>
-                <p className="text-[9px] font-semibold text-emerald-600 uppercase">
+                <p className="text-[8px] font-semibold text-slate-500 uppercase">
                   Onboarded
                 </p>
               </div>
-              <div className="rounded-xl bg-indigo-50/70 px-2 py-2 text-center">
-                <p className="text-base font-bold text-indigo-700">
+              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-bold text-violet-400">
                   {topFollowUp}
                 </p>
-                <p className="text-[9px] font-semibold text-indigo-600 uppercase">
+                <p className="text-[8px] font-semibold text-slate-500 uppercase">
                   Follow-up
                 </p>
               </div>
-              <div className="rounded-xl bg-amber-50/70 px-2 py-2 text-center">
-                <p className="text-base font-bold text-amber-700">
+              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-bold text-amber-400">
                   {topNewLead}
                 </p>
-                <p className="text-[9px] font-semibold text-amber-600 uppercase">
+                <p className="text-[8px] font-semibold text-slate-500 uppercase">
                   New Lead
                 </p>
               </div>
-              <div className="rounded-xl bg-red-50/70 px-2 py-2 text-center">
-                <p className="text-base font-bold text-red-700">
+              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-bold text-rose-400">
                   {topSalesman.counts.lost ?? 0}
                 </p>
-                <p className="text-[9px] font-semibold text-red-600 uppercase">
+                <p className="text-[8px] font-semibold text-slate-500 uppercase">
                   Lost
                 </p>
               </div>
             </div>
 
             {/* 3 progress bars */}
-            <div className="space-y-2.5 mb-5">
+            <div className="space-y-2 mb-4">
               {[
                 {
                   label: "Onboarded",
@@ -481,7 +442,7 @@ export async function SalesmanPerformanceSection({
                 {
                   label: "Follow-up",
                   value: topFollowUp,
-                  color: "bg-indigo-500",
+                  color: "bg-violet-500",
                 },
                 {
                   label: "New Lead",
@@ -491,14 +452,14 @@ export async function SalesmanPerformanceSection({
               ].map((bar) => (
                 <div key={bar.label}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-medium text-slate-600">
+                    <span className="text-[11px] font-medium text-slate-400">
                       {bar.label}
                     </span>
-                    <span className="text-[11px] font-bold text-slate-800">
+                    <span className="text-[11px] font-bold text-white">
                       {bar.value}
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-500",
@@ -517,33 +478,33 @@ export async function SalesmanPerformanceSection({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 border border-slate-100">
+            <div className="mt-auto flex items-center justify-between border-t border-slate-800 pt-3">
               <div>
-                <p className="text-[10px] text-slate-400 font-medium uppercase">
+                <p className="text-[9px] text-slate-500 font-medium uppercase">
                   Tasks Completed
                 </p>
-                <p className="text-xs font-semibold text-slate-700">
+                <p className="text-xs font-semibold text-slate-200">
                   {topStats.completed}/{topStats.total}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-slate-400 font-medium uppercase">
+                <p className="text-[9px] text-slate-500 font-medium uppercase">
                   Last Active
                 </p>
-                <p className="text-xs font-semibold text-slate-700">
+                <p className="text-xs font-semibold text-slate-200">
                   {topLastActive ? getTimeAgo(topLastActive) : "No activity"}
                 </p>
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* ── RIGHT: Team Leaderboard ── */}
-        <Card className="rounded-2xl h-auto lg:h-[520px] flex flex-col">
-          <div className="mb-4 shrink-0">
+        <div className="h-full flex flex-col rounded-2xl border border-slate-800 bg-slate-950 p-4">
+          <div className="mb-3 shrink-0">
             <div className="flex items-center gap-2">
-              <Trophy size={16} className="text-amber-500" />
-              <h3 className="text-sm font-semibold text-slate-900">
+              <Trophy size={14} className="text-amber-400" />
+              <h3 className="text-sm font-semibold text-white">
                 Team Leaderboard
               </h3>
             </div>
@@ -552,7 +513,7 @@ export async function SalesmanPerformanceSection({
             </p>
           </div>
 
-          <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto flex-1 pr-1">
+          <div className="space-y-0 divide-y divide-slate-800 overflow-y-auto flex-1 min-h-0 max-h-[420px] pr-1">
             {sortedSalesmen.map((s, idx) => {
               const lastActive = lastActiveMap.get(s.id);
               const isActive24h =
@@ -561,20 +522,20 @@ export async function SalesmanPerformanceSection({
                 ? "bg-emerald-500"
                 : s.kpiScore < 60
                   ? "bg-amber-500"
-                  : "bg-slate-300";
+                  : "bg-slate-600";
 
               const barColor =
                 s.kpiScore >= 75
                   ? "bg-emerald-500"
                   : s.kpiScore >= 50
                     ? "bg-amber-500"
-                    : "bg-red-500";
+                    : "bg-rose-500";
               const scoreColor =
                 s.kpiScore >= 75
-                  ? "text-emerald-700"
+                  ? "text-emerald-400"
                   : s.kpiScore >= 50
-                    ? "text-amber-700"
-                    : "text-red-700";
+                    ? "text-amber-400"
+                    : "text-rose-400";
 
               const rankIcon =
                 idx === 0 ? "🥇" : idx === 1 ? "🥈" : null;
@@ -582,14 +543,14 @@ export async function SalesmanPerformanceSection({
               return (
                 <div
                   key={s.id}
-                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                  className="flex items-center gap-2 py-2 first:pt-0 last:pb-0"
                 >
                   {/* Rank */}
-                  <span className="w-6 text-center text-sm shrink-0">
+                  <span className="w-5 text-center text-xs shrink-0">
                     {rankIcon ? (
                       rankIcon
                     ) : (
-                      <span className="text-xs font-semibold text-slate-400">
+                      <span className="text-[11px] font-semibold text-slate-500">
                         #{idx + 1}
                       </span>
                     )}
@@ -599,7 +560,7 @@ export async function SalesmanPerformanceSection({
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        "h-8 w-8 flex items-center justify-center rounded-full text-white text-[11px] font-bold",
+                        "h-7 w-7 flex items-center justify-center rounded-full text-white text-[10px] font-bold",
                         getAvatarColor(s.name)
                       )}
                     >
@@ -607,7 +568,7 @@ export async function SalesmanPerformanceSection({
                     </div>
                     <span
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white",
+                        "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950",
                         statusDotColor
                       )}
                     />
@@ -615,45 +576,45 @@ export async function SalesmanPerformanceSection({
 
                   {/* Name + last active */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 truncate">
+                    <p className="text-xs font-semibold text-white truncate">
                       {s.name}
                     </p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-500">
                       {lastActive ? getTimeAgo(lastActive) : "No activity"}
                     </p>
                   </div>
 
                   {/* Mini stats */}
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="hidden sm:flex items-center gap-2.5 shrink-0">
                     <div className="text-center">
-                      <p className="text-xs font-bold text-slate-700 tabular-nums">
+                      <p className="text-xs font-bold text-slate-300 tabular-nums">
                         {s.totalClients}
                       </p>
-                      <p className="text-[8px] font-semibold text-slate-500 uppercase">
+                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
                         CLIENTS
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-bold text-emerald-700 tabular-nums">
+                      <p className="text-xs font-bold text-emerald-400 tabular-nums">
                         {s.counts.onboarded ?? 0}
                       </p>
-                      <p className="text-[8px] font-semibold text-emerald-600 uppercase">
+                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
                         ON
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-bold text-red-700 tabular-nums">
+                      <p className="text-xs font-bold text-rose-400 tabular-nums">
                         {s.counts.lost ?? 0}
                       </p>
-                      <p className="text-[8px] font-semibold text-red-600 uppercase">
+                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
                         LOST
                       </p>
                     </div>
                   </div>
 
                   {/* Score bar + score */}
-                  <div className="w-20 shrink-0">
-                    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-1">
+                  <div className="w-16 shrink-0">
+                    <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden mb-1">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
@@ -669,7 +630,7 @@ export async function SalesmanPerformanceSection({
                     </div>
                     <p
                       className={cn(
-                        "text-xs font-bold text-right tabular-nums",
+                        "text-[11px] font-bold text-right tabular-nums",
                         scoreColor
                       )}
                     >
@@ -680,7 +641,7 @@ export async function SalesmanPerformanceSection({
               );
             })}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
@@ -767,14 +728,7 @@ export async function FunnelAndTasksSection({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {/* ── LEFT: Conversion Funnel ── */}
-      <Card className="rounded-2xl">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Team Conversion Funnel
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">this month</p>
-        </div>
-
+      <SectionCard title="Team Conversion Funnel" subtitle="this month">
         <div className="space-y-4">
           {/* Funnel bars */}
           {[
@@ -836,18 +790,16 @@ export async function FunnelAndTasksSection({
             </p>
           </div>
         </div>
-      </Card>
+      </SectionCard>
 
       {/* ── RIGHT: Pending Tasks ── */}
-      <Card className="rounded-2xl h-auto lg:h-[420px] flex flex-col">
-        <div className="mb-4 shrink-0">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Pending Tasks
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">by salesman</p>
-        </div>
-
-        <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto flex-1 pr-1">
+      <SectionCard
+        title="Pending Tasks"
+        subtitle="by salesman"
+        className="h-auto lg:h-[420px] flex flex-col"
+        bodyClassName="flex-1 min-h-0"
+      >
+        <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto h-full pr-1">
           {pendingTasks.length > 0 ? (
             pendingTasks.map((task) => {
               const due = getDueLabel(task.due_date);
@@ -887,7 +839,7 @@ export async function FunnelAndTasksSection({
             </p>
           )}
         </div>
-      </Card>
+      </SectionCard>
     </div>
   );
 }
@@ -928,17 +880,7 @@ export async function ManagerActivityFeed({
   const activityFeed = await getCachedManagerActivityFeed(salesmanIds);
 
   return (
-    <Card className="rounded-2xl">
-      <div className="flex items-center gap-2 mb-4">
-        <Clock size={16} className="text-blue-500" />
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">
-            Team Activity
-          </h3>
-          <p className="text-[11px] text-slate-500">live feed</p>
-        </div>
-      </div>
-
+    <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-blue-500">
       <div className="space-y-0 divide-y divide-slate-100">
         {activityFeed.length > 0 ? (
           activityFeed.map((log) => {
@@ -986,7 +928,7 @@ export async function ManagerActivityFeed({
           </p>
         )}
       </div>
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -1018,10 +960,9 @@ export async function ManagerOrderStatsSection({ managerId }: { managerId: numbe
   const chartData = Object.entries(chartDataMap).map(([month, values]) => ({ month, ...values }));
 
   return (
-    <Card className="rounded-2xl">
-      <h3 className="text-sm font-semibold text-slate-900 mb-4">Team Orders — Collected vs Pending</h3>
+    <SectionCard title="Team orders: collected vs pending">
       <OrderMonthlyChart data={chartData} />
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -1033,16 +974,15 @@ export function ManagerKpiSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 border-t-[3px] border-t-slate-200 space-y-3"
-        >
+        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 animate-pulse">
           <div className="flex items-center justify-between">
-            <Skeleton className="h-9 w-9 rounded-xl" />
-            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-4 rounded-full" />
           </div>
-          <Skeleton className="h-7 w-12" />
-          <Skeleton className="h-3 w-24" />
+          <div className="mt-5 flex items-end justify-between gap-2">
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
         </div>
       ))}
     </div>
@@ -1050,41 +990,42 @@ export function ManagerKpiSkeleton() {
 }
 
 export function ManagerPerfSkeleton() {
+  const dark = "animate-pulse rounded-lg bg-slate-800";
   return (
     <div className="space-y-3">
       <div className="space-y-1">
         <Skeleton className="h-5 w-44" />
         <Skeleton className="h-3 w-20" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <Skeleton className="h-5 w-28 rounded-full" />
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-[54px] w-[54px] rounded-full shrink-0" />
+      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+          <div className={cn(dark, "h-4 w-24 rounded-full")} />
+          <div className="flex items-center gap-3">
+            <div className={cn(dark, "h-11 w-11 rounded-full shrink-0")} />
             <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-24" />
+              <div className={cn(dark, "h-3.5 w-28")} />
+              <div className={cn(dark, "h-3 w-20")} />
             </div>
-            <Skeleton className="h-10 w-14" />
+            <div className={cn(dark, "h-8 w-12")} />
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {Array.from({ length: 4 }).map((_, j) => (
-              <Skeleton key={j} className="h-14 rounded-xl" />
+              <div key={j} className={cn(dark, "h-11 rounded-lg")} />
             ))}
           </div>
           {Array.from({ length: 3 }).map((_, j) => (
-            <Skeleton key={j} className="h-2 rounded-full" />
+            <div key={j} className={cn(dark, "h-1.5 rounded-full")} />
           ))}
-          <Skeleton className="h-12 rounded-xl" />
+          <div className={cn(dark, "h-10 rounded-lg")} />
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <Skeleton className="h-5 w-36" />
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+          <div className={cn(dark, "h-4 w-32")} />
           {Array.from({ length: 5 }).map((_, j) => (
-            <div key={j} className="flex items-center gap-3">
-              <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+            <div key={j} className="flex items-center gap-2.5">
+              <div className={cn(dark, "h-7 w-7 rounded-full shrink-0")} />
               <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-1.5 w-3/4 rounded-full" />
+                <div className={cn(dark, "h-3 w-full")} />
+                <div className={cn(dark, "h-1.5 w-3/4 rounded-full")} />
               </div>
             </div>
           ))}

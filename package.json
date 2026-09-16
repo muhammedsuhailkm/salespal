@@ -12,6 +12,9 @@
     "prisma:seed": "prisma db seed"
   },
   "dependencies": {
+    "@mantine/charts": "^9.6.1",
+    "@mantine/core": "^9.6.1",
+    "@mantine/hooks": "^9.6.1",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-dropdown-menu": "^2.1.18",
     "bcryptjs": "^3.0.3",
@@ -20,7 +23,7 @@
     "next-auth": "^4.24.14",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "recharts": "^3.8.1"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
