@@ -2,14 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { orderScopeWhere } from "@/lib/scoping";
 import { orderModes, orderPaymentModes } from "@/types/order";
-
-function serializeOrder<T extends { amount: { toNumber(): number }; advance_amount: { toNumber(): number } }>(order: T) {
-  const amount = order.amount.toNumber();
-  const advance_amount = order.advance_amount.toNumber();
-  return { ...order, amount, advance_amount, balance: amount - advance_amount };
-}
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -18,7 +13,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   const { id } = await context.params;
   const order = await prisma.order.findFirst({
     where: { AND: [{ id: Number(id) }, await orderScopeWhere(token)] },
-    include: { client: { select: { id: true, name: true } }, createdBy: { select: { name: true } } },
+    include: { client: { select: { id: true, name: true } }, createdBy: { select: { name: true } }, ...orderPaymentsInclude },
   });
   if (!order) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({ order: serializeOrder(order) });
@@ -48,8 +43,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   if (effectiveAdvance > effectiveAmount) {
     return NextResponse.json({ error: "Advance amount cannot exceed the order amount" }, { status: 400 });
   }
+  const recorded = await prisma.orderPayment.aggregate({ where: { order_id: Number(id) }, _sum: { amount: true } });
+  if (effectiveAdvance + (recorded._sum.amount?.toNumber() ?? 0) > effectiveAmount) {
+    return NextResponse.json({ error: "Order amount cannot be less than what has already been paid" }, { status: 400 });
+  }
 
   const order = await prisma.order.update({
+    include: orderPaymentsInclude,
     where: { id: Number(id) },
     data: {
       mode: body.mode ?? undefined,

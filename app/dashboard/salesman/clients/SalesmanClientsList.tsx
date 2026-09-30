@@ -22,6 +22,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
   mail_id: string | null;
   status: string;
@@ -101,6 +103,8 @@ export function SalesmanClientsList({
     contact_person_name: "",
     mail_id: "",
     contact_no: "",
+    cr_no: "",
+    cr_expiry_date: "",
     status: "lead",
     notes: "",
     location_coordinates: "",
@@ -125,9 +129,10 @@ export function SalesmanClientsList({
   // Memoized client filtering logic
   const filteredClients = useMemo(() => {
     return optimisticClients.filter((client) => {
-      // 1. Search Query (Client Name)
+      // 1. Search Query (Client Name or CR No)
       if (searchQuery.trim() !== "") {
-        if (!client.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        const query = searchQuery.trim().toLowerCase();
+        if (!client.name.toLowerCase().includes(query) && !(client.cr_no?.toLowerCase().includes(query) ?? false)) {
           return false;
         }
       }
@@ -206,6 +211,8 @@ export function SalesmanClientsList({
           contact_person_name: addForm.contact_person_name,
           mail_id: addForm.mail_id || null,
           contact_no: addForm.contact_no,
+          cr_no: addForm.cr_no || null,
+          cr_expiry_date: addForm.cr_expiry_date || null,
           status: addForm.status,
           notes: addForm.notes || null,
           location_coordinates: addForm.location_coordinates || null,
@@ -223,6 +230,8 @@ export function SalesmanClientsList({
         contact_person_name: "",
         mail_id: "",
         contact_no: "",
+        cr_no: "",
+        cr_expiry_date: "",
         status: "lead",
         notes: "",
         location_coordinates: "",
@@ -296,7 +305,7 @@ export function SalesmanClientsList({
           </div>
           <input
             type="text"
-            placeholder="Search clients by name..."
+            placeholder="Search clients by name or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
@@ -410,6 +419,8 @@ export function SalesmanClientsList({
                 <th className="w-10 px-2 py-3 sm:hidden"></th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3 hidden md:table-cell">CR No</th>
+                <th className="px-4 py-3 hidden lg:table-cell">CR Expiry</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
                 <th className="px-4 py-3 hidden md:table-cell">Location</th>
@@ -457,6 +468,12 @@ export function SalesmanClientsList({
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {formatPhoneNumber(client.contact_no)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                        {client.cr_no ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                        {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                       </td>
                       <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
                         {client.organization?.name ?? "-"}
@@ -527,6 +544,16 @@ export function SalesmanClientsList({
                     {isExpanded && (
                       <tr className={cn("sm:hidden", rowColors[client.status] ?? "bg-slate-50/30")}>
                         <td colSpan={5} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
+                          <div>
+                            <span className="font-semibold text-slate-500">CR No:</span>{" "}
+                            <span className="text-slate-800">{client.cr_no ?? "-"}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-500">CR Expiry:</span>{" "}
+                            <span className="text-slate-800">
+                              {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                            </span>
+                          </div>
                           <div>
                             <span className="font-semibold text-slate-500">Company:</span>{" "}
                             <span className="text-slate-800">{client.organization?.name ?? "-"}</span>
@@ -658,6 +685,23 @@ export function SalesmanClientsList({
                 setAddForm({ ...addForm, contact_no: e.target.value })
               }
               placeholder="e.g. +97455556666"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR No"
+              type="text"
+              value={addForm.cr_no}
+              onChange={(e) => setAddForm({ ...addForm, cr_no: e.target.value })}
+              placeholder="Commercial registration number"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR Expiry Date"
+              type="date"
+              value={addForm.cr_expiry_date}
+              onChange={(e) => setAddForm({ ...addForm, cr_expiry_date: e.target.value })}
               className="text-xs"
             />
 

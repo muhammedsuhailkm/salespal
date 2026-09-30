@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { unstable_cache } from "next/cache";
 import { Prisma } from "@prisma/client";
 import type { OrderStatsScope } from "@/lib/scoping";
@@ -820,15 +821,6 @@ export const getCachedManagerTeamPageData = unstable_cache(
    Orders — cached queries
    ═══════════════════════════════════════════════════════ */
 
-// Prisma's Decimal isn't safely serializable across the unstable_cache / RSC
-// boundary, so every order query converts amount/advance_amount to plain numbers
-// and computes `balance` here rather than persisting it, to avoid drift.
-function serializeOrder<T extends { amount: { toNumber(): number }; advance_amount: { toNumber(): number } }>(order: T) {
-  const amount = order.amount.toNumber();
-  const advance_amount = order.advance_amount.toNumber();
-  return { ...order, amount, advance_amount, balance: amount - advance_amount };
-}
-
 // O1. Orders created by a salesman
 export const getSalesmanOrders = unstable_cache(
   async (userId: number) => {
@@ -837,6 +829,7 @@ export const getSalesmanOrders = unstable_cache(
       include: {
         client: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        ...orderPaymentsInclude,
       },
       orderBy: { created_at: "desc" },
     });
@@ -860,6 +853,7 @@ export const getManagerOrders = unstable_cache(
       include: {
         client: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        ...orderPaymentsInclude,
       },
       orderBy: { created_at: "desc" },
     });
@@ -876,6 +870,7 @@ export const getAccountantOrders = unstable_cache(
       include: {
         client: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        ...orderPaymentsInclude,
       },
       orderBy: { created_at: "desc" },
     });
@@ -893,6 +888,7 @@ export const getOrderById = unstable_cache(
       include: {
         client: { select: { id: true, name: true, org_id: true } },
         createdBy: { select: { id: true, name: true } },
+        ...orderPaymentsInclude,
       },
     });
     return order ? serializeOrder(order) : null;
@@ -922,10 +918,13 @@ export const getMonthlyOrderStats = unstable_cache(
         date_trunc('month', o.created_at) AS month,
         COUNT(*)::int AS "orderCount",
         COALESCE(SUM(o.amount), 0)::float8 AS "totalAmount",
-        COALESCE(SUM(o.advance_amount), 0)::float8 AS "totalCollected",
-        COALESCE(SUM(o.amount - o.advance_amount), 0)::float8 AS "totalPending"
+        COALESCE(SUM(o.advance_amount + COALESCE(p.paid, 0)), 0)::float8 AS "totalCollected",
+        COALESCE(SUM(o.amount - o.advance_amount - COALESCE(p.paid, 0)), 0)::float8 AS "totalPending"
       FROM orders o
       JOIN clients c ON c.id = o.client_id
+      LEFT JOIN (
+        SELECT order_id, SUM(amount) AS paid FROM order_payments GROUP BY order_id
+      ) p ON p.order_id = o.id
       WHERE ${whereClause}
       GROUP BY month
       ORDER BY month ASC

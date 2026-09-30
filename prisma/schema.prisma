@@ -44,6 +44,10 @@ model User {
   createdClientTasks  ClientTask[]  @relation("CreatedClientTasks")
   createdOrders       Order[]       @relation("OrderCreatedBy")
   updatedShippingRates ShippingRate[] @relation("ShippingRateUpdatedBy")
+  salesmanTargets     SalesmanTarget[] @relation("SalesmanTargets")
+  assignedTargets     SalesmanTarget[] @relation("TargetsSetBy")
+  createdEnquiries    Enquiry[]        @relation("EnquiryCreatedBy")
+  recordedPayments    OrderPayment[]   @relation("PaymentRecordedBy")
 
   @@map("users")
 }
@@ -75,6 +79,8 @@ model Client {
   contact_no                 String
   location_coordinates       String?
   mail_id                    String?
+  cr_no                      String?      @unique
+  cr_expiry_date             DateTime?    @db.Date
   contact_person_designation String?
   assigned_salesman_id       Int
   org_id                     Int
@@ -94,6 +100,7 @@ model Client {
   logs                         ClientLog[]
   clientTasks                  ClientTask[]
   orders                       Order[]
+  enquiries                    Enquiry[]
 
   @@index([assigned_salesman_id])
   @@index([org_id])
@@ -170,10 +177,18 @@ model Order {
   accounts_approval String   @default("pending")
   manager_approval  String   @default("pending")
   created_by_id     Int
+  /// Set when the order was converted from an enquiry.
+  enquiry_id        Int?     @unique
+  job_no            String?  @unique
+  invoice_date      DateTime? @db.Date
+  /// Payment due date; set on conversion (invoice date + credit days for credit orders).
+  due_date          DateTime? @db.Date
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
   client            Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
   createdBy         User     @relation("OrderCreatedBy", fields: [created_by_id], references: [id])
+  enquiry           Enquiry? @relation(fields: [enquiry_id], references: [id], onDelete: SetNull)
+  payments          OrderPayment[]
 
   @@index([client_id])
   @@index([created_by_id])
@@ -199,4 +214,72 @@ model ShippingRate {
   @@unique([location, port, mode, container])
   @@index([location, port])
   @@map("shipping_rates")
+}
+
+/// Payments collected against an order after it is raised (the advance is stored on the order itself).
+model OrderPayment {
+  id             Int      @id @default(autoincrement())
+  order_id       Int
+  amount         Decimal  @db.Decimal(12, 2)
+  paid_on        DateTime @db.Date
+  method         String
+  reference      String?
+  notes          String?
+  recorded_by_id Int
+  created_at     DateTime @default(now())
+  order          Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  recordedBy     User     @relation("PaymentRecordedBy", fields: [recorded_by_id], references: [id])
+
+  @@index([order_id])
+  @@map("order_payments")
+}
+
+model Enquiry {
+  id                 Int       @id @default(autoincrement())
+  client_id          Int
+  enquiry_date       DateTime  @db.Date
+  mode               String
+  from               String
+  to                 String
+  term               String
+  payment_mode       String
+  /// Only when payment_mode is "credit".
+  credit_days        Int?
+  clearance          Boolean   @default(false)
+  provisional_cost   Decimal   @db.Decimal(12, 2)
+  provisional_profit Decimal   @db.Decimal(12, 2)
+  /// Filled by the accountant on conversion to an order.
+  actual_cost        Decimal?  @db.Decimal(12, 2)
+  actual_profit      Decimal?  @db.Decimal(12, 2)
+  notes              String?
+  /// "open" | "order_created". "completed" is derived from the linked order.
+  status             String    @default("open")
+  created_by_id      Int
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  client             Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  createdBy          User      @relation("EnquiryCreatedBy", fields: [created_by_id], references: [id])
+  order              Order?
+
+  @@index([client_id])
+  @@index([created_by_id])
+  @@index([status])
+  @@map("enquiries")
+}
+
+model SalesmanTarget {
+  id            Int       @id @default(autoincrement())
+  salesman_id   Int
+  set_by_id     Int
+  amount        Decimal   @db.Decimal(12, 2)
+  period_start  DateTime  @db.Date
+  period_end    DateTime  @db.Date
+  /// Set when a manager replaces this target before its period ends.
+  closed_at     DateTime?
+  created_at    DateTime  @default(now())
+  salesman      User      @relation("SalesmanTargets", fields: [salesman_id], references: [id], onDelete: Cascade)
+  setBy         User      @relation("TargetsSetBy", fields: [set_by_id], references: [id])
+
+  @@index([salesman_id, period_start])
+  @@map("salesman_targets")
 }

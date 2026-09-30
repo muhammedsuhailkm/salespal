@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getCachedManagerClientsPageData } from "@/lib/cached-queries";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -21,9 +22,22 @@ export default function ManagerClientsPage() {
 
 async function ManagerClientsSection() {
   const session = await getSalesPalSession();
-  const { salesmen, clients } = await getCachedManagerClientsPageData(session!.user.id);
+  const [{ salesmen, clients }, managerOrgs] = await Promise.all([
+    getCachedManagerClientsPageData(session!.user.id),
+    prisma.managerOrg.findMany({
+      where: { manager_id: Number(session!.user.id) },
+      select: { org: { select: { id: true, name: true } } },
+      orderBy: { org: { name: "asc" } },
+    }),
+  ]);
 
-  return <ManagerClientsList initialClients={clients} salesmen={salesmen} />;
+  return (
+    <ManagerClientsList
+      initialClients={clients}
+      salesmen={salesmen}
+      companies={managerOrgs.map((item) => item.org)}
+    />
+  );
 }
 
 function ClientsTableSkeleton() {

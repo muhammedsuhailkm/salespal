@@ -10,6 +10,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
   mail_id: string | null;
   status: string;
@@ -82,7 +84,8 @@ export function ClientTable({
         const matchesName = client.name.toLowerCase().includes(query);
         const matchesContactPerson = client.contact_person_name.toLowerCase().includes(query);
         const matchesEmail = client.mail_id?.toLowerCase().includes(query) ?? false;
-        if (!matchesName && !matchesContactPerson && !matchesEmail) {
+        const matchesCr = client.cr_no?.toLowerCase().includes(query) ?? false;
+        if (!matchesName && !matchesContactPerson && !matchesEmail && !matchesCr) {
           return false;
         }
       }
@@ -163,7 +166,7 @@ export function ClientTable({
           </div>
           <input
             type="text"
-            placeholder="Search clients by name, contact person, or email..."
+            placeholder="Search by name, contact person, email or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
@@ -307,6 +310,8 @@ export function ClientTable({
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden md:table-cell">Salesman</th>
+                <th className="px-4 py-3 hidden sm:table-cell">CR No</th>
+                <th className="px-4 py-3 hidden sm:table-cell">CR Expiry</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
@@ -357,6 +362,20 @@ export function ClientTable({
                       <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
                         {client.assignedSalesman?.name ?? "-"}
                       </td>
+                      <td className="px-4 py-3 text-slate-700 hidden sm:table-cell font-medium whitespace-nowrap">
+                        {client.cr_no ?? "-"}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-4 py-3 whitespace-nowrap hidden sm:table-cell",
+                          client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date()
+                            ? "text-red-600 font-semibold"
+                            : "text-slate-500"
+                        )}
+                      >
+                        {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                        {client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date() ? " (expired)" : ""}
+                      </td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
                         {formatDate(client.created_at)}
                       </td>
@@ -372,8 +391,18 @@ export function ClientTable({
 
                       return (
                         <tr className={cn(rowColors[client.status] ?? "bg-slate-50/20")}>
-                          <td colSpan={7} className="px-6 py-4 text-xs text-slate-700 space-y-3.5 border-t border-slate-100/50">
+                          <td colSpan={9} className="px-6 py-4 text-xs text-slate-700 space-y-3.5 border-t border-slate-100/50">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="space-y-1">
+                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR No</span>
+                                <span className="text-slate-800 text-xs font-semibold">{client.cr_no ?? "-"}</span>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR Expiry</span>
+                                <span className="text-slate-800 text-xs font-semibold">
+                                  {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                                </span>
+                              </div>
                               <div className="space-y-1">
                                 <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Assigned Company</span>
                                 <span className="text-slate-800 text-xs font-semibold flex items-center gap-1">

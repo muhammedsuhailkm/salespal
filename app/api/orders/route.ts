@@ -2,14 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { isRole, orderScopeWhere } from "@/lib/scoping";
 import { orderModes, orderPaymentModes } from "@/types/order";
-
-function serializeOrder<T extends { amount: { toNumber(): number }; advance_amount: { toNumber(): number } }>(order: T) {
-  const amount = order.amount.toNumber();
-  const advance_amount = order.advance_amount.toNumber();
-  return { ...order, amount, advance_amount, balance: amount - advance_amount };
-}
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -17,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const orders = await prisma.order.findMany({
     where: await orderScopeWhere(token),
-    include: { client: { select: { id: true, name: true } }, createdBy: { select: { name: true } } },
+    include: { client: { select: { id: true, name: true } }, createdBy: { select: { name: true } }, ...orderPaymentsInclude },
     orderBy: { created_at: "desc" },
   });
   return NextResponse.json({ orders: orders.map(serializeOrder) });

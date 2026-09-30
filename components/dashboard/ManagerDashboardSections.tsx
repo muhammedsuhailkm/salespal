@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   getCachedManagerSalesmen,
   getCachedManagerOrg,
@@ -12,6 +13,8 @@ import { OrderMonthlyChart } from "@/components/orders/OrderMonthlyChart";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { StatCardWithDetails, type StatDetailItem } from "@/components/dashboard/StatCardWithDetails";
+import { prisma } from "@/lib/prisma";
 import { cn, formatDate } from "@/lib/utils";
 import {
   TrendingUp,
@@ -214,7 +217,35 @@ export async function ManagerKpiCardsRow({
       ["pending", "in_process"].includes(t.status)
   );
 
-  const cards = [
+  // Names for the pipeline clients (salesman data only carries id + status)
+  const nameBySalesman = new Map(salesmen.map((s) => [s.id, s.name]));
+  const pipelineIds = salesmen.flatMap((s) =>
+    s.assignedClients.filter((c) => c.status === "lead" || c.status === "follow_up").map((c) => c.id)
+  );
+  const pipelineClients = pipelineIds.length
+    ? await prisma.client.findMany({
+        where: { id: { in: pipelineIds } },
+        select: { id: true, name: true, status: true, created_at: true, assigned_salesman_id: true },
+        orderBy: { created_at: "desc" },
+      })
+    : [];
+
+  const onboardedLogs = currentLogs
+    .filter((l) => l.action.toLowerCase().includes("onboarded"))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const cards: {
+    label: string;
+    value: number;
+    badgeLabel: string;
+    direction: "up" | "down" | "flat";
+    Icon: typeof UserCheck;
+    bg: string;
+    items: StatDetailItem[];
+    emptyMessage: string;
+    viewAllHref: string;
+    viewAllLabel: string;
+  }[] = [
     {
       label: "Team Onboarded",
       value: onboardedThis,
@@ -222,6 +253,15 @@ export async function ManagerKpiCardsRow({
       direction: onboardedPct > 0 ? "up" : onboardedPct < 0 ? "down" : "flat",
       Icon: UserCheck,
       bg: "bg-teal-600",
+      items: onboardedLogs.map((l) => ({
+        id: l.id,
+        primary: l.client?.name ?? "Client",
+        secondary: `by ${l.author?.name ?? "—"}`,
+        meta: formatDate(l.created_at),
+      })),
+      emptyMessage: "No clients onboarded in this period.",
+      viewAllHref: "/dashboard/manager/clients",
+      viewAllLabel: "Go to clients",
     },
     {
       label: "Active Pipeline",
@@ -230,6 +270,16 @@ export async function ManagerKpiCardsRow({
       direction: weekNew > 0 ? "up" : "flat",
       Icon: Users,
       bg: "bg-blue-600",
+      items: pipelineClients.map((c) => ({
+        id: c.id,
+        primary: c.name,
+        secondary: nameBySalesman.get(c.assigned_salesman_id) ?? undefined,
+        status: c.status,
+        href: `/dashboard/manager/clients/${c.id}`,
+      })),
+      emptyMessage: "No leads or follow-ups in the pipeline.",
+      viewAllHref: "/dashboard/manager/clients",
+      viewAllLabel: "Go to clients",
     },
     {
       label: "Team KPI Score",
@@ -238,6 +288,16 @@ export async function ManagerKpiCardsRow({
       direction: kpiChangePct > 0 ? "up" : kpiChangePct < 0 ? "down" : "flat",
       Icon: BarChart3,
       bg: "bg-violet-600",
+      items: sortedSalesmen.map((s) => ({
+        id: s.id,
+        primary: s.name,
+        secondary: `${s.totalClients} client${s.totalClients === 1 ? "" : "s"}`,
+        meta: `KPI ${s.kpiScore}`,
+        href: `/dashboard/manager/team/${s.id}`,
+      })),
+      emptyMessage: "No salesmen on your team yet.",
+      viewAllHref: "/dashboard/manager/team",
+      viewAllLabel: "Go to team",
     },
     {
       label: "Overdue Tasks",
@@ -246,21 +306,40 @@ export async function ManagerKpiCardsRow({
       direction: overdueTasks.length > 0 ? "up" : "flat",
       Icon: XCircle,
       bg: "bg-slate-800",
+      items: overdueTasks.map((t) => ({
+        id: t.id,
+        primary: t.description,
+        secondary: t.assignedTo?.name,
+        meta: `Due ${formatDate(t.due_date)}`,
+        status: t.status,
+      })),
+      emptyMessage: "No overdue tasks. Nice work!",
+      viewAllHref: "/dashboard/manager/tasks",
+      viewAllLabel: "Go to tasks",
     },
-  ] as const;
+  ];
 
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <StatCard
+        <StatCardWithDetails
           key={card.label}
-          icon={card.Icon}
           label={card.label}
           value={card.value}
-          badgeLabel={card.badgeLabel}
-          badgeDirection={card.direction}
-          theme={{ bg: card.bg }}
-        />
+          items={card.items}
+          emptyMessage={card.emptyMessage}
+          viewAllHref={card.viewAllHref}
+          viewAllLabel={card.viewAllLabel}
+        >
+          <StatCard
+            icon={card.Icon}
+            label={card.label}
+            value={card.value}
+            badgeLabel={card.badgeLabel}
+            badgeDirection={card.direction}
+            theme={{ bg: card.bg }}
+          />
+        </StatCardWithDetails>
       ))}
     </div>
   );
@@ -352,7 +431,9 @@ export async function SalesmanPerformanceSection({
     <div className="space-y-3">
       <div>
         <h2 className="text-base font-semibold text-slate-900">
-          Salesman Performance
+          <Link href="/dashboard/manager/team" className="transition hover:text-indigo-600 hover:underline underline-offset-4">
+            Salesman Performance
+          </Link>
         </h2>
         <p className="text-xs text-slate-500">this month</p>
       </div>
@@ -728,7 +809,7 @@ export async function FunnelAndTasksSection({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {/* ── LEFT: Conversion Funnel ── */}
-      <SectionCard title="Team Conversion Funnel" subtitle="this month">
+      <SectionCard title="Team Conversion Funnel" subtitle="this month" href="/dashboard/manager/clients">
         <div className="space-y-4">
           {/* Funnel bars */}
           {[
@@ -796,6 +877,7 @@ export async function FunnelAndTasksSection({
       <SectionCard
         title="Pending Tasks"
         subtitle="by salesman"
+        href="/dashboard/manager/tasks"
         className="h-auto lg:h-[420px] flex flex-col"
         bodyClassName="flex-1 min-h-0"
       >
@@ -880,7 +962,7 @@ export async function ManagerActivityFeed({
   const activityFeed = await getCachedManagerActivityFeed(salesmanIds);
 
   return (
-    <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-blue-500">
+    <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-blue-500" href="/dashboard/manager/clients">
       <div className="space-y-0 divide-y divide-slate-100">
         {activityFeed.length > 0 ? (
           activityFeed.map((log) => {
@@ -960,7 +1042,7 @@ export async function ManagerOrderStatsSection({ managerId }: { managerId: numbe
   const chartData = Object.entries(chartDataMap).map(([month, values]) => ({ month, ...values }));
 
   return (
-    <SectionCard title="Team orders: collected vs pending">
+    <SectionCard title="Team orders: collected vs pending" href="/dashboard/manager/orders">
       <OrderMonthlyChart data={chartData} />
     </SectionCard>
   );
