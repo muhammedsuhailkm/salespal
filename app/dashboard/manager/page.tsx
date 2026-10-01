@@ -1,8 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedManagerOrg, getCachedManagerSalesmen } from "@/lib/cached-queries";
+import { getCachedManagerOrg, getShippingRates } from "@/lib/cached-queries";
+import { getManagerTeam } from "@/lib/manager-dashboard";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ShippingRateTable } from "@/components/shipping-rates/ShippingRateTable";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   ManagerKpiCardsRow,
   SalesmanPerformanceSection,
@@ -17,6 +20,20 @@ import {
 } from "@/components/dashboard/ManagerDashboardSections";
 
 type PeriodKey = "this_month" | "last_month";
+
+async function ShippingRatesSection() {
+  const rates = await getShippingRates();
+  return <ShippingRateTable initialRates={rates} />;
+}
+
+function ShippingRatesSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <Skeleton className="h-32 w-full rounded-lg" />
+      <Skeleton className="h-64 w-full rounded-lg" />
+    </div>
+  );
+}
 
 /* ── Period Selector ── */
 function PeriodSelector({ current }: { current: PeriodKey }) {
@@ -59,7 +76,7 @@ export default async function ManagerDashboardPage({
   // Fast cached data for header — org info + salesman count
   const [orgs, salesmen] = await Promise.all([
     getCachedManagerOrg(managerId),
-    getCachedManagerSalesmen(managerId),
+    getManagerTeam(managerId),
   ]);
 
   const orgName = orgs.map((o) => o.name).join(" & ") || "Your Organization";
@@ -78,6 +95,11 @@ export default async function ManagerDashboardPage({
         {/* ─── 1. KPI Summary Cards ─── */}
         <Suspense fallback={<ManagerKpiSkeleton />}>
           <ManagerKpiCardsRow managerId={managerId} period={period} />
+        </Suspense>
+
+        {/* ─── 2. Shipping Rates (read-only) ─── */}
+        <Suspense fallback={<ShippingRatesSkeleton />}>
+          <ShippingRatesSection />
         </Suspense>
 
         {/* ─── 3. Salesman Performance (Spotlight + Leaderboard) ─── */}

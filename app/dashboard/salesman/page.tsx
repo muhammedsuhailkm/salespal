@@ -3,7 +3,6 @@ import { getSalesPalSession } from "@/lib/auth";
 import {
   calculateKpiScoreProgress,
   getKpiScoreBreakdown,
-  groupStatusCounts,
   type KpiBreakdownItem,
 } from "@/lib/kpi";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -19,7 +18,7 @@ import { TaskOverview } from "@/components/dashboard/TaskOverview";
 import { cn } from "@/lib/utils";
 import {
   getCachedSalesmanInfo,
-  getCachedClientStatuses,
+  getCachedClientStatusCounts,
   getCachedMonthLogs,
   getCachedSalesmanTasks,
   getCachedOnboardedByMonth,
@@ -273,13 +272,11 @@ async function KpiCardsSection({ userId }: { userId: number }) {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-  const [clients, thisMonthLogs, lastMonthLogs] = await Promise.all([
-    getCachedClientStatuses(userId),
+  const [counts, thisMonthLogs, lastMonthLogs] = await Promise.all([
+    getCachedClientStatusCounts(userId),
     getCachedMonthLogs(userId, thisMonthStart.toISOString()),
     getCachedMonthLogs(userId, lastMonthStart.toISOString(), lastMonthEnd.toISOString()),
   ]);
-
-  const counts = groupStatusCounts(clients);
 
   const pctChanges: Record<string, number> = {};
   const lastMonthCounts: Record<string, number> = {};
@@ -318,9 +315,8 @@ async function KpiCardsSection({ userId }: { userId: number }) {
 }
 
 async function KpiScoreCard({ userId }: { userId: number }) {
-  const clients = await getCachedClientStatuses(userId);
-  const counts = groupStatusCounts(clients);
-  const totalClients = clients.length;
+  const counts = await getCachedClientStatusCounts(userId);
+  const totalClients = Object.values(counts).reduce((a, b) => a + b, 0);
   const kpiProgress = calculateKpiScoreProgress(counts, totalClients);
   const kpiBreakdown = getKpiScoreBreakdown(counts);
 

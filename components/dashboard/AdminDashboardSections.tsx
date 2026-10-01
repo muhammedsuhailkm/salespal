@@ -1,15 +1,12 @@
+import { getCachedAdminActivityFeed, getCachedAdminOrgs } from "@/lib/cached-queries";
 import {
-  getCachedAdminClients,
-  getCachedAdminLogsByAction,
-  getCachedAdminLogCount,
-  getCachedAdminTasks,
-  getCachedAdminSalesmen,
-  getCachedAdminActivityFeed,
-  getCachedAdminManagers,
-  getCachedAdminTrendData,
-  getCachedAdminOrgs,
-} from "@/lib/cached-queries";
-import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
+  getAdminCompanyScorecards,
+  getAdminKpiCounts,
+  getAdminLeaderboard,
+  getAdminLostClients,
+  getAdminOnboardingTrend,
+  getAdminTaskHealth,
+} from "@/lib/admin-dashboard";
 import { Card } from "@/components/ui/Card";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { Badge } from "@/components/ui/Badge";
@@ -145,65 +142,15 @@ export async function KpiCardsRow({
   const { start, end } = getPeriodRange(period);
   const { start: prevStart, end: prevEnd } = getPreviousPeriodRange(period);
 
-  const [
-    clients,
-    onboardedLogsThis,
-    onboardedLogsPrev,
-    lostLogsThis,
-    lostLogsPrev,
-    tasks,
-  ] = await Promise.all([
-    getCachedAdminClients(orgId),
-    getCachedAdminLogsByAction(
-      "onboarded",
-      start.toISOString(),
-      end?.toISOString(),
-    ),
-    getCachedAdminLogsByAction(
-      "onboarded",
-      prevStart.toISOString(),
-      prevEnd.toISOString(),
-    ),
-    getCachedAdminLogsByAction("lost", start.toISOString(), end?.toISOString()),
-    getCachedAdminLogsByAction(
-      "lost",
-      prevStart.toISOString(),
-      prevEnd.toISOString(),
-    ),
-    getCachedAdminTasks(),
-  ]);
+  const {
+    counts,
+    onboardedThis: onboardedThisPeriod,
+    onboardedPrev: onboardedPrevPeriod,
+    lostThis: lostThisPeriod,
+    lostPrev: lostPrevPeriod,
+  } = await getAdminKpiCounts(orgId ?? null, start.toISOString(), end?.toISOString() ?? null, prevStart.toISOString(), prevEnd.toISOString());
 
-  const filterByOrg = (logList: typeof onboardedLogsThis) => {
-    if (!orgId) return logList;
-    return logList.filter((l) => l.client.org_id === orgId);
-  };
-
-  const currentOnboardedLogs = filterByOrg(onboardedLogsThis);
-  const prevOnboardedLogs = filterByOrg(onboardedLogsPrev);
-  const currentLostLogs = filterByOrg(lostLogsThis);
-  const prevLostLogs = filterByOrg(lostLogsPrev);
-
-  const isCurrentlyOnboarded = (status: string) =>
-    ["onboarded", "active_client", "lost", "inactive"].includes(status);
-  const isCurrentlyLost = (status: string) =>
-    ["lost", "cancelled"].includes(status);
-
-  const onboardedThisPeriod = currentOnboardedLogs.filter((l) =>
-    isCurrentlyOnboarded(l.client.status)
-  ).length;
-  const onboardedPrevPeriod = prevOnboardedLogs.filter((l) =>
-    isCurrentlyOnboarded(l.client.status)
-  ).length;
-
-  const lostThisPeriod = currentLostLogs.filter((l) =>
-    isCurrentlyLost(l.client.status)
-  ).length;
-  const lostPrevPeriod = prevLostLogs.filter((l) =>
-    isCurrentlyLost(l.client.status)
-  ).length;
-
-  const counts = groupStatusCounts(clients);
-  const totalClients = clients.length;
+  const totalClients = Object.values(counts).reduce((a, b) => a + b, 0);
   const onboardedClients = counts.onboarded ?? 0;
   const activePipeline = (counts.follow_up ?? 0) + (counts.lead ?? 0);
   const conversionRate =
@@ -275,55 +222,11 @@ export async function CompanyHeroSection({
   period: PeriodKey;
   orgId?: number;
 }) {
-  const [clients, managers] = await Promise.all([
-    getCachedAdminClients(),
-    getCachedAdminManagers(),
-  ]);
+  const scorecards = await getAdminCompanyScorecards();
+  if (scorecards.length < 2) return null;
 
-  // Group clients by org
-  const orgMap = new Map<number, typeof clients>();
-  for (const c of clients) {
-    if (!orgMap.has(c.org_id)) orgMap.set(c.org_id, []);
-    orgMap.get(c.org_id)!.push(c);
-  }
-
-  // Get the two orgs
-  const orgIds = Array.from(orgMap.keys()).sort((a, b) => a - b);
-  if (orgIds.length < 2) return null;
-
-  const orgData = orgIds
+  const orgData = scorecards
     .slice(0, 2)
-    .map((oid) => {
-      const orgClients = orgMap.get(oid) ?? [];
-      const counts = groupStatusCounts(orgClients);
-      const kpiScore = calculateKpiScore(counts);
-      const orgName = orgClients[0]?.organization.name ?? `Org ${oid}`;
-
-      // Find manager for this org
-      const mgr = managers.find((m) =>
-        m.managerOrgs.some((mo) => mo.org.id === oid),
-      );
-      const managerName = mgr?.name ?? "Unassigned";
-
-      // Team KPI (sum of all salesman KPIs under this manager)
-      let teamKpi = 0;
-      if (mgr) {
-        for (const ms of mgr.managerSalesmen) {
-          const smCounts = groupStatusCounts(ms.salesman.assignedClients);
-          teamKpi += calculateKpiScore(smCounts);
-        }
-      }
-
-      return {
-        oid,
-        orgName,
-        counts,
-        kpiScore,
-        managerName,
-        teamKpi,
-        total: orgClients.length,
-      };
-    })
     .sort((a, b) => a.orgName.localeCompare(b.orgName));
 
   const betterIdx = orgData[0].kpiScore >= orgData[1].kpiScore ? 0 : 1;
@@ -391,26 +294,7 @@ export async function SalesmanLeaderboardSection({
   orgId?: number;
   className?: string;
 }) {
-  const salesmen = await getCachedAdminSalesmen();
-
-  const rankedSalesmen = salesmen
-    .map((s) => {
-      const filteredClients = orgId
-        ? s.assignedClients.filter((c) => c.org_id === orgId)
-        : s.assignedClients;
-      const counts = groupStatusCounts(filteredClients);
-      const kpi = calculateKpiScore(counts);
-      const company =
-        s.salesmanManager?.[0]?.manager?.managerOrgs?.[0]?.org?.name ?? "—";
-      return {
-        id: s.id,
-        name: s.name,
-        kpi,
-        clients: filteredClients.length,
-        company,
-      };
-    })
-    .sort((a, b) => b.kpi - a.kpi);
+  const rankedSalesmen = await getAdminLeaderboard(orgId ?? null);
 
   const maxKpi = rankedSalesmen[0]?.kpi || 1;
   const rankIcons = ["🥇", "🥈", "🥉"];
@@ -480,16 +364,9 @@ export async function TaskHealthSection({
   orgId?: number;
   className?: string;
 }) {
-  const [tasks, clients] = await Promise.all([
-    getCachedAdminTasks(),
-    getCachedAdminClients(orgId),
-  ]);
-
-  const taskCounts: Record<string, number> = {};
-  for (const t of tasks) {
-    taskCounts[t.status] = (taskCounts[t.status] ?? 0) + 1;
-  }
-  const taskTotal = tasks.length || 1;
+  const health = await getAdminTaskHealth(orgId ?? null);
+  const taskCounts = health.taskCounts;
+  const taskTotal = health.taskTotal || 1;
 
   const taskStatusColors: Record<string, string> = {
     pending: "bg-slate-400",
@@ -498,7 +375,7 @@ export async function TaskHealthSection({
     unsuccessful: "bg-rose-400",
   };
 
-  const clientCounts = groupStatusCounts(clients);
+  const clientCounts = health.clientCounts;
   const funnelStages = [
     { label: "Leads", count: clientCounts.lead ?? 0, color: "bg-amber-400" },
     {
@@ -676,15 +553,8 @@ export async function LostClientsSection({
   className?: string;
 }) {
   const { start, end } = getPeriodRange(period);
-  const lostLogs = await getCachedAdminLogsByAction(
-    "lost",
-    start.toISOString(),
-    end?.toISOString(),
-  );
-
-  const filteredLost = orgId
-    ? lostLogs.filter((l) => l.client.org_id === orgId)
-    : lostLogs;
+  const lost = await getAdminLostClients(orgId ?? null, start.toISOString(), end?.toISOString() ?? null);
+  const filteredLost = lost.rows;
 
   return (
     <Card
@@ -698,7 +568,7 @@ export async function LostClientsSection({
           <AlertTriangle size={16} className="text-rose-500" />
           <h3 className="text-sm font-semibold text-slate-900">Lost Clients</h3>
           <span className="ml-auto text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-            {filteredLost.length}
+            {lost.total}
           </span>
         </div>
       </div>
@@ -756,8 +626,9 @@ export async function MonthlyTrendSection({
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [trendRaw, orgs] = await Promise.all([
-    getCachedAdminTrendData(sixMonthsAgo.toISOString()),
+    getAdminOnboardingTrend(sixMonthsAgo.toISOString(), timeZone),
     getCachedAdminOrgs(),
   ]);
 
@@ -773,12 +644,12 @@ export async function MonthlyTrendSection({
     monthBuckets.set(key, { companyA: 0, companyB: 0 });
   }
   for (const row of trendRaw) {
-    const d = new Date(row.created_at);
+    const d = new Date(row.year, row.month - 1, 1);
     const key = d.toLocaleDateString("en", { month: "short", year: "2-digit" });
     const bucket = monthBuckets.get(key);
     if (!bucket) continue;
-    if (orgA && row.client.org_id === orgA.id) bucket.companyA++;
-    else if (orgB && row.client.org_id === orgB.id) bucket.companyB++;
+    if (orgA && row.orgId === orgA.id) bucket.companyA += row.count;
+    else if (orgB && row.orgId === orgB.id) bucket.companyB += row.count;
   }
   const trendData = Array.from(monthBuckets.entries()).map(([month, data]) => ({
     month,

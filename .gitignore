@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# uploaded company documents
+/uploads
+
+# perf benchmark output
+/scripts/perf/*.jar
+/scripts/perf/*.tsv
+/scripts/perf/body.tmp

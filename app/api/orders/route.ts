@@ -2,25 +2,19 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { serializeOrder } from "@/lib/order-serialize";
+import { getOrdersPage } from "@/lib/orders-list";
 import { isRole, orderScopeWhere } from "@/lib/scoping";
 import { orderModes, orderPaymentModes } from "@/types/order";
-
-function serializeOrder<T extends { amount: { toNumber(): number }; advance_amount: { toNumber(): number } }>(order: T) {
-  const amount = order.amount.toNumber();
-  const advance_amount = order.advance_amount.toNumber();
-  return { ...order, amount, advance_amount, balance: amount - advance_amount };
-}
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const orders = await prisma.order.findMany({
-    where: await orderScopeWhere(token),
-    include: { client: { select: { id: true, name: true } }, createdBy: { select: { name: true } } },
-    orderBy: { created_at: "desc" },
-  });
-  return NextResponse.json({ orders: orders.map(serializeOrder) });
+  // Paginated like the UI: ?page=&status=&pay=&q=
+  const params = Object.fromEntries(new URL(request.url).searchParams);
+  const { rows, total, page, pageSize, totals } = await getOrdersPage(await orderScopeWhere(token), params);
+  return NextResponse.json({ orders: rows, total, page, pageSize, totals });
 }
 
 export async function POST(request: NextRequest) {
@@ -51,6 +45,7 @@ export async function POST(request: NextRequest) {
       payment_mode: body.payment_mode,
       amount,
       advance_amount: advanceAmount,
+      paid_total: advanceAmount,
       from: body.from,
       to: body.to,
       status: "draft",

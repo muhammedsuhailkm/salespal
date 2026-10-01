@@ -29,6 +29,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   mail_id: string | null;
   location_coordinates: string | null;
   status: string;
@@ -94,6 +96,10 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
     contact_person_name: client.contact_person_name,
     mail_id: client.mail_id || "",
     contact_no: client.contact_no,
+    cr_no: client.cr_no || "",
+    cr_expiry_date: client.cr_expiry_date
+      ? new Date(client.cr_expiry_date).toISOString().slice(0, 10)
+      : "",
     notes: client.notes || "",
     location_coordinates: client.location_coordinates || "",
   });
@@ -174,6 +180,8 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
           contact_person_name: editForm.contact_person_name,
           mail_id: editForm.mail_id || null,
           contact_no: editForm.contact_no,
+          cr_no: editForm.cr_no || null,
+          cr_expiry_date: editForm.cr_expiry_date || null,
           notes: editForm.notes || null,
           location_coordinates: editForm.location_coordinates || null,
         }),
@@ -190,6 +198,8 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
         contact_person_name: editForm.contact_person_name,
         mail_id: editForm.mail_id || null,
         contact_no: editForm.contact_no,
+        cr_no: editForm.cr_no || null,
+        cr_expiry_date: editForm.cr_expiry_date || null,
         notes: editForm.notes || null,
         location_coordinates: editForm.location_coordinates || null,
       }));
@@ -326,6 +336,10 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
                 contact_person_name: client.contact_person_name,
                 mail_id: client.mail_id || "",
                 contact_no: client.contact_no,
+                cr_no: client.cr_no || "",
+                cr_expiry_date: client.cr_expiry_date
+                  ? new Date(client.cr_expiry_date).toISOString().slice(0, 10)
+                  : "",
                 notes: client.notes || "",
                 location_coordinates: client.location_coordinates || "",
               });
@@ -572,6 +586,19 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               value={editForm.contact_no}
               onChange={(e) => setEditForm({ ...editForm, contact_no: e.target.value })}
               required
+            />
+            <Input
+              label="CR No"
+              id="edit-cr-no"
+              value={editForm.cr_no}
+              onChange={(e) => setEditForm({ ...editForm, cr_no: e.target.value })}
+            />
+            <Input
+              label="CR Expiry Date"
+              id="edit-cr-expiry-date"
+              type="date"
+              value={editForm.cr_expiry_date}
+              onChange={(e) => setEditForm({ ...editForm, cr_expiry_date: e.target.value })}
             />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-700" htmlFor="edit-notes">

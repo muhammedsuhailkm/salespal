@@ -102,7 +102,7 @@ export function OrderDetail({ order: initialOrder }: { order: OrderListItem }) {
                 </span>
               </div>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-slate-100 pt-5">
+            <div className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 sm:grid-cols-4">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Amount</span>
                 <span className="text-sm font-bold text-slate-900">{formatAmount(order.amount)}</span>
@@ -112,10 +112,30 @@ export function OrderDetail({ order: initialOrder }: { order: OrderListItem }) {
                 <span className="text-sm font-bold text-emerald-700">{formatAmount(order.advance_amount)}</span>
               </div>
               <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total collected</span>
+                <span className="text-sm font-bold text-emerald-700">{formatAmount(order.paid_amount)}</span>
+              </div>
+              <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Balance</span>
                 <span className="text-sm font-bold text-amber-700">{formatAmount(order.balance)}</span>
               </div>
             </div>
+            {order.payments.length > 0 && (
+              <div className="mt-6 border-t border-slate-100 pt-5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Payments collected</span>
+                <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100 text-xs">
+                  {order.payments.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <span className="text-slate-600">
+                        {formatDate(p.paid_on)} · {titleCase(p.method)}
+                        {p.reference ? ` · ${p.reference}` : ""}
+                      </span>
+                      <span className="font-semibold tabular-nums text-emerald-700">{formatAmount(p.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mt-6 border-t border-slate-100 pt-5">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Description</span>
               <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100 shadow-sm">

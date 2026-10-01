@@ -2,28 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
-import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
 import { Plus, Trash2, X, Loader2, UserPlus, Users } from "lucide-react";
 import { createSalesmanAction, removeSalesmanAction } from "@/lib/actions/manager-actions";
-
-type SalesmanRow = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  assignedClients: { status: string }[];
-};
+import { SalesmenTargetsClient } from "@/components/salesmen/SalesmenTargetsClient";
+import type { SalesmanTargetRow } from "@/types/salesman-target";
 
 interface ManagerTeamClientProps {
-  initialSalesmen: SalesmanRow[];
+  /** KPI score per salesman id, computed on the server from client status counts. */
+  kpiScores: Record<number, number>;
+  teamSize: number;
+  targets: SalesmanTargetRow[];
 }
 
-export function ManagerTeamClient({ initialSalesmen }: ManagerTeamClientProps) {
+export function ManagerTeamClient({ kpiScores, teamSize, targets }: ManagerTeamClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -99,10 +93,10 @@ export function ManagerTeamClient({ initialSalesmen }: ManagerTeamClientProps) {
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="text-slate-500" size={18} />
-            <span>My Sales Team ({initialSalesmen.length})</span>
+            <span>My Sales Team ({teamSize})</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Manage, assign, and monitor salesman performance metrics.
+            Manage your salesmen, set their targets and track progress.
           </p>
         </div>
 
@@ -118,71 +112,24 @@ export function ManagerTeamClient({ initialSalesmen }: ManagerTeamClientProps) {
         </button>
       </div>
 
-      {/* Salesman Performance Table */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
-            <tr>
-              <th className="px-5 py-3.5">Salesman</th>
-              <th className="px-5 py-3.5">Clients Count</th>
-              <th className="px-5 py-3.5">Top Status</th>
-              <th className="px-5 py-3.5">KPI Score</th>
-              <th className="px-5 py-3.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {initialSalesmen.map((salesman) => {
-              const counts = groupStatusCounts(salesman.assignedClients);
-              const sortedStatuses = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-              const topStatus = sortedStatuses[0]?.[0] ?? "lead";
-              const kpiScore = calculateKpiScore(counts);
-
-              return (
-                <tr
-                  key={salesman.id}
-                  className="hover:bg-slate-50/50 transition duration-150 group"
-                >
-                  <td className="px-5 py-4">
-                    <Link
-                      href={`/dashboard/manager/team/${salesman.id}`}
-                      className="font-bold text-slate-900 hover:text-indigo-650 hover:underline transition"
-                    >
-                      {salesman.name}
-                    </Link>
-                    <span className="block text-[10px] text-slate-400 font-medium mt-0.5">
-                      {salesman.email} {salesman.phone ? `• ${salesman.phone}` : ""}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 font-semibold text-slate-700">
-                    {salesman.assignedClients.length}
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge value={topStatus} />
-                  </td>
-                  <td className="px-5 py-4 font-bold text-slate-900">{kpiScore}</td>
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      onClick={() => handleRemove(salesman.id, salesman.name)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition duration-150 cursor-pointer active:scale-95 inline-flex"
-                      title="Remove Salesman"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-
-            {initialSalesmen.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center py-10 text-xs text-slate-400 italic">
-                  No salesmen in your team. Click "Add Salesman" to add one.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Salesmen: performance + targets */}
+      <SalesmenTargetsClient
+        salesmen={targets}
+        canAssign
+        kpiScores={kpiScores}
+        salesmanHref={(id) => `/dashboard/manager/team/${id}`}
+        renderActions={(row) => (
+          <button
+            onClick={() => handleRemove(row.id, row.name)}
+            disabled={isPending}
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition duration-150 cursor-pointer active:scale-95 inline-flex disabled:opacity-50"
+            title="Remove Salesman"
+            aria-label={`Remove ${row.name}`}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
+      />
 
       {/* Add Salesman Modal */}
       <Modal open={isAddOpen}>

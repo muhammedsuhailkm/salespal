@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useTransition, useOptimistic, Fragment, useEffect } from "react";
+import { useState, useTransition, useOptimistic, Fragment } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -11,7 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
-import { RotateCcw, X, ChevronDown, Navigation, User, Search, Building, Plus, Loader2, MapPin } from "lucide-react";
+import { RotateCcw, X, ChevronDown, Navigation, User, Search, Building, Plus, Loader2, MapPin, Upload, UserCheck } from "lucide-react";
+import { BulkImportClientsModal } from "@/components/clients/BulkImportClientsModal";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -22,6 +25,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
   mail_id: string | null;
   status: string;
@@ -38,8 +43,13 @@ type SalesmanItem = {
 };
 
 interface ManagerClientsListProps {
+  /** One server-filtered page of clients. */
   initialClients: Client[];
+  total: number;
+  page: number;
+  pageSize: number;
   salesmen: SalesmanItem[];
+  companies: { id: number; name: string }[];
 }
 
 const rowColors: Record<string, string> = {
@@ -80,7 +90,11 @@ const dropdownItemColors: Record<string, string> = {
 
 export function ManagerClientsList({
   initialClients,
+  total,
+  page,
+  pageSize,
   salesmen,
+  companies,
 }: ManagerClientsListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -110,11 +124,14 @@ export function ManagerClientsList({
     contact_person_name: "",
     mail_id: "",
     contact_no: "",
+    cr_no: "",
+    cr_expiry_date: "",
     status: "lead",
     notes: "",
     location_coordinates: "",
     assigned_salesman_id: "",
   });
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -123,87 +140,19 @@ export function ManagerClientsList({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Search and Filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [salesmanFilter, setSalesmanFilter] = useState("all");
-  const [dateFilterRange, setDateFilterRange] = useState("all");
-  const [customDate, setCustomDate] = useState("");
+  // Search and filters live in the URL and are applied by the server (paged 50 at a time).
+  const { get, set, reset, isPending: isNavigating } = useUrlFilters();
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
+  const statusFilter = get("status", "all");
+  const salesmanFilter = get("salesman", "all");
+  const dateFilterRange = get("date", "all");
+  const customDate = get("day");
 
-  // Memoized client filtering logic
-  const filteredClients = useMemo(() => {
-    return optimisticClients.filter((client) => {
-      // 1. Search Query (Client Name)
-      if (searchQuery.trim() !== "") {
-        if (!client.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return false;
-        }
-      }
-
-      // 2. Status Filter
-      if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
-      }
-
-      // 3. Salesman Filter
-      if (salesmanFilter !== "all" && client.assigned_salesman_id !== Number(salesmanFilter)) {
-        return false;
-      }
-
-      // 4. Date Filter
-      if (dateFilterRange !== "all") {
-        const clientDate = new Date(client.created_at);
-        clientDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilterRange === "today") {
-          if (clientDate.getTime() !== today.getTime()) return false;
-        } else if (dateFilterRange === "yesterday") {
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          if (clientDate.getTime() !== yesterday.getTime()) return false;
-        } else if (dateFilterRange === "week") {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (
-            clientDate.getTime() < sevenDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "month") {
-          const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (
-            clientDate.getTime() < thirtyDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "custom" && customDate) {
-          const selectedDate = new Date(customDate);
-          selectedDate.setHours(0, 0, 0, 0);
-          if (clientDate.getTime() !== selectedDate.getTime()) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [
-    optimisticClients,
-    searchQuery,
-    statusFilter,
-    salesmanFilter,
-    dateFilterRange,
-    customDate,
-  ]);
+  const filteredClients = optimisticClients;
 
   function handleReset() {
     setSearchQuery("");
-    setStatusFilter("all");
-    setSalesmanFilter("all");
-    setDateFilterRange("all");
-    setCustomDate("");
+    reset();
   }
 
   async function handleStatusChange(clientId: number, newStatus: string) {
@@ -248,6 +197,8 @@ export function ManagerClientsList({
           contact_person_name: addForm.contact_person_name,
           mail_id: addForm.mail_id || null,
           contact_no: addForm.contact_no,
+          cr_no: addForm.cr_no || null,
+          cr_expiry_date: addForm.cr_expiry_date || null,
           status: addForm.status,
           notes: addForm.notes || null,
           location_coordinates: addForm.location_coordinates || null,
@@ -266,6 +217,8 @@ export function ManagerClientsList({
         contact_person_name: "",
         mail_id: "",
         contact_no: "",
+        cr_no: "",
+        cr_expiry_date: "",
         status: "lead",
         notes: "",
         location_coordinates: "",
@@ -280,6 +233,60 @@ export function ManagerClientsList({
     }
   }
 
+  // Bulk assign
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkSalesmanId, setBulkSalesmanId] = useState("");
+  const [bulkOrgId, setBulkOrgId] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const allVisibleSelected = filteredClients.length > 0 && filteredClients.every((c) => selectedIds.has(c.id));
+
+  function toggleSelected(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filteredClients.forEach((c) => (allVisibleSelected ? next.delete(c.id) : next.add(c.id)));
+      return next;
+    });
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkSalesmanId || selectedIds.size === 0) return;
+    setIsAssigning(true);
+    try {
+      const res = await fetch("/api/clients/bulk-assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_ids: [...selectedIds],
+          salesman_id: Number(bulkSalesmanId),
+          org_id: bulkOrgId ? Number(bulkOrgId) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to assign clients");
+      const salesmanName = salesmen.find((s) => s.id === Number(bulkSalesmanId))?.name ?? "salesman";
+      const companyName = companies.find((c) => c.id === Number(bulkOrgId))?.name;
+      triggerToast(`${selectedIds.size} client(s) assigned to ${salesmanName}${companyName ? ` under ${companyName}` : ""}`);
+      setSelectedIds(new Set());
+      setBulkSalesmanId("");
+      setBulkOrgId("");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
   const hasActiveFilters =
     searchQuery !== "" || statusFilter !== "all" || salesmanFilter !== "all" || dateFilterRange !== "all";
 
@@ -289,19 +296,28 @@ export function ManagerClientsList({
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            Organization Clients ({filteredClients.length})
+            Organization Clients ({total.toLocaleString()})
           </h2>
         </div>
-        <button
-          onClick={() => {
-            setErrorMsg(null);
-            setIsAddOpen(true);
-          }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
-        >
-          <Plus size={14} />
-          <span>Add Client</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsImportOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+          >
+            <Upload size={14} />
+            <span>Import</span>
+          </button>
+          <button
+            onClick={() => {
+              setErrorMsg(null);
+              setIsAddOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+          >
+            <Plus size={14} />
+            <span>Add Client</span>
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters Toolbar */}
@@ -313,7 +329,7 @@ export function ManagerClientsList({
           </div>
           <input
             type="text"
-            placeholder="Search clients by name..."
+            placeholder="Search clients by name or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
@@ -341,7 +357,7 @@ export function ManagerClientsList({
             <select
               id="salesman-filter"
               value={salesmanFilter}
-              onChange={(e) => setSalesmanFilter(e.target.value)}
+              onChange={(e) => set({ salesman: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Salesmen</option>
@@ -364,7 +380,7 @@ export function ManagerClientsList({
             <select
               id="status-filter"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
@@ -393,10 +409,7 @@ export function ManagerClientsList({
             <select
               id="date-filter"
               value={dateFilterRange}
-              onChange={(e) => {
-                setDateFilterRange(e.target.value);
-                if (e.target.value !== "custom") setCustomDate("");
-              }}
+              onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Dates</option>
@@ -421,7 +434,7 @@ export function ManagerClientsList({
                 id="custom-date"
                 type="date"
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => set({ date: "custom", day: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               />
             </div>
@@ -441,15 +454,72 @@ export function ManagerClientsList({
         </div>
       </div>
 
+      {/* Bulk assign bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+          <span className="text-xs font-bold text-indigo-900">{selectedIds.size} selected</span>
+          <select
+            aria-label="Assign selected clients to salesman"
+            value={bulkSalesmanId}
+            onChange={(e) => setBulkSalesmanId(e.target.value)}
+            className="h-9 min-w-[180px] cursor-pointer rounded-lg border border-indigo-200 bg-white px-3 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Assign to salesman...</option>
+            {salesmen.map((s) => (
+              <option key={s.id} value={s.id.toString()}>{s.name}</option>
+            ))}
+          </select>
+          <select
+            aria-label="Company for selected clients"
+            value={bulkOrgId}
+            onChange={(e) => setBulkOrgId(e.target.value)}
+            className="h-9 min-w-[180px] cursor-pointer rounded-lg border border-indigo-200 bg-white px-3 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Keep current company</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id.toString()}>{c.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleBulkAssign}
+            disabled={!bulkSalesmanId || isAssigning}
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={13} />}
+            <span>Assign for follow-up</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto cursor-pointer text-xs font-semibold text-indigo-700 hover:underline"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Table Section */}
       {filteredClients.length > 0 ? (
+        <div className={cn("space-y-1 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
               <tr>
+                <th className="w-10 pl-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all visible clients"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisible}
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                  />
+                </th>
                 <th className="w-10 px-2 py-3 sm:hidden"></th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3 hidden md:table-cell">CR No</th>
+                <th className="px-4 py-3 hidden lg:table-cell">CR Expiry</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden lg:table-cell">Salesman</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
@@ -468,6 +538,15 @@ export function ManagerClientsList({
                         rowColors[client.status] ?? "bg-white hover:bg-slate-50/60"
                       )}
                     >
+                      <td className="w-10 pl-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${client.name}`}
+                          checked={selectedIds.has(client.id)}
+                          onChange={() => toggleSelected(client.id)}
+                          className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                        />
+                      </td>
                       <td
                         className="w-10 px-2 py-3 text-center sm:hidden"
                         onClick={(e) => {
@@ -503,6 +582,12 @@ export function ManagerClientsList({
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {formatPhoneNumber(client.contact_no)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                        {client.cr_no ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                        {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                       </td>
                       <td className="px-4 py-3 text-slate-600 hidden md:table-cell font-medium">
                         {client.organization?.name ?? "-"}
@@ -593,9 +678,19 @@ export function ManagerClientsList({
                     {isExpanded && (
                       <tr className={cn("sm:hidden", rowColors[client.status] ?? "bg-slate-50/30")}>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50"
                         >
+                          <div>
+                            <span className="font-semibold text-slate-500">CR No:</span>{" "}
+                            <span className="text-slate-800 font-medium">{client.cr_no ?? "-"}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-500">CR Expiry:</span>{" "}
+                            <span className="text-slate-800 font-medium">
+                              {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                            </span>
+                          </div>
                           <div>
                             <span className="font-semibold text-slate-500">Company:</span>{" "}
                             <span className="text-slate-800 font-medium">
@@ -649,6 +744,8 @@ export function ManagerClientsList({
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} pending={isNavigating} noun="clients" onPage={(p) => set({ page: p })} />
         </div>
       ) : (
         /* Empty State */
@@ -738,6 +835,23 @@ export function ManagerClientsList({
                 setAddForm({ ...addForm, contact_no: e.target.value })
               }
               placeholder="e.g. +97455556666"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR No"
+              type="text"
+              value={addForm.cr_no}
+              onChange={(e) => setAddForm({ ...addForm, cr_no: e.target.value })}
+              placeholder="Commercial registration number"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR Expiry Date"
+              type="date"
+              value={addForm.cr_expiry_date}
+              onChange={(e) => setAddForm({ ...addForm, cr_expiry_date: e.target.value })}
               className="text-xs"
             />
 
@@ -847,6 +961,16 @@ export function ManagerClientsList({
           </form>
         </div>
       </Modal>
+
+      <BulkImportClientsModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImported={(count) => {
+          triggerToast(`${count} client(s) imported as leads`);
+          router.refresh();
+        }}
+        salesmen={salesmen}
+      />
 
       <Toast message={toastMsg || undefined} />
     </div>

@@ -5,6 +5,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { getSalesPalSession } from "@/lib/auth";
 import { orderScopeWhere } from "@/lib/scoping";
 import type { OrderApprovalStatus } from "@/types/order";
+import { syncOrderPayments } from "@/lib/order-payments";
+import { revalidateEnquiryPages } from "@/lib/enquiries";
 
 function revalidateOrders() {
   revalidateTag("salesman-orders", { expire: 0 });
@@ -101,9 +103,12 @@ export async function setOrderStatus(orderId: number, status: "cancelled" | "com
         where: { id: order.id },
         data: { status },
       });
+      // Cancelling un-completes the linked enquiry; completing doesn't change payment state but keeps it in sync.
+      await syncOrderPayments(tx, order.id);
     });
 
     revalidateOrders();
+    revalidateEnquiryPages();
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update order status." };

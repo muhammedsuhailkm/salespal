@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedManagerTeamPageData } from "@/lib/cached-queries";
+import { getManagerTeam } from "@/lib/manager-dashboard";
+import { getSalesmenWithTargets } from "@/lib/salesman-targets";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ManagerTeamClient } from "./ManagerTeamClient";
@@ -8,7 +9,7 @@ import { ManagerTeamClient } from "./ManagerTeamClient";
 export default function TeamPage() {
   return (
     <>
-      <PageHeader title="Team" subtitle="Salesmen assigned to you." />
+      <PageHeader title="Team" subtitle="Your salesmen, their KPIs, targets and progress." />
       <Suspense fallback={<TeamSkeleton />}>
         <TeamSection />
       </Suspense>
@@ -18,9 +19,13 @@ export default function TeamPage() {
 
 async function TeamSection() {
   const session = await getSalesPalSession();
-  const salesmen = await getCachedManagerTeamPageData(session!.user.id);
+  const [team, targets] = await Promise.all([
+    getManagerTeam(Number(session!.user.id)),
+    getSalesmenWithTargets({ id: Number(session!.user.id), role_id: 2 }),
+  ]);
 
-  return <ManagerTeamClient initialSalesmen={salesmen} />;
+  const kpiScores = Object.fromEntries(team.map((s) => [s.id, s.kpiScore]));
+  return <ManagerTeamClient kpiScores={kpiScores} teamSize={team.length} targets={targets} />;
 }
 
 function TeamSkeleton() {

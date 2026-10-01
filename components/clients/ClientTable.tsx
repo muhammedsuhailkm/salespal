@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, Fragment } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
 import { RotateCcw, Search, ChevronDown, Navigation, Building, User, Mail, Calendar, X } from "lucide-react";
@@ -10,6 +12,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
   mail_id: string | null;
   status: string;
@@ -54,99 +58,37 @@ const rowColors: Record<string, string> = {
   unsuccessful: "bg-red-100/40 hover:bg-red-100/60 text-red-950",
 };
 
+/** Server-paginated client table: filters and search are URL params applied by the server. */
 export function ClientTable({
   clients,
+  total,
+  page,
+  pageSize,
   companies = [],
   managers = [],
   managerSalesmen = [],
 }: {
   clients: Client[];
+  total: number;
+  page: number;
+  pageSize: number;
   companies?: Company[];
   managers?: Manager[];
   managerSalesmen?: ManagerSalesman[];
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [companyFilter, setCompanyFilter] = useState("all");
-  const [managerFilter, setManagerFilter] = useState("all");
-  const [dateFilterRange, setDateFilterRange] = useState("all");
-  const [customDate, setCustomDate] = useState("");
+  const { get, set, reset, isPending } = useUrlFilters();
+  const statusFilter = get("status", "all");
+  const companyFilter = get("company", "all");
+  const managerFilter = get("manager", "all");
+  const dateFilterRange = get("date", "all");
+  const customDate = get("day");
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
-
-  // Memoized client filtering logic
-  const filteredClients = useMemo(() => {
-    return clients.filter((client) => {
-      // 1. Search Query (Client Name, contact, or email)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesName = client.name.toLowerCase().includes(query);
-        const matchesContactPerson = client.contact_person_name.toLowerCase().includes(query);
-        const matchesEmail = client.mail_id?.toLowerCase().includes(query) ?? false;
-        if (!matchesName && !matchesContactPerson && !matchesEmail) {
-          return false;
-        }
-      }
-
-      // 2. Company/Org Filter
-      if (companyFilter !== "all" && client.org_id !== Number(companyFilter)) {
-        return false;
-      }
-
-      // 3. Manager Filter
-      if (managerFilter !== "all") {
-        const assignedSalesmanIds = managerSalesmen
-          .filter((ms) => ms.manager_id === Number(managerFilter))
-          .map((ms) => ms.salesman_id);
-        if (!assignedSalesmanIds.includes(client.assigned_salesman_id)) {
-          return false;
-        }
-      }
-
-      // 4. Status Filter
-      if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
-      }
-
-      // 5. Date Filter
-      if (dateFilterRange !== "all") {
-        const clientDate = new Date(client.created_at);
-        clientDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilterRange === "today") {
-          if (clientDate.getTime() !== today.getTime()) return false;
-        } else if (dateFilterRange === "yesterday") {
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          if (clientDate.getTime() !== yesterday.getTime()) return false;
-        } else if (dateFilterRange === "week") {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (clientDate.getTime() < sevenDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
-        } else if (dateFilterRange === "month") {
-          const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (clientDate.getTime() < thirtyDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
-        } else if (dateFilterRange === "custom" && customDate) {
-          const selectedDate = new Date(customDate);
-          selectedDate.setHours(0, 0, 0, 0);
-          if (clientDate.getTime() !== selectedDate.getTime()) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [clients, searchQuery, companyFilter, managerFilter, managerSalesmen, statusFilter, dateFilterRange, customDate]);
+  const filteredClients = clients;
 
   function handleReset() {
     setSearchQuery("");
-    setStatusFilter("all");
-    setCompanyFilter("all");
-    setManagerFilter("all");
-    setDateFilterRange("all");
-    setCustomDate("");
+    reset();
   }
 
   const hasActiveFilters =
@@ -163,7 +105,7 @@ export function ClientTable({
           </div>
           <input
             type="text"
-            placeholder="Search clients by name, contact person, or email..."
+            placeholder="Search by name, contact person, email or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
@@ -187,7 +129,7 @@ export function ClientTable({
             </label>
             <select
               value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
+              onChange={(e) => set({ company: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Companies</option>
@@ -207,7 +149,7 @@ export function ClientTable({
               </label>
               <select
                 value={managerFilter}
-                onChange={(e) => setManagerFilter(e.target.value)}
+                onChange={(e) => set({ manager: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               >
                 <option value="all">All Managers</option>
@@ -227,7 +169,7 @@ export function ClientTable({
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
@@ -252,10 +194,7 @@ export function ClientTable({
             </label>
             <select
               value={dateFilterRange}
-              onChange={(e) => {
-                setDateFilterRange(e.target.value);
-                if (e.target.value !== "custom") setCustomDate("");
-              }}
+              onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Dates</option>
@@ -276,7 +215,7 @@ export function ClientTable({
               <input
                 type="date"
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => set({ date: "custom", day: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               />
             </div>
@@ -298,6 +237,7 @@ export function ClientTable({
 
       {/* Table Section */}
       {filteredClients.length > 0 ? (
+        <div className={cn("space-y-1 transition-opacity", isPending && "opacity-60")} aria-busy={isPending}>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
@@ -307,6 +247,8 @@ export function ClientTable({
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden md:table-cell">Salesman</th>
+                <th className="px-4 py-3 hidden sm:table-cell">CR No</th>
+                <th className="px-4 py-3 hidden sm:table-cell">CR Expiry</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
@@ -357,6 +299,20 @@ export function ClientTable({
                       <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
                         {client.assignedSalesman?.name ?? "-"}
                       </td>
+                      <td className="px-4 py-3 text-slate-700 hidden sm:table-cell font-medium whitespace-nowrap">
+                        {client.cr_no ?? "-"}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-4 py-3 whitespace-nowrap hidden sm:table-cell",
+                          client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date()
+                            ? "text-red-600 font-semibold"
+                            : "text-slate-500"
+                        )}
+                      >
+                        {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                        {client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date() ? " (expired)" : ""}
+                      </td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
                         {formatDate(client.created_at)}
                       </td>
@@ -372,8 +328,18 @@ export function ClientTable({
 
                       return (
                         <tr className={cn(rowColors[client.status] ?? "bg-slate-50/20")}>
-                          <td colSpan={7} className="px-6 py-4 text-xs text-slate-700 space-y-3.5 border-t border-slate-100/50">
+                          <td colSpan={9} className="px-6 py-4 text-xs text-slate-700 space-y-3.5 border-t border-slate-100/50">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              <div className="space-y-1">
+                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR No</span>
+                                <span className="text-slate-800 text-xs font-semibold">{client.cr_no ?? "-"}</span>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR Expiry</span>
+                                <span className="text-slate-800 text-xs font-semibold">
+                                  {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                                </span>
+                              </div>
                               <div className="space-y-1">
                                 <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Assigned Company</span>
                                 <span className="text-slate-800 text-xs font-semibold flex items-center gap-1">
@@ -426,6 +392,8 @@ export function ClientTable({
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} pending={isPending} noun="clients" onPage={(p) => set({ page: p })} />
         </div>
       ) : (
         /* Empty State */

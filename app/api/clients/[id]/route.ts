@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere } from "@/lib/scoping";
+import { normalizeCrNo, parseCrExpiryDate } from "@/lib/client-fields";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -35,6 +37,20 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const scoped = await prisma.client.findFirst({ where: { AND: [{ id: Number(id) }, await clientScopeWhere(token)] } });
   if (!scoped) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const crNo = normalizeCrNo(body.cr_no);
+  const crExpiry = parseCrExpiryDate(body.cr_expiry_date);
+  if ((body.cr_no !== undefined && crNo === undefined) || !crExpiry.valid) {
+    return NextResponse.json({ error: "Invalid CR number or expiry date" }, { status: 400 });
+  }
+
+  if (crNo) {
+    const duplicateCr = await prisma.client.findFirst({
+      where: { cr_no: crNo, id: { not: Number(id) } },
+      select: { id: true },
+    });
+    if (duplicateCr) return NextResponse.json({ error: "CR number already exists" }, { status: 409 });
+  }
+
   // Check duplicate contact details for other clients
   if (body.contact_no || body.mail_id) {
     const duplicate = await prisma.client.findFirst({
@@ -63,6 +79,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
           name: body.name ?? undefined,
           contact_person_name: body.contact_person_name ?? undefined,
           mail_id: body.mail_id ?? undefined,
+          cr_no: body.cr_no !== undefined ? crNo ?? null : undefined,
+          cr_expiry_date: crExpiry.value,
           contact_no: body.contact_no ?? undefined,
           status: body.status ?? undefined,
           notes: body.notes !== undefined ? body.notes : undefined,
@@ -104,6 +122,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     revalidateTag("manager-clients", { expire: 0 });
     return NextResponse.json({ client });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "CR number already exists" }, { status: 409 });
+    }
     console.error("Client update transaction error:", error);
     return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }

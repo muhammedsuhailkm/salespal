@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useTransition, useOptimistic, Fragment, useEffect, useRef, useCallback } from "react";
+import { useState, useTransition, useOptimistic, Fragment, useEffect, useRef, useCallback } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +24,8 @@ type Client = {
   name: string;
   contact_person_name: string;
   contact_no: string;
+  cr_no: string | null;
+  cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
   mail_id: string | null;
   status: string;
@@ -67,12 +71,14 @@ const dropdownItemColors: Record<string, string> = {
 };
 
 interface SalesmanClientsListProps {
+  /** One server-filtered page of the salesman's clients. */
   initialClients: Client[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
-export function SalesmanClientsList({
-  initialClients,
-}: SalesmanClientsListProps) {
+export function SalesmanClientsList({ initialClients, total, page, pageSize }: SalesmanClientsListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -101,6 +107,8 @@ export function SalesmanClientsList({
     contact_person_name: "",
     mail_id: "",
     contact_no: "",
+    cr_no: "",
+    cr_expiry_date: "",
     status: "lead",
     notes: "",
     location_coordinates: "",
@@ -117,78 +125,19 @@ export function SalesmanClientsList({
   };
 
   // Search and Filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilterRange, setDateFilterRange] = useState("all");
-  const [customDate, setCustomDate] = useState("");
+  // Search and filters live in the URL and are applied by the server (paged 50 at a time).
+  const { get, set, reset, isPending: isNavigating } = useUrlFilters();
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
+  const statusFilter = get("status", "all");
+  const dateFilterRange = get("date", "all");
+  const customDate = get("day");
 
   // Memoized client filtering logic
-  const filteredClients = useMemo(() => {
-    return optimisticClients.filter((client) => {
-      // 1. Search Query (Client Name)
-      if (searchQuery.trim() !== "") {
-        if (!client.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return false;
-        }
-      }
-
-      // 2. Status Filter
-      if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
-      }
-
-      // 3. Date Filter
-      if (dateFilterRange !== "all") {
-        const clientDate = new Date(client.created_at);
-        clientDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilterRange === "today") {
-          if (clientDate.getTime() !== today.getTime()) return false;
-        } else if (dateFilterRange === "yesterday") {
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          if (clientDate.getTime() !== yesterday.getTime()) return false;
-        } else if (dateFilterRange === "week") {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (
-            clientDate.getTime() < sevenDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "month") {
-          const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (
-            clientDate.getTime() < thirtyDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "custom" && customDate) {
-          const selectedDate = new Date(customDate);
-          selectedDate.setHours(0, 0, 0, 0);
-          if (clientDate.getTime() !== selectedDate.getTime()) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [
-    optimisticClients,
-    searchQuery,
-    statusFilter,
-    dateFilterRange,
-    customDate,
-  ]);
+  const filteredClients = optimisticClients;
 
   function handleReset() {
     setSearchQuery("");
-    setStatusFilter("all");
-    setDateFilterRange("all");
-    setCustomDate("");
+    reset();
   }
 
   // Add client submission
@@ -206,6 +155,8 @@ export function SalesmanClientsList({
           contact_person_name: addForm.contact_person_name,
           mail_id: addForm.mail_id || null,
           contact_no: addForm.contact_no,
+          cr_no: addForm.cr_no || null,
+          cr_expiry_date: addForm.cr_expiry_date || null,
           status: addForm.status,
           notes: addForm.notes || null,
           location_coordinates: addForm.location_coordinates || null,
@@ -223,6 +174,8 @@ export function SalesmanClientsList({
         contact_person_name: "",
         mail_id: "",
         contact_no: "",
+        cr_no: "",
+        cr_expiry_date: "",
         status: "lead",
         notes: "",
         location_coordinates: "",
@@ -273,7 +226,7 @@ export function SalesmanClientsList({
       {/* Top Header Row with Add Button */}
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Client List</h2>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Client List ({total.toLocaleString()})</h2>
         </div>
         <button
           onClick={() => {
@@ -296,7 +249,7 @@ export function SalesmanClientsList({
           </div>
           <input
             type="text"
-            placeholder="Search clients by name..."
+            placeholder="Search clients by name or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
@@ -324,7 +277,7 @@ export function SalesmanClientsList({
             <select
               id="status-filter"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
@@ -353,10 +306,7 @@ export function SalesmanClientsList({
             <select
               id="date-filter"
               value={dateFilterRange}
-              onChange={(e) => {
-                setDateFilterRange(e.target.value);
-                if (e.target.value !== "custom") setCustomDate("");
-              }}
+              onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Dates</option>
@@ -381,7 +331,7 @@ export function SalesmanClientsList({
                 id="custom-date"
                 type="date"
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => set({ date: "custom", day: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               />
             </div>
@@ -403,6 +353,7 @@ export function SalesmanClientsList({
 
       {/* Table Section */}
       {filteredClients.length > 0 ? (
+        <div className={cn("space-y-1 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
@@ -410,6 +361,8 @@ export function SalesmanClientsList({
                 <th className="w-10 px-2 py-3 sm:hidden"></th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3 hidden md:table-cell">CR No</th>
+                <th className="px-4 py-3 hidden lg:table-cell">CR Expiry</th>
                 <th className="px-4 py-3 hidden md:table-cell">Company</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Date Added</th>
                 <th className="px-4 py-3 hidden md:table-cell">Location</th>
@@ -457,6 +410,12 @@ export function SalesmanClientsList({
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {formatPhoneNumber(client.contact_no)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                        {client.cr_no ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                        {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                       </td>
                       <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
                         {client.organization?.name ?? "-"}
@@ -528,6 +487,16 @@ export function SalesmanClientsList({
                       <tr className={cn("sm:hidden", rowColors[client.status] ?? "bg-slate-50/30")}>
                         <td colSpan={5} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
                           <div>
+                            <span className="font-semibold text-slate-500">CR No:</span>{" "}
+                            <span className="text-slate-800">{client.cr_no ?? "-"}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-500">CR Expiry:</span>{" "}
+                            <span className="text-slate-800">
+                              {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                            </span>
+                          </div>
+                          <div>
                             <span className="font-semibold text-slate-500">Company:</span>{" "}
                             <span className="text-slate-800">{client.organization?.name ?? "-"}</span>
                           </div>
@@ -568,6 +537,8 @@ export function SalesmanClientsList({
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} pending={isNavigating} noun="clients" onPage={(p) => set({ page: p })} />
         </div>
       ) : (
         /* Empty State */
@@ -658,6 +629,23 @@ export function SalesmanClientsList({
                 setAddForm({ ...addForm, contact_no: e.target.value })
               }
               placeholder="e.g. +97455556666"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR No"
+              type="text"
+              value={addForm.cr_no}
+              onChange={(e) => setAddForm({ ...addForm, cr_no: e.target.value })}
+              placeholder="Commercial registration number"
+              className="text-xs"
+            />
+
+            <Input
+              label="CR Expiry Date"
+              type="date"
+              value={addForm.cr_expiry_date}
+              onChange={(e) => setAddForm({ ...addForm, cr_expiry_date: e.target.value })}
               className="text-xs"
             />
 

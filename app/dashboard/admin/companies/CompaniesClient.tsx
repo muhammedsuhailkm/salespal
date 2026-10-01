@@ -16,23 +16,33 @@ import {
   TrendingUp,
   Award,
   Circle,
-  Briefcase
+  Briefcase,
+  Pencil,
+  MapPin
 } from "lucide-react";
+import { CompanyFormModal, type CompanyFormValues } from "@/components/companies/CompanyFormModal";
+import { CompanyAccountantsPanel } from "@/components/companies/CompanyAccountantsPanel";
+import { CompanyDocumentsPanel } from "@/components/companies/CompanyDocumentsPanel";
+import { EmptyState } from "@/components/ui/EmptyState";
+import type { CompanyDocumentItem } from "@/types/company";
 import {
   assignManagerToOrg,
   removeManagerFromOrg,
   assignSalesmanToManager,
   unassignSalesmanFromManager,
-  createUserAction
+  createUserAction,
+  deleteCompanyAction
 } from "@/lib/actions/company-actions";
 
 interface Org {
   id: number;
   name: string;
-  clients: Array<{
-    id: number;
-    status: string;
-  }>;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  /** Client counts by status, and the total, for this company. */
+  clientStatusCounts: Record<string, number>;
+  clientTotal: number;
   managers: Array<{
     manager_id: number;
     manager: {
@@ -42,6 +52,16 @@ interface Org {
       phone: string | null;
     };
   }>;
+  accountants: Array<{
+    accountant_id: number;
+    accountant: {
+      id: number;
+      name: string;
+      email: string;
+      phone: string | null;
+    };
+  }>;
+  documents: CompanyDocumentItem[];
 }
 
 interface User {
@@ -68,12 +88,14 @@ interface ClientCountRow {
 export function CompaniesClient({
   companies,
   managersList,
+  accountantsList,
   salesmenList,
   managerSalesmen,
   clientCounts
 }: {
   companies: Org[];
   managersList: User[];
+  accountantsList: User[];
   salesmenList: User[];
   managerSalesmen: ManagerSalesmanRow[];
   clientCounts: ClientCountRow[];
@@ -104,6 +126,14 @@ export function CompaniesClient({
     | { type: "post-create-assign"; userId: number; name: string; roleId: number }
     | null
   >(null);
+
+  // Company create / edit
+  const [companyForm, setCompanyForm] = useState<{ open: boolean; company: CompanyFormValues | null }>({
+    open: false,
+    company: null
+  });
+  // After creating a company, open its document upload once it appears in the list.
+  const [uploadPromptOrgId, setUploadPromptOrgId] = useState<number | null>(null);
 
   // Add User Form State
   const [name, setName] = useState("");
@@ -274,6 +304,26 @@ export function CompaniesClient({
     });
   };
 
+  const handleDeleteCompany = (company: Org) => {
+    if (company.clientTotal > 0) {
+      alert(
+        `${company.name} still has ${company.clientTotal} client${company.clientTotal === 1 ? "" : "s"}. Move or remove them before deleting the company.`
+      );
+      return;
+    }
+    if (!confirm(`Delete ${company.name}? Its manager/accountant assignments and documents will be removed. This cannot be undone.`)) return;
+
+    startTransition(async () => {
+      const res = await deleteCompanyAction(company.id);
+      if (!res.success) {
+        alert(res.error ?? "Failed to delete company.");
+        return;
+      }
+      setLocalCompanies((prev) => prev.filter((c) => c.id !== company.id));
+      router.refresh();
+    });
+  };
+
   const handleAddUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) {
@@ -346,7 +396,13 @@ export function CompaniesClient({
 
   return (
     <>
-      <div className="flex gap-2 justify-end mb-6">
+      <div className="flex flex-wrap gap-2 justify-end mb-6">
+        <button
+          onClick={() => setCompanyForm({ open: true, company: null })}
+          className="flex items-center gap-1.5 rounded-lg border border-blue-950 bg-white px-4 py-2 text-xs font-bold text-blue-950 shadow-sm hover:bg-blue-50 transition cursor-pointer"
+        >
+          <Building size={14} /> New Company
+        </button>
         <button
           onClick={() => {
             setErrorMsg("");
@@ -369,14 +425,20 @@ export function CompaniesClient({
 
       {/* Main Companies Stack */}
       <div className="flex flex-col gap-8 w-full">
+        {localCompanies.length === 0 && (
+          <EmptyState
+            icon={Building}
+            title="No companies yet"
+            message="Create your first company to start assigning managers, salesmen and accountants."
+          />
+        )}
         {localCompanies.map((company) => {
           const isCompanyA = company.name.toLowerCase().includes("company a") || company.name.toLowerCase().endsWith("a");
 
           // Statistics
-          const companyClients = company.clients;
-          const onboardedCount = companyClients.filter((c) => c.status === "onboarded" || c.status === "active_client").length;
-          const fontColor = "text-white"; // dummy
-          const lostCount = companyClients.filter((c) => c.status === "lost").length;
+          const counts = company.clientStatusCounts;
+          const onboardedCount = (counts.onboarded ?? 0) + (counts.active_client ?? 0);
+          const lostCount = counts.lost ?? 0;
 
           // Compute total staff (managers + salesmen under this company)
           const assignedManagersIds = company.managers.map((m) => m.manager_id);
@@ -413,9 +475,54 @@ export function CompaniesClient({
             >
               {/* Bold full-width colored header banner */}
               <div className={`p-6 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-6 shrink-0 ${headerBg}`}>
-                <div className="flex items-center gap-3">
-                  <Building className="h-6 w-6 text-white/90" />
-                  <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">{company.name}</h2>
+                <div className="flex items-start gap-3 min-w-0">
+                  <Building className="h-6 w-6 text-white/90 shrink-0 mt-1" />
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">{company.name}</h2>
+                      <button
+                        onClick={() =>
+                          setCompanyForm({
+                            open: true,
+                            company: {
+                              id: company.id,
+                              name: company.name,
+                              address: company.address,
+                              phone: company.phone,
+                              email: company.email
+                            }
+                          })
+                        }
+                        aria-label={`Edit ${company.name}`}
+                        title="Edit company"
+                        className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/15 transition cursor-pointer"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCompany(company)}
+                        disabled={isPending}
+                        aria-label={`Delete ${company.name}`}
+                        title="Delete company"
+                        className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-rose-500/40 transition cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                    {(company.address || company.phone || company.email) && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/80">
+                        {company.address && (
+                          <span className="inline-flex items-center gap-1"><MapPin size={12} aria-hidden /> {company.address}</span>
+                        )}
+                        {company.phone && (
+                          <span className="inline-flex items-center gap-1"><Phone size={12} aria-hidden /> {company.phone}</span>
+                        )}
+                        {company.email && (
+                          <span className="inline-flex items-center gap-1"><Mail size={12} aria-hidden /> {company.email}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Quick stats displayed as white stat boxes */}
@@ -653,11 +760,37 @@ export function CompaniesClient({
                     )}
                   </div>
                 </div>
+
+                {/* 3. Accountants + company documents */}
+                <div className="border-t border-slate-200/60 pt-6 grid gap-6 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                  <CompanyAccountantsPanel
+                    orgId={company.id}
+                    orgName={company.name}
+                    assigned={company.accountants.map((a) => a.accountant)}
+                    allAccountants={accountantsList}
+                    labelClass={labelText}
+                  />
+                  <CompanyDocumentsPanel
+                    orgId={company.id}
+                    orgName={company.name}
+                    documents={company.documents}
+                    labelClass={labelText}
+                    openUploadOnMount={uploadPromptOrgId === company.id}
+                    onUploadPromptHandled={() => setUploadPromptOrgId(null)}
+                  />
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      <CompanyFormModal
+        open={companyForm.open}
+        company={companyForm.company}
+        onClose={() => setCompanyForm({ open: false, company: null })}
+        onCreated={(orgId) => setUploadPromptOrgId(orgId)}
+      />
 
       {/* --- Modals Handling with dynamic accent matching --- */}
       {(() => {

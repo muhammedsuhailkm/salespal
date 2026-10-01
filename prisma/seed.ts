@@ -94,6 +94,8 @@ async function main() {
           name: `Client ${String(i + 1).padStart(2, "0")}`,
           contact_person_name: `Contact ${i + 1}`,
           contact_no: `+97444${String(i + 1).padStart(6, "0")}`,
+          cr_no: `SP-CR-${String(i + 1).padStart(6, "0")}`,
+          cr_expiry_date: new Date(Date.UTC(2027 + Math.floor(i / 12), i % 12, 1)),
           location_coordinates: `25.${2800 + i},51.${5200 + i}`,
           mail_id: `client${i + 1}@example.com`,
           contact_person_designation: i % 3 === 0 ? "Operations Lead" : "Procurement Manager",

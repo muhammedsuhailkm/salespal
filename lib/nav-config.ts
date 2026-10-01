@@ -10,7 +10,9 @@ export const navConfig: Record<number, { label: string; href: string }[]> = {
     { label: "Overview", href: "/dashboard/admin" },
     { label: "Companies", href: "/dashboard/admin/companies" },
     { label: "Users", href: "/dashboard/admin/users" },
+    { label: "Salesmen", href: "/dashboard/admin/salesmen" },
     { label: "Clients", href: "/dashboard/admin/clients" },
+    { label: "Enquiries", href: "/dashboard/admin/enquiries" },
     { label: "Reports", href: "/dashboard/admin/reports" },
   ],
   2: [
@@ -18,6 +20,7 @@ export const navConfig: Record<number, { label: string; href: string }[]> = {
     { label: "Team", href: "/dashboard/manager/team" },
     { label: "Tasks", href: "/dashboard/manager/tasks" },
     { label: "Clients", href: "/dashboard/manager/clients" },
+    { label: "Enquiries", href: "/dashboard/manager/enquiries" },
     { label: "Orders", href: "/dashboard/manager/orders" },
   ],
   3: [
@@ -25,10 +28,12 @@ export const navConfig: Record<number, { label: string; href: string }[]> = {
     { label: "Overview", href: "/dashboard/salesman" },
     { label: "Tasks", href: "/dashboard/salesman/tasks" },
     { label: "Clients", href: "/dashboard/salesman/clients" },
+    { label: "Enquiries", href: "/dashboard/salesman/enquiries" },
     { label: "Orders", href: "/dashboard/salesman/orders" },
   ],
   4: [
     { label: "Dashboard", href: "/dashboard/accountant" },
+    { label: "Enquiries", href: "/dashboard/accountant/enquiries" },
     { label: "Orders", href: "/dashboard/accountant/orders" },
     { label: "Shipping Rates", href: "/dashboard/accountant/shipping-rates" },
   ],

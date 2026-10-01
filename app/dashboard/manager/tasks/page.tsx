@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedManagerTasksPageData } from "@/lib/cached-queries";
+import { getTasksPage } from "@/lib/tasks-list";
+import { prisma } from "@/lib/prisma";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ManagerTasksList } from "@/components/tasks/ManagerTasksList";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default function ManagerTasksPage() {
+export default async function ManagerTasksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
@@ -14,25 +17,24 @@ export default function ManagerTasksPage() {
       />
       <div className="mt-4">
         <Suspense fallback={<ManagerTasksSkeleton />}>
-          <ManagerTasksSection />
+          <ManagerTasksSection params={params} />
         </Suspense>
       </div>
     </>
   );
 }
 
-async function ManagerTasksSection() {
+async function ManagerTasksSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const managerId = session!.user.id;
-  const { salesmen, clients, tasks } = await getCachedManagerTasksPageData(managerId);
+  const managerId = Number(session!.user.id);
+  const salesmen = await prisma.user.findMany({
+    where: { salesmanManager: { some: { manager_id: managerId } } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  const data = await getTasksPage({ assignedTo: salesmen.map((s) => s.id) }, params);
 
-  return (
-    <ManagerTasksList
-      initialTasks={tasks}
-      salesmen={salesmen}
-      clients={clients}
-    />
-  );
+  return <ManagerTasksList data={data} salesmen={salesmen} />;
 }
 
 function ManagerTasksSkeleton() {
