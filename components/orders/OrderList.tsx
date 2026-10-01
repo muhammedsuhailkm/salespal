@@ -1,10 +1,12 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Plus, Search, Wallet, X } from "lucide-react";
-import { useOrders } from "@/hooks/useOrders";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
+import type { OrdersPage } from "@/lib/orders-list";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { ApprovalBadge } from "@/components/orders/ApprovalBadge";
 import { Modal } from "@/components/ui/Modal";
@@ -16,10 +18,10 @@ import { orderPaymentMethods, orderStatuses, type OrderListItem } from "@/types/
 import { enquiryRef } from "@/types/enquiry";
 
 interface OrderListProps {
-  initialOrders: OrderListItem[];
+  /** One server-filtered page of orders plus totals over all matches. */
+  data: OrdersPage;
   role: "salesman" | "manager" | "accountant";
   detailBasePath?: string;
-  liveUpdates?: boolean;
 }
 
 const APPROVAL_CONFIG = {
@@ -39,62 +41,28 @@ function PaidBar({ order }: { order: OrderListItem }) {
   );
 }
 
-export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = false }: OrderListProps) {
+/** Server-paginated orders table. Status / payment tabs, search and page are URL params. */
+export function OrderList({ data, role, detailBasePath }: OrderListProps) {
   const router = useRouter();
-  const [orders, setOrders] = useState<OrderListItem[]>(initialOrders);
-  const { orders: liveOrders, loading: liveLoading } = useOrders();
-
-  useEffect(() => {
-    setOrders(initialOrders);
-  }, [initialOrders]);
-
-  useEffect(() => {
-    if (liveUpdates && !liveLoading) setOrders(liveOrders);
-  }, [liveUpdates, liveOrders, liveLoading]);
-
-  const [statusFilter, setStatusFilter] = useState<"all" | (typeof orderStatuses)[number]>("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "due" | "paid">("all");
-  const [search, setSearch] = useState("");
+  const { get, set, isPending: isNavigating } = useUrlFilters();
+  const statusFilter = (get("status") || "all") as "all" | (typeof orderStatuses)[number];
+  const paymentFilter = (get("pay") || "all") as "all" | "due" | "paid";
+  const [search, setSearch] = useDebouncedParam("q", set, get("q"));
+  // Optimistic approval decisions until the refreshed page arrives.
+  const [approvals, setApprovals] = useState<Record<number, string>>({});
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | undefined>();
 
   const approvalConfig = role === "manager" || role === "accountant" ? APPROVAL_CONFIG[role] : null;
-  const canRecordPayment = role === "accountant";
+  // Accountants, and salesmen on orders converted from their own enquiries (the server re-checks ownership).
+  const canRecordPayment = (order: OrderListItem) => role === "accountant" || (role === "salesman" && !!order.enquiry_id);
   const [isPending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<number | null>(null);
 
-  const filteredOrders = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return orders.filter((o) => {
-      if (statusFilter !== "all" && o.status !== statusFilter) return false;
-      if (paymentFilter === "due" && o.balance <= 0) return false;
-      if (paymentFilter === "paid" && o.balance > 0) return false;
-      if (!q) return true;
-      return [
-        orderNo(o.id),
-        String(o.id),
-        o.client?.name,
-        o.createdBy?.name,
-        o.job_no,
-        o.enquiry_id ? enquiryRef(o.enquiry_id) : null,
-        o.from,
-        o.to,
-        o.description,
-      ].some((field) => field?.toLowerCase().includes(q));
-    });
-  }, [orders, statusFilter, paymentFilter, search]);
-
-  const totals = useMemo(
-    () =>
-      filteredOrders
-        .filter((o) => o.status !== "cancelled")
-        .reduce((acc, o) => ({ amount: acc.amount + o.amount, paid: acc.paid + o.paid_amount, balance: acc.balance + o.balance }), {
-          amount: 0,
-          paid: 0,
-          balance: 0,
-        }),
-    [filteredOrders]
-  );
+  const filteredOrders = data.rows.map((o) =>
+    approvalConfig && approvals[o.id] ? { ...o, [approvalConfig.field]: approvals[o.id] } : o
+  ) as OrderListItem[];
+  const totals = data.totals;
 
   function flash(message: string) {
     setToast(message);
@@ -107,7 +75,7 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
     startTransition(async () => {
       const result = await approvalConfig.action(order.id, decision);
       if (result.success) {
-        setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, [approvalConfig.field]: decision } : o)));
+        setApprovals((prev) => ({ ...prev, [order.id]: decision }));
         router.refresh();
       } else {
         flash(result.error ?? "Failed to update approval");
@@ -176,7 +144,7 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
                 type="button"
                 role="tab"
                 aria-selected={statusFilter === status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => set({ status })}
                 className={cn(
                   "cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition",
                   statusFilter === status ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -197,7 +165,7 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
                 type="button"
                 role="tab"
                 aria-selected={paymentFilter === value}
-                onClick={() => setPaymentFilter(value)}
+                onClick={() => set({ pay: value })}
                 className={cn(
                   "cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition",
                   paymentFilter === value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
@@ -225,6 +193,7 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
       </div>
 
       {/* Table */}
+      <div className={cn("space-y-1 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full min-w-[1150px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-500">
@@ -340,7 +309,7 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
                             </button>
                           </div>
                         )}
-                        {canRecordPayment && order.status !== "cancelled" && order.balance > 0 && (
+                        {canRecordPayment(order) && order.status !== "cancelled" && order.balance > 0 && (
                           <button
                             type="button"
                             onClick={() => openPayment(order)}
@@ -405,6 +374,8 @@ export function OrderList({ initialOrders, role, detailBasePath, liveUpdates = f
             })}
           </tbody>
         </table>
+      </div>
+      <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isNavigating} noun="orders" onPage={(p) => set({ page: p })} />
       </div>
 
       {/* Add payment */}

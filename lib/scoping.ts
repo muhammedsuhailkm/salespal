@@ -17,6 +17,22 @@ export async function getManagerOrgIds(managerId: number) {
   return orgs.map((item) => item.org_id);
 }
 
+/** Read fresh on every request (not from the JWT) so owner re-assignments apply without a re-login. */
+export async function getAccountantOrgIds(accountantId: number) {
+  const orgs = await prisma.accountantOrg.findMany({ where: { accountant_id: accountantId }, select: { org_id: true } });
+  return orgs.map((item) => item.org_id);
+}
+
+/** Companies a salesman works for: the companies of the managers they report to. */
+export async function getSalesmanOrgIds(salesmanId: number) {
+  const orgs = await prisma.managerOrg.findMany({
+    where: { manager: { managerSalesmen: { some: { salesman_id: salesmanId } } } },
+    select: { org_id: true },
+    distinct: ["org_id"],
+  });
+  return orgs.map((item) => item.org_id);
+}
+
 export async function getManagerSalesmanIds(managerId: number) {
   const salesmen = await prisma.managerSalesman.findMany({ where: { manager_id: managerId }, select: { salesman_id: true } });
   return salesmen.map((item) => item.salesman_id);
@@ -35,9 +51,9 @@ export async function clientScopeWhere(token: ScopedToken): Promise<Prisma.Clien
 
 export async function orderScopeWhere(token: ScopedToken): Promise<Prisma.OrderWhereInput> {
   const userId = getTokenUserId(token);
-  // Accounts approval is a company-wide finance function — accountants aren't tied
-  // to an org like managers are, so they see every order (same as Admin).
-  if (token.role_id === 1 || token.role_id === 4) return {};
+  if (token.role_id === 1) return {};
+  // Accountants see orders for clients of the companies the owner assigned them to.
+  if (token.role_id === 4) return { client: { org_id: { in: await getAccountantOrgIds(userId) } } };
   if (token.role_id === 2) {
     const orgIds = token.org_ids?.length ? token.org_ids : await getManagerOrgIds(userId);
     return { client: { org_id: { in: orgIds } } };

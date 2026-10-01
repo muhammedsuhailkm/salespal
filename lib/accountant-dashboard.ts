@@ -1,10 +1,12 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { enquiryRef } from "@/types/enquiry";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** Credit orders raised without an enquiry have no agreed credit days. */
 export const DEFAULT_CREDIT_DAYS = 30;
+
+/** How many rows each dashboard panel lists; counts and totals always cover everything. */
+const PANEL_LIMIT = 100;
 
 export type ReceivableOrder = {
   id: number;
@@ -33,72 +35,88 @@ export type NewEnquiry = {
   provisional_value: number;
 };
 
-/**
- * Uses the due date set at conversion when present. Otherwise: order date + credit days
- * (from the linked enquiry, or DEFAULT_CREDIT_DAYS for credit orders); cash/card are due on the order date.
- */
-function dueDate(order: {
-  created_at: Date;
-  due_date: Date | null;
-  payment_mode: string;
-  enquiry: { credit_days: number | null } | null;
-}) {
-  if (order.due_date) return order.due_date;
-  const creditDays =
-    order.payment_mode === "credit" ? order.enquiry?.credit_days ?? DEFAULT_CREDIT_DAYS : 0;
-  const created = new Date(Date.UTC(order.created_at.getUTCFullYear(), order.created_at.getUTCMonth(), order.created_at.getUTCDate()));
-  return new Date(created.getTime() + creditDays * DAY_MS);
+/** Companies the owner assigned this accountant to. */
+export async function getAccountantCompanies(accountantId: number) {
+  const rows = await prisma.accountantOrg.findMany({
+    where: { accountant_id: accountantId },
+    select: { org: { select: { id: true, name: true } } },
+    orderBy: { org: { name: "asc" } },
+  });
+  return rows.map((r) => r.org);
 }
 
-export async function getAccountantDashboard() {
+/**
+ * Orders with a balance in the given companies, computed in SQL.
+ * Due date: the one set at conversion when present, otherwise order date + credit days
+ * (the enquiry's, or DEFAULT_CREDIT_DAYS for credit orders); cash/card are due on the order date.
+ */
+function receivablesCte(orgIds: number[]) {
+  return Prisma.sql`
+    WITH r AS (
+      SELECT o.id, c.name AS client_name, c.mail_id AS client_email, c.contact_no AS client_phone, u.name AS salesman,
+             o.job_no, o.payment_mode, o.amount::float8 AS amount, o.paid_total::float8 AS paid_amount,
+             (o.amount - o.paid_total)::float8 AS balance,
+             COALESCE(o.due_date, o.created_at::date + CASE WHEN o.payment_mode = 'credit' THEN COALESCE(e.credit_days, ${DEFAULT_CREDIT_DAYS}::int) ELSE 0 END) AS due
+      FROM orders o
+      JOIN clients c ON c.id = o.client_id
+      JOIN users u ON u.id = o.created_by_id
+      LEFT JOIN enquiries e ON e.id = o.enquiry_id
+      WHERE o.status <> 'cancelled' AND o.amount - o.paid_total > 0.005 AND c.org_id IN (${Prisma.join(orgIds)})
+    )`;
+}
+
+type ReceivableSqlRow = Omit<ReceivableOrder, "due_date"> & { due: Date };
+
+const toReceivable = (r: ReceivableSqlRow): ReceivableOrder => ({
+  id: r.id,
+  client_name: r.client_name,
+  client_email: r.client_email,
+  client_phone: r.client_phone,
+  salesman: r.salesman,
+  job_no: r.job_no,
+  payment_mode: r.payment_mode,
+  amount: Number(r.amount),
+  paid_amount: Number(r.paid_amount),
+  balance: Number(r.balance),
+  due_date: r.due.toISOString().slice(0, 10),
+  days_overdue: Number(r.days_overdue),
+});
+
+/** Scoped to the clients of `orgIds` — the companies the accountant is assigned to. */
+export async function getAccountantDashboard(orgIds: number[]) {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const inOrgs = { client: { org_id: { in: orgIds } } };
+  const cte = receivablesCte(orgIds);
 
-  const [orders, enquiries, collectedThisMonth, advancesThisMonth] = await Promise.all([
-    prisma.order.findMany({
-      where: { status: { not: "cancelled" } },
-      include: {
-        client: { select: { name: true, mail_id: true, contact_no: true } },
-        createdBy: { select: { name: true } },
-        enquiry: { select: { credit_days: true } },
-        ...orderPaymentsInclude,
-      },
-      orderBy: { created_at: "asc" },
-    }),
+  const [summary, pastDueRows, pendingRows, enquiries, enquiryCount, collectedThisMonth, advancesThisMonth] = await Promise.all([
+    prisma.$queryRaw<{ pending_count: number; outstanding: number; past_due_count: number; past_due: number }[]>(Prisma.sql`
+      ${cte}
+      SELECT COUNT(*)::int AS pending_count, COALESCE(SUM(balance), 0)::float8 AS outstanding,
+             COUNT(*) FILTER (WHERE due < ${today}::date)::int AS past_due_count,
+             COALESCE(SUM(balance) FILTER (WHERE due < ${today}::date), 0)::float8 AS past_due
+      FROM r`),
+    prisma.$queryRaw<ReceivableSqlRow[]>(Prisma.sql`
+      ${cte}
+      SELECT *, (${today}::date - due)::int AS days_overdue FROM r WHERE due < ${today}::date
+      ORDER BY days_overdue DESC, id LIMIT ${PANEL_LIMIT}`),
+    prisma.$queryRaw<ReceivableSqlRow[]>(Prisma.sql`
+      ${cte}
+      SELECT *, GREATEST(${today}::date - due, 0)::int AS days_overdue FROM r
+      ORDER BY due ASC, id LIMIT ${PANEL_LIMIT}`),
     prisma.enquiry.findMany({
-      where: { status: "open", order: null },
+      where: { status: "open", order: null, ...inOrgs },
       include: { client: { select: { name: true } }, createdBy: { select: { name: true } } },
       orderBy: [{ enquiry_date: "desc" }, { id: "desc" }],
+      take: PANEL_LIMIT,
     }),
-    prisma.orderPayment.aggregate({ where: { paid_on: { gte: monthStart } }, _sum: { amount: true } }),
-    prisma.order.aggregate({ where: { created_at: { gte: monthStart }, status: { not: "cancelled" } }, _sum: { advance_amount: true } }),
+    prisma.enquiry.count({ where: { status: "open", order: null, ...inOrgs } }),
+    prisma.orderPayment.aggregate({ where: { paid_on: { gte: monthStart }, order: inOrgs }, _sum: { amount: true } }),
+    prisma.order.aggregate({ where: { created_at: { gte: monthStart }, status: { not: "cancelled" }, ...inOrgs }, _sum: { advance_amount: true } }),
   ]);
 
-  const receivables: ReceivableOrder[] = orders
-    .map((raw) => {
-      const order = serializeOrder(raw);
-      const due = dueDate(raw);
-      return {
-        id: order.id,
-        client_name: raw.client.name,
-        client_email: raw.client.mail_id,
-        client_phone: raw.client.contact_no,
-        salesman: raw.createdBy.name,
-        job_no: raw.job_no,
-        payment_mode: raw.payment_mode,
-        amount: order.amount,
-        paid_amount: order.paid_amount,
-        balance: order.balance,
-        due_date: due.toISOString().slice(0, 10),
-        days_overdue: Math.max(0, Math.floor((today.getTime() - due.getTime()) / DAY_MS)),
-      };
-    })
-    .filter((o) => o.balance > 0.005);
-
-  const pastDue = receivables.filter((o) => o.days_overdue > 0).sort((a, b) => b.days_overdue - a.days_overdue);
-  const pending = [...receivables].sort((a, b) => a.due_date.localeCompare(b.due_date));
-
+  const s = summary[0];
   const newEnquiries: NewEnquiry[] = enquiries.map((e) => ({
     id: e.id,
     ref: enquiryRef(e.id),
@@ -112,12 +130,13 @@ export async function getAccountantDashboard() {
   }));
 
   return {
-    pending,
-    pastDue,
+    pending: pendingRows.map(toReceivable),
+    pastDue: pastDueRows.map(toReceivable),
     newEnquiries,
+    counts: { pending: Number(s.pending_count), pastDue: Number(s.past_due_count), newEnquiries: enquiryCount },
     totals: {
-      outstanding: pending.reduce((sum, o) => sum + o.balance, 0),
-      pastDue: pastDue.reduce((sum, o) => sum + o.balance, 0),
+      outstanding: Number(s.outstanding),
+      pastDue: Number(s.past_due),
       collectedThisMonth:
         (collectedThisMonth._sum.amount?.toNumber() ?? 0) + (advancesThisMonth._sum.advance_amount?.toNumber() ?? 0),
     },

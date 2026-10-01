@@ -5,29 +5,19 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
-import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
 import { Plus, Trash2, X, Loader2, UserPlus, Users } from "lucide-react";
 import { createSalesmanAction, removeSalesmanAction } from "@/lib/actions/manager-actions";
 import { SalesmenTargetsClient } from "@/components/salesmen/SalesmenTargetsClient";
 import type { SalesmanTargetRow } from "@/types/salesman-target";
 
-type SalesmanRow = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  assignedClients: { status: string }[];
-};
-
 interface ManagerTeamClientProps {
-  initialSalesmen: SalesmanRow[];
+  /** KPI score per salesman id, computed on the server from client status counts. */
+  kpiScores: Record<number, number>;
+  teamSize: number;
   targets: SalesmanTargetRow[];
 }
 
-export function ManagerTeamClient({ initialSalesmen, targets }: ManagerTeamClientProps) {
-  const kpiScores = Object.fromEntries(
-    initialSalesmen.map((s) => [s.id, calculateKpiScore(groupStatusCounts(s.assignedClients))])
-  );
+export function ManagerTeamClient({ kpiScores, teamSize, targets }: ManagerTeamClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -103,7 +93,7 @@ export function ManagerTeamClient({ initialSalesmen, targets }: ManagerTeamClien
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="text-slate-500" size={18} />
-            <span>My Sales Team ({initialSalesmen.length})</span>
+            <span>My Sales Team ({teamSize})</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             Manage your salesmen, set their targets and track progress.

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useTransition, useOptimistic, Fragment, useEffect } from "react";
+import { useState, useTransition, useOptimistic, Fragment } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -41,7 +43,11 @@ type SalesmanItem = {
 };
 
 interface ManagerClientsListProps {
+  /** One server-filtered page of clients. */
   initialClients: Client[];
+  total: number;
+  page: number;
+  pageSize: number;
   salesmen: SalesmanItem[];
   companies: { id: number; name: string }[];
 }
@@ -84,6 +90,9 @@ const dropdownItemColors: Record<string, string> = {
 
 export function ManagerClientsList({
   initialClients,
+  total,
+  page,
+  pageSize,
   salesmen,
   companies,
 }: ManagerClientsListProps) {
@@ -131,88 +140,19 @@ export function ManagerClientsList({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Search and Filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [salesmanFilter, setSalesmanFilter] = useState("all");
-  const [dateFilterRange, setDateFilterRange] = useState("all");
-  const [customDate, setCustomDate] = useState("");
+  // Search and filters live in the URL and are applied by the server (paged 50 at a time).
+  const { get, set, reset, isPending: isNavigating } = useUrlFilters();
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
+  const statusFilter = get("status", "all");
+  const salesmanFilter = get("salesman", "all");
+  const dateFilterRange = get("date", "all");
+  const customDate = get("day");
 
-  // Memoized client filtering logic
-  const filteredClients = useMemo(() => {
-    return optimisticClients.filter((client) => {
-      // 1. Search Query (Client Name or CR No)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.trim().toLowerCase();
-        if (!client.name.toLowerCase().includes(query) && !(client.cr_no?.toLowerCase().includes(query) ?? false)) {
-          return false;
-        }
-      }
-
-      // 2. Status Filter
-      if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
-      }
-
-      // 3. Salesman Filter
-      if (salesmanFilter !== "all" && client.assigned_salesman_id !== Number(salesmanFilter)) {
-        return false;
-      }
-
-      // 4. Date Filter
-      if (dateFilterRange !== "all") {
-        const clientDate = new Date(client.created_at);
-        clientDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilterRange === "today") {
-          if (clientDate.getTime() !== today.getTime()) return false;
-        } else if (dateFilterRange === "yesterday") {
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          if (clientDate.getTime() !== yesterday.getTime()) return false;
-        } else if (dateFilterRange === "week") {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (
-            clientDate.getTime() < sevenDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "month") {
-          const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (
-            clientDate.getTime() < thirtyDaysAgo.getTime() ||
-            clientDate.getTime() > today.getTime()
-          )
-            return false;
-        } else if (dateFilterRange === "custom" && customDate) {
-          const selectedDate = new Date(customDate);
-          selectedDate.setHours(0, 0, 0, 0);
-          if (clientDate.getTime() !== selectedDate.getTime()) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [
-    optimisticClients,
-    searchQuery,
-    statusFilter,
-    salesmanFilter,
-    dateFilterRange,
-    customDate,
-  ]);
+  const filteredClients = optimisticClients;
 
   function handleReset() {
     setSearchQuery("");
-    setStatusFilter("all");
-    setSalesmanFilter("all");
-    setDateFilterRange("all");
-    setCustomDate("");
+    reset();
   }
 
   async function handleStatusChange(clientId: number, newStatus: string) {
@@ -356,7 +296,7 @@ export function ManagerClientsList({
       <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            Organization Clients ({filteredClients.length})
+            Organization Clients ({total.toLocaleString()})
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -417,7 +357,7 @@ export function ManagerClientsList({
             <select
               id="salesman-filter"
               value={salesmanFilter}
-              onChange={(e) => setSalesmanFilter(e.target.value)}
+              onChange={(e) => set({ salesman: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Salesmen</option>
@@ -440,7 +380,7 @@ export function ManagerClientsList({
             <select
               id="status-filter"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
@@ -469,10 +409,7 @@ export function ManagerClientsList({
             <select
               id="date-filter"
               value={dateFilterRange}
-              onChange={(e) => {
-                setDateFilterRange(e.target.value);
-                if (e.target.value !== "custom") setCustomDate("");
-              }}
+              onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Dates</option>
@@ -497,7 +434,7 @@ export function ManagerClientsList({
                 id="custom-date"
                 type="date"
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => set({ date: "custom", day: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               />
             </div>
@@ -564,6 +501,7 @@ export function ManagerClientsList({
 
       {/* Table Section */}
       {filteredClients.length > 0 ? (
+        <div className={cn("space-y-1 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
@@ -806,6 +744,8 @@ export function ManagerClientsList({
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} pending={isNavigating} noun="clients" onPage={(p) => set({ page: p })} />
         </div>
       ) : (
         /* Empty State */

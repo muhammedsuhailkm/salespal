@@ -1,20 +1,12 @@
 import Link from "next/link";
-import {
-  getCachedManagerSalesmen,
-  getCachedManagerOrg,
-  getCachedManagerLogs,
-  getCachedManagerTasks,
-  getCachedManagerActivityFeed,
-  getMonthlyOrderStats,
-} from "@/lib/cached-queries";
+import { getCachedManagerOrg, getCachedManagerActivityFeed, getMonthlyOrderStats } from "@/lib/cached-queries";
+import { getManagerKpiCards, getManagerPendingTasks, getManagerTaskStats, getManagerTeam, type TeamMember } from "@/lib/manager-dashboard";
 import { orderStatsScope } from "@/lib/scoping";
-import { calculateKpiScore, groupStatusCounts } from "@/lib/kpi";
 import { OrderMonthlyChart } from "@/components/orders/OrderMonthlyChart";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { StatCardWithDetails, type StatDetailItem } from "@/components/dashboard/StatCardWithDetails";
-import { prisma } from "@/lib/prisma";
 import { cn, formatDate } from "@/lib/utils";
 import {
   TrendingUp,
@@ -47,11 +39,6 @@ function getTimeAgo(date: Date | string) {
   return formatDate(date);
 }
 
-/* ─── Utility: count actions from logs ─── */
-function countByAction(logs: { action: string }[], keyword: string) {
-  return logs.filter((l) => l.action.toLowerCase().includes(keyword)).length;
-}
-
 /* ─── Utility: get date ranges ─── */
 function getMonthRange(offset: number) {
   const now = new Date();
@@ -71,37 +58,11 @@ function getWeekStart() {
   return new Date(now.getFullYear(), now.getMonth(), diff);
 }
 
-/* ─── Utility: build salesman data with KPI ─── */
-type SalesmanRaw = {
-  id: number;
-  name: string;
-  assignedClients: { id: number; status: string }[];
-};
-
-type SalesmanWithKpi = {
-  id: number;
-  name: string;
-  clients: { id: number; status: string }[];
-  counts: Record<string, number>;
-  kpiScore: number;
-  totalClients: number;
-};
-
-function buildSalesmenWithKpi(salesmen: SalesmanRaw[]): SalesmanWithKpi[] {
-  return salesmen
-    .map((s) => {
-      const counts = groupStatusCounts(s.assignedClients);
-      const kpiScore = calculateKpiScore(counts);
-      return {
-        id: s.id,
-        name: s.name,
-        clients: s.assignedClients,
-        counts,
-        kpiScore,
-        totalClients: s.assignedClients.length,
-      };
-    })
-    .sort((a, b) => b.kpiScore - a.kpiScore);
+/** Team totals summed over the per-salesman status counts. */
+function teamCounts(team: TeamMember[]) {
+  const totals: Record<string, number> = {};
+  for (const m of team) for (const [k, v] of Object.entries(m.counts)) totals[k] = (totals[k] ?? 0) + v;
+  return totals;
 }
 
 /* ─── Utility: avatar initials ─── */
@@ -144,32 +105,24 @@ export async function ManagerKpiCardsRow({
   managerId: number;
   period: "this_month" | "last_month";
 }) {
-  const salesmen = await getCachedManagerSalesmen(managerId);
-  const salesmanIds = salesmen.map((s) => s.id);
+  const sortedSalesmen = await getManagerTeam(managerId);
+  const salesmanIds = sortedSalesmen.map((s) => s.id);
 
   const thisMonth = getMonthRange(0);
   const lastMonth = getMonthRange(-1);
+  const current = period === "last_month" ? lastMonth : thisMonth;
+  const k = await getManagerKpiCards(
+    salesmanIds,
+    current.start.toISOString(),
+    current.end?.toISOString() ?? null,
+    period === "last_month" ? null : lastMonth.start.toISOString(),
+    period === "last_month" ? null : lastMonth.end!.toISOString(),
+    getWeekStart().toISOString()
+  );
 
-  const [thisMonthLogs, lastMonthLogs, tasks] = await Promise.all([
-    getCachedManagerLogs(salesmanIds, thisMonth.start.toISOString()),
-    getCachedManagerLogs(
-      salesmanIds,
-      lastMonth.start.toISOString(),
-      lastMonth.end!.toISOString()
-    ),
-    getCachedManagerTasks(salesmanIds),
-  ]);
-
-  const currentLogs = period === "last_month" ? lastMonthLogs : thisMonthLogs;
-  const prevLogs = period === "last_month" ? [] : lastMonthLogs;
-
-  // Team-wide client counts
-  const allClients = salesmen.flatMap((s) => s.assignedClients);
-  const allCounts = groupStatusCounts(allClients);
-
-  // KPI cards data
-  const onboardedThis = countByAction(currentLogs, "onboarded");
-  const onboardedPrev = countByAction(prevLogs, "onboarded");
+  const allCounts = teamCounts(sortedSalesmen);
+  const onboardedThis = k.onboardedThis;
+  const onboardedPrev = k.onboardedPrev;
   const onboardedPct =
     onboardedPrev > 0
       ? Math.round(((onboardedThis - onboardedPrev) / onboardedPrev) * 100)
@@ -177,62 +130,19 @@ export async function ManagerKpiCardsRow({
         ? 100
         : 0;
 
-  const followUpCount = allCounts.follow_up ?? 0;
-  const newLeadCount = allCounts.lead ?? 0;
-  const activePipeline = followUpCount + newLeadCount;
+  const activePipeline = (allCounts.follow_up ?? 0) + (allCounts.lead ?? 0);
+  const weekNew = k.weekNew;
 
-  // New additions this week
-  const weekStart = getWeekStart();
-  const weekLogs = currentLogs.filter(
-    (l) => new Date(l.created_at) >= weekStart
-  );
-  const weekNew =
-    countByAction(weekLogs, "lead") + countByAction(weekLogs, "follow_up");
-
-  // Team KPI average
-  const sortedSalesmen = buildSalesmenWithKpi(salesmen);
   const avgKpi =
     sortedSalesmen.length > 0
-      ? Math.round(
-          sortedSalesmen.reduce((sum, s) => sum + s.kpiScore, 0) /
-            sortedSalesmen.length
-        )
+      ? Math.round(sortedSalesmen.reduce((sum, s) => sum + s.kpiScore, 0) / sortedSalesmen.length)
       : 0;
 
-  // Previous month average KPI — derive from log-based delta
-  const prevOnboarded = countByAction(prevLogs, "onboarded");
-  const kpiChange = onboardedThis - prevOnboarded;
-  const kpiChangePct =
-    prevOnboarded > 0
-      ? Math.round((kpiChange / prevOnboarded) * 100)
-      : kpiChange > 0
-        ? 100
-        : 0;
-
-  // Overdue tasks
-  const now = new Date();
-  const overdueTasks = tasks.filter(
-    (t) =>
-      new Date(t.due_date) < now &&
-      ["pending", "in_process"].includes(t.status)
-  );
-
-  // Names for the pipeline clients (salesman data only carries id + status)
-  const nameBySalesman = new Map(salesmen.map((s) => [s.id, s.name]));
-  const pipelineIds = salesmen.flatMap((s) =>
-    s.assignedClients.filter((c) => c.status === "lead" || c.status === "follow_up").map((c) => c.id)
-  );
-  const pipelineClients = pipelineIds.length
-    ? await prisma.client.findMany({
-        where: { id: { in: pipelineIds } },
-        select: { id: true, name: true, status: true, created_at: true, assigned_salesman_id: true },
-        orderBy: { created_at: "desc" },
-      })
-    : [];
-
-  const onboardedLogs = currentLogs
-    .filter((l) => l.action.toLowerCase().includes("onboarded"))
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // KPI change — derived from the onboarded log delta (unchanged rule)
+  const kpiChange = onboardedThis - onboardedPrev;
+  const kpiChangePct = onboardedPrev > 0 ? Math.round((kpiChange / onboardedPrev) * 100) : kpiChange > 0 ? 100 : 0;
+  const overdueCount = k.overdueTotal;
+  const more = (total: number, shown: number) => (total > shown ? ` (showing ${shown} of ${total})` : "");
 
   const cards: {
     label: string;
@@ -253,7 +163,7 @@ export async function ManagerKpiCardsRow({
       direction: onboardedPct > 0 ? "up" : onboardedPct < 0 ? "down" : "flat",
       Icon: UserCheck,
       bg: "bg-teal-600",
-      items: onboardedLogs.map((l) => ({
+      items: k.onboardedLogs.map((l) => ({
         id: l.id,
         primary: l.client?.name ?? "Client",
         secondary: `by ${l.author?.name ?? "—"}`,
@@ -270,16 +180,16 @@ export async function ManagerKpiCardsRow({
       direction: weekNew > 0 ? "up" : "flat",
       Icon: Users,
       bg: "bg-blue-600",
-      items: pipelineClients.map((c) => ({
+      items: k.pipeline.map((c) => ({
         id: c.id,
         primary: c.name,
-        secondary: nameBySalesman.get(c.assigned_salesman_id) ?? undefined,
+        secondary: c.assignedSalesman?.name ?? undefined,
         status: c.status,
         href: `/dashboard/manager/clients/${c.id}`,
       })),
       emptyMessage: "No leads or follow-ups in the pipeline.",
       viewAllHref: "/dashboard/manager/clients",
-      viewAllLabel: "Go to clients",
+      viewAllLabel: `Go to clients${more(k.pipelineTotal, k.pipeline.length)}`,
     },
     {
       label: "Team KPI Score",
@@ -301,12 +211,12 @@ export async function ManagerKpiCardsRow({
     },
     {
       label: "Overdue Tasks",
-      value: overdueTasks.length,
-      badgeLabel: `${overdueTasks.length} pending`,
-      direction: overdueTasks.length > 0 ? "up" : "flat",
+      value: overdueCount,
+      badgeLabel: `${overdueCount} pending`,
+      direction: overdueCount > 0 ? "up" : "flat",
       Icon: XCircle,
       bg: "bg-slate-800",
-      items: overdueTasks.map((t) => ({
+      items: k.overdue.map((t) => ({
         id: t.id,
         primary: t.description,
         secondary: t.assignedTo?.name,
@@ -315,7 +225,7 @@ export async function ManagerKpiCardsRow({
       })),
       emptyMessage: "No overdue tasks. Nice work!",
       viewAllHref: "/dashboard/manager/tasks",
-      viewAllLabel: "Go to tasks",
+      viewAllLabel: `Go to tasks${more(overdueCount, k.overdue.length)}`,
     },
   ];
 
@@ -355,18 +265,13 @@ export async function SalesmanPerformanceSection({
 }: {
   managerId: number;
 }) {
-  const [salesmen, orgData] = await Promise.all([
-    getCachedManagerSalesmen(managerId),
-    getCachedManagerOrg(managerId),
-  ]);
+  const [sortedSalesmen, orgData] = await Promise.all([getManagerTeam(managerId), getCachedManagerOrg(managerId)]);
 
-  const salesmanIds = salesmen.map((s) => s.id);
-  const [tasks, activityFeed] = await Promise.all([
-    getCachedManagerTasks(salesmanIds),
+  const salesmanIds = sortedSalesmen.map((s) => s.id);
+  const [taskStats, activityFeed] = await Promise.all([
+    getManagerTaskStats(salesmanIds),
     getCachedManagerActivityFeed(salesmanIds),
   ]);
-
-  const sortedSalesmen = buildSalesmenWithKpi(salesmen);
   const orgName = orgData[0]?.name ?? "—";
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -400,20 +305,8 @@ export async function SalesmanPerformanceSection({
     }
   }
 
-  // Task stats per salesman
-  const taskStatsMap = new Map<
-    number,
-    { total: number; completed: number }
-  >();
-  for (const t of tasks) {
-    const current = taskStatsMap.get(t.assignedTo.id) ?? {
-      total: 0,
-      completed: 0,
-    };
-    current.total++;
-    if (t.status === "achieved") current.completed++;
-    taskStatsMap.set(t.assignedTo.id, current);
-  }
+  // Task stats per salesman (counted in SQL)
+  const taskStatsMap = new Map(Object.entries(taskStats).map(([id, v]) => [Number(id), v]));
 
   const topStats = taskStatsMap.get(topSalesman.id) ?? {
     total: 0,
@@ -738,12 +631,9 @@ export async function FunnelAndTasksSection({
 }: {
   managerId: number;
 }) {
-  const salesmen = await getCachedManagerSalesmen(managerId);
-  const salesmanIds = salesmen.map((s) => s.id);
-  const tasks = await getCachedManagerTasks(salesmanIds);
-
-  const allClients = salesmen.flatMap((s) => s.assignedClients);
-  const allCounts = groupStatusCounts(allClients);
+  const team = await getManagerTeam(managerId);
+  const pending = await getManagerPendingTasks(team.map((s) => s.id));
+  const allCounts = teamCounts(team);
 
   const newLeads = allCounts.lead ?? 0;
   const followUp = allCounts.follow_up ?? 0;
@@ -760,12 +650,8 @@ export async function FunnelAndTasksSection({
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today.getTime() + 86400000);
 
-  const pendingTasks = tasks
-    .filter((t) => ["pending", "in_process"].includes(t.status))
-    .sort(
-      (a, b) =>
-        new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-    );
+  // Earliest-due open tasks (already sorted and capped in SQL)
+  const pendingTasks = pending.rows;
 
   function getDueLabel(dueDate: Date | string) {
     const due = new Date(dueDate);
@@ -876,7 +762,7 @@ export async function FunnelAndTasksSection({
       {/* ── RIGHT: Pending Tasks ── */}
       <SectionCard
         title="Pending Tasks"
-        subtitle="by salesman"
+        subtitle={pending.total > pendingTasks.length ? `earliest ${pendingTasks.length} of ${pending.total}` : "by salesman"}
         href="/dashboard/manager/tasks"
         className="h-auto lg:h-[420px] flex flex-col"
         bodyClassName="flex-1 min-h-0"
@@ -957,9 +843,8 @@ export async function ManagerActivityFeed({
 }: {
   managerId: number;
 }) {
-  const salesmen = await getCachedManagerSalesmen(managerId);
-  const salesmanIds = salesmen.map((s) => s.id);
-  const activityFeed = await getCachedManagerActivityFeed(salesmanIds);
+  const team = await getManagerTeam(managerId);
+  const activityFeed = await getCachedManagerActivityFeed(team.map((s) => s.id));
 
   return (
     <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-blue-500" href="/dashboard/manager/clients">

@@ -147,6 +147,7 @@ export function SalesmenTargetsClient({
               <th className="px-5 py-3.5">Salesman</th>
               <th className="px-5 py-3.5">Clients</th>
               {kpiScores && <th className="px-5 py-3.5">KPI</th>}
+              <th className="px-5 py-3.5 text-right" title="Actual profit from enquiries whose order is fully paid">Completed profit</th>
               <th className="px-5 py-3.5">Target</th>
               <th className="px-5 py-3.5">Period</th>
               <th className="px-5 py-3.5">Progress</th>
@@ -169,6 +170,14 @@ export function SalesmenTargetsClient({
                 </td>
                 <td className="px-5 py-4 font-semibold text-slate-700">{row.clientCount}</td>
                 {kpiScores && <td className="px-5 py-4 font-bold text-slate-900">{kpiScores[row.id] ?? 0}</td>}
+                <td className="whitespace-nowrap px-5 py-4 text-right">
+                  <span className={cn("block font-bold", row.completedProfit.profit < 0 ? "text-rose-600" : "text-emerald-700")}>
+                    {formatAmount(row.completedProfit.profit)}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">
+                    {row.completedProfit.count} completed enquir{row.completedProfit.count === 1 ? "y" : "ies"}
+                  </span>
+                </td>
                 {row.current ? (
                   <>
                     <td className="px-5 py-4 font-semibold text-slate-800">{formatAmount(row.current.amount)}</td>

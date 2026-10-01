@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
-import { getTokenUserId, isRole } from "@/lib/scoping";
+import { getTokenUserId, isRole, orderScopeWhere } from "@/lib/scoping";
 import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 
 /** Accountant reminds the order's salesman to collect an outstanding payment (creates a task for them). */
@@ -12,8 +12,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (!isRole(token, 4)) return NextResponse.json({ error: "Only accountants can send payment reminders" }, { status: 403 });
 
   const { id } = await context.params;
-  const raw = await prisma.order.findUnique({
-    where: { id: Number(id) },
+  const raw = await prisma.order.findFirst({
+    where: { AND: [{ id: Number(id) }, await orderScopeWhere(token)] },
     include: { client: { select: { name: true } }, createdBy: { select: { name: true } }, ...orderPaymentsInclude },
   });
   if (!raw || raw.status === "cancelled") return NextResponse.json({ error: "Order not found" }, { status: 404 });

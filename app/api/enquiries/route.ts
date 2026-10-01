@@ -4,13 +4,16 @@ import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere, getTokenUserId, isRole } from "@/lib/scoping";
 import { parseDateOnly } from "@/lib/salesman-targets";
-import { getEnquiries, revalidateEnquiryPages } from "@/lib/enquiries";
-import { enquiryModes, enquiryPaymentModes, enquiryTerms } from "@/types/enquiry";
+import { getEnquiriesPage, revalidateEnquiryPages } from "@/lib/enquiries";
+import { enquiryModes, enquiryPaymentModes, incoterms, jobRefs, type JobRef } from "@/types/enquiry";
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ enquiries: await getEnquiries(token) });
+  // Paginated like the UI: ?page=&status=&q=
+  const params = Object.fromEntries(new URL(request.url).searchParams);
+  const { rows, total, page, pageSize, counts } = await getEnquiriesPage(token, params);
+  return NextResponse.json({ enquiries: rows, total, page, pageSize, counts });
 }
 
 const ONBOARDED_OR_BEYOND = ["onboarded", "active_client"];
@@ -34,7 +37,8 @@ export async function POST(request: NextRequest) {
   if (!enquiryDate) return NextResponse.json({ error: "Invalid enquiry date" }, { status: 400 });
   if (!enquiryModes.includes(body.mode)) return NextResponse.json({ error: "Invalid mode of transport" }, { status: 400 });
   if (!from || !to) return NextResponse.json({ error: "From and To are required" }, { status: 400 });
-  if (!enquiryTerms.includes(body.term)) return NextResponse.json({ error: "Invalid term" }, { status: 400 });
+  if (!jobRefs.includes(body.job_ref as JobRef)) return NextResponse.json({ error: "Select a job ref" }, { status: 400 });
+  if (!incoterms.includes(body.incoterm)) return NextResponse.json({ error: "Select an incoterm" }, { status: 400 });
   if (!enquiryPaymentModes.includes(body.payment_mode)) return NextResponse.json({ error: "Invalid payment mode" }, { status: 400 });
   if (creditDays !== null && (!Number.isInteger(creditDays) || creditDays <= 0)) {
     return NextResponse.json({ error: "Credit days must be a whole number above 0" }, { status: 400 });
@@ -60,7 +64,8 @@ export async function POST(request: NextRequest) {
         mode: body.mode,
         from,
         to,
-        term: body.term,
+        job_ref: body.job_ref,
+        incoterm: body.incoterm,
         payment_mode: body.payment_mode,
         credit_days: creditDays,
         clearance: Boolean(body.clearance),

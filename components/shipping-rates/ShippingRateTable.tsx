@@ -164,6 +164,17 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
     });
   }, [rates, searchQuery, modeFilter, containerFilter, carrierFilter, currencyFilter]);
 
+  // Render rows incrementally — the full list stays in memory for filtering and best-price detection.
+  const PAGE = 50;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  const [filterKey, setFilterKey] = useState("");
+  const currentFilterKey = [searchQuery, modeFilter, containerFilter, carrierFilter, currencyFilter].join("|");
+  if (currentFilterKey !== filterKey) {
+    setFilterKey(currentFilterKey);
+    setVisibleCount(PAGE);
+  }
+  const visibleRates = filteredRates.slice(0, visibleCount);
+
   const hasActiveFilters = searchQuery !== "" || modeFilter !== "all" || containerFilter !== "all" || carrierFilter !== "all" || currencyFilter !== "all";
 
   function resetFilters() {
@@ -649,7 +660,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
           <>
             {/* ── MOBILE: Rate Cards ── */}
             <div className="md:hidden space-y-2.5">
-              {filteredRates.map((rate) => {
+              {visibleRates.map((rate) => {
                 const cardBadge: RateCardBadge = rate.id === bestPriceId ? "best-price" : "none";
                 return (
                   <RateCard
@@ -689,7 +700,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRates.map((rate) => {
+                  {visibleRates.map((rate) => {
                     const isBest = rate.id === bestPriceId;
                     const ModeIcon = MODE_ICON[rate.mode] ?? Ship;
                     return (
@@ -792,6 +803,21 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                 </tbody>
               </table>
             </div>
+            {filteredRates.length > visibleCount && (
+              <div className="flex items-center justify-center gap-3 pt-3 text-xs" style={{ color: "var(--ds-text-muted)" }}>
+                <span>
+                  Showing {visibleCount} of {filteredRates.length} rates
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => n + PAGE)}
+                  className="rounded-lg border px-3 py-1.5 font-semibold transition cursor-pointer hover:opacity-80"
+                  style={{ borderColor: "var(--ds-border-default)", color: "var(--ds-text-primary)" }}
+                >
+                  Show {Math.min(PAGE, filteredRates.length - visibleCount)} more
+                </button>
+              </div>
+            )}
           </>
         ) : (
           /* Empty state */

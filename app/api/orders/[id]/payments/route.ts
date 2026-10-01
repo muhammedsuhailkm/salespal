@@ -6,12 +6,18 @@ import { getTokenUserId, isRole, orderScopeWhere } from "@/lib/scoping";
 import { parseDateOnly } from "@/lib/salesman-targets";
 import { revalidateEnquiryPages } from "@/lib/enquiries";
 import { orderPaymentMethods } from "@/types/order";
+import { syncOrderPayments } from "@/lib/order-payments";
 
-/** Accountants record a payment collected against an order. */
+/**
+ * Records a payment collected against an order. Allowed for accountants (orders of their companies)
+ * and for the salesman who raised the enquiry the order was converted from.
+ */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRole(token, 4)) return NextResponse.json({ error: "Only accountants can record payments" }, { status: 403 });
+  if (!isRole(token, [3, 4])) {
+    return NextResponse.json({ error: "Only accountants or the enquiry's salesman can record payments" }, { status: 403 });
+  }
 
   const { id } = await context.params;
   const body = await request.json();
@@ -24,9 +30,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const order = await prisma.order.findFirst({
     where: { AND: [{ id: Number(id) }, await orderScopeWhere(token)] },
-    include: { payments: { select: { amount: true } } },
+    include: { payments: { select: { amount: true } }, enquiry: { select: { created_by_id: true } } },
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (isRole(token, 3) && order.enquiry?.created_by_id !== getTokenUserId(token)) {
+    return NextResponse.json({ error: "You can only record payments on orders from your own enquiries" }, { status: 403 });
+  }
   if (order.status === "cancelled") return NextResponse.json({ error: "Cannot record a payment on a cancelled order" }, { status: 409 });
 
   const paid = order.advance_amount.toNumber() + order.payments.reduce((sum, p) => sum + p.amount.toNumber(), 0);
@@ -35,16 +44,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ error: `Payment exceeds the balance due (${balance.toFixed(2)})` }, { status: 400 });
   }
 
-  const payment = await prisma.orderPayment.create({
-    data: {
-      order_id: order.id,
-      amount,
-      paid_on: paidOn,
-      method: body.method,
-      reference: body.reference ? String(body.reference).trim() || null : null,
-      notes: body.notes ? String(body.notes).trim() || null : null,
-      recorded_by_id: getTokenUserId(token),
-    },
+  const payment = await prisma.$transaction(async (tx) => {
+    const created = await tx.orderPayment.create({
+      data: {
+        order_id: order.id,
+        amount,
+        paid_on: paidOn,
+        method: body.method,
+        reference: body.reference ? String(body.reference).trim() || null : null,
+        notes: body.notes ? String(body.notes).trim() || null : null,
+        recorded_by_id: getTokenUserId(token),
+      },
+    });
+    await syncOrderPayments(tx, order.id);
+    return created;
   });
 
   revalidateTag("salesman-orders", { expire: 0 });

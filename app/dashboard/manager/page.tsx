@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedManagerOrg, getCachedManagerSalesmen, getShippingRates } from "@/lib/cached-queries";
+import { getCachedManagerOrg, getShippingRates } from "@/lib/cached-queries";
+import { getManagerTeam } from "@/lib/manager-dashboard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ShippingRateTable } from "@/components/shipping-rates/ShippingRateTable";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -75,7 +76,7 @@ export default async function ManagerDashboardPage({
   // Fast cached data for header — org info + salesman count
   const [orgs, salesmen] = await Promise.all([
     getCachedManagerOrg(managerId),
-    getCachedManagerSalesmen(managerId),
+    getManagerTeam(managerId),
   ]);
 
   const orgName = orgs.map((o) => o.name).join(" & ") || "Your Organization";

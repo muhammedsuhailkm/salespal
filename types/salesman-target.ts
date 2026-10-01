@@ -19,6 +19,8 @@ export type SalesmanTargetRow = {
   name: string;
   email: string;
   clientCount: number;
+  /** Actual profit summed over completed enquiries (order fully paid). */
+  completedProfit: { profit: number; count: number };
   /** Target whose period covers today, if any. */
   current: SalesmanTargetView | null;
   /** All targets, newest first — includes the current one. */

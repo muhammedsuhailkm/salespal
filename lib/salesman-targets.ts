@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getManagerSalesmanIds } from "@/lib/scoping";
+import { Prisma } from "@prisma/client";
 import type { SalesmanTargetRow, SalesmanTargetView, TargetState } from "@/types/salesman-target";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function todayUtc() {
   const now = new Date();
@@ -51,43 +51,65 @@ export async function getSalesmenWithTargets(user: { id: number; role_id: number
   });
 
   const today = todayUtc();
+  const salesmanIds = salesmen.map((s) => s.id);
+  const [achievedByTarget, completedProfit] = await Promise.all([getTargetAchievements(salesmanIds), getCompletedEnquiryProfit(salesmanIds)]);
 
-  return Promise.all(
-    salesmen.map(async (salesman) => {
-      const history: SalesmanTargetView[] = await Promise.all(
-        salesman.salesmanTargets.map(async (target) => {
-          const aggregate = await prisma.order.aggregate({
-            _sum: { amount: true },
-            where: {
-              created_by_id: salesman.id,
-              status: { not: "cancelled" },
-              created_at: { gte: target.period_start, lt: new Date(target.period_end.getTime() + DAY_MS) },
-            },
-          });
-          const amount = target.amount.toNumber();
-          const achieved = aggregate._sum.amount?.toNumber() ?? 0;
-          return {
-            id: target.id,
-            amount,
-            achieved,
-            percent: amount > 0 ? (achieved / amount) * 100 : 0,
-            period_start: target.period_start.toISOString().slice(0, 10),
-            period_end: target.period_end.toISOString().slice(0, 10),
-            state: targetState(target, achieved, amount, today),
-            set_by: target.setBy.name,
-            created_at: target.created_at.toISOString(),
-          };
-        })
-      );
-
+  return salesmen.map((salesman) => {
+    const history: SalesmanTargetView[] = salesman.salesmanTargets.map((target) => {
+      const amount = target.amount.toNumber();
+      const achieved = achievedByTarget.get(target.id) ?? 0;
       return {
-        id: salesman.id,
-        name: salesman.name,
-        email: salesman.email,
-        clientCount: salesman._count.assignedClients,
-        current: history.find((item) => item.state === "active") ?? null,
-        history,
+        id: target.id,
+        amount,
+        achieved,
+        percent: amount > 0 ? (achieved / amount) * 100 : 0,
+        period_start: target.period_start.toISOString().slice(0, 10),
+        period_end: target.period_end.toISOString().slice(0, 10),
+        state: targetState(target, achieved, amount, today),
+        set_by: target.setBy.name,
+        created_at: target.created_at.toISOString(),
       };
-    })
-  );
+    });
+
+    return {
+      id: salesman.id,
+      name: salesman.name,
+      email: salesman.email,
+      clientCount: salesman._count.assignedClients,
+      completedProfit: completedProfit.get(salesman.id) ?? { profit: 0, count: 0 },
+      current: history.find((item) => item.state === "active") ?? null,
+      history,
+    };
+  });
+}
+
+/** Achieved amount for every target of these salesmen in one query: their non-cancelled orders created inside the period. */
+async function getTargetAchievements(salesmanIds: number[]) {
+  if (salesmanIds.length === 0) return new Map<number, number>();
+  const rows = await prisma.$queryRaw<{ id: number; achieved: number }[]>(Prisma.sql`
+    SELECT t.id, COALESCE(SUM(o.amount), 0)::float8 AS achieved
+    FROM salesman_targets t
+    LEFT JOIN orders o
+      ON o.created_by_id = t.salesman_id
+     AND o.status <> 'cancelled'
+     AND o.created_at >= t.period_start
+     AND o.created_at < t.period_end + 1
+    WHERE t.salesman_id IN (${Prisma.join(salesmanIds)})
+    GROUP BY t.id
+  `);
+  return new Map(rows.map((r) => [r.id, Number(r.achieved)]));
+}
+
+/** Actual profit from each salesman's completed enquiries (stored status, kept in sync with payments). */
+async function getCompletedEnquiryProfit(salesmanIds: number[]) {
+  const totals = new Map<number, { profit: number; count: number }>();
+  if (salesmanIds.length === 0) return totals;
+  const rows = await prisma.$queryRaw<{ created_by_id: number; profit: number; count: number }[]>(Prisma.sql`
+    SELECT created_by_id, COALESCE(SUM(COALESCE(actual_profit, provisional_profit)), 0)::float8 AS profit, COUNT(*)::int AS count
+    FROM enquiries
+    WHERE status = 'completed' AND created_by_id IN (${Prisma.join(salesmanIds)})
+    GROUP BY created_by_id
+  `);
+  for (const r of rows) totals.set(r.created_by_id, { profit: Number(r.profit), count: Number(r.count) });
+  return totals;
 }

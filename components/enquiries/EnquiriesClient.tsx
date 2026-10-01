@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { ClientPicker } from "@/components/clients/ClientPicker";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
+import type { EnquiryPage } from "@/lib/enquiries";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ClipboardList, Loader2, Plus, Repeat, X } from "lucide-react";
+import { ArrowRight, Ban, BellRing, ClipboardList, Loader2, MessageSquareText, Plus, Repeat, X } from "lucide-react";
+import { CancelEnquiryModal, FollowUpModal } from "@/components/enquiries/EnquiryFollowUpModals";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -11,7 +16,12 @@ import { cn, formatAmount, formatDate, titleCase } from "@/lib/utils";
 import {
   enquiryModes,
   enquiryPaymentModes,
-  enquiryTerms,
+  jobRefNames,
+  jobRefs,
+  type JobRef,
+  incotermNames,
+  incoterms,
+  type Incoterm,
   type EnquiryListItem,
   type EnquiryStatus,
 } from "@/types/enquiry";
@@ -20,6 +30,7 @@ const statusStyles: Record<EnquiryStatus, string> = {
   open: "bg-amber-50 text-amber-800 ring-amber-200",
   order_created: "bg-cyan-50 text-cyan-700 ring-cyan-200",
   completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  cancelled: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
 function StatusBadge({ status }: { status: EnquiryStatus }) {
@@ -61,12 +72,12 @@ function SelectField({
 const today = () => new Date().toISOString().slice(0, 10);
 
 const emptyForm = () => ({
-  client_id: "",
   enquiry_date: today(),
   mode: "sea",
   from: "",
   to: "",
-  term: enquiryTerms[0] as string,
+  job_ref: "",
+  incoterm: "",
   payment_mode: "cash",
   credit_days: "",
   clearance: false,
@@ -80,26 +91,35 @@ const FILTERS: { value: EnquiryStatus | "all"; label: string }[] = [
   { value: "open", label: "Open" },
   { value: "order_created", label: "Order created" },
   { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysOpen = (enquiryDate: string) => Math.max(0, Math.floor((Date.now() - new Date(`${enquiryDate}T00:00:00Z`).getTime()) / DAY_MS));
+
+/** Server-paginated enquiries table. Status tab, search and page are URL params. */
 export function EnquiriesClient({
-  enquiries,
-  clients,
+  data,
   canCreate,
   canConvert,
+  canFollowUp = false,
 }: {
-  enquiries: EnquiryListItem[];
-  clients: { id: number; name: string }[];
+  data: EnquiryPage;
   canCreate: boolean;
   canConvert: boolean;
+  /** Salesmen / managers: log follow-up comments and cancel open enquiries. */
+  canFollowUp?: boolean;
 }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<EnquiryStatus | "all">("all");
-  const [search, setSearch] = useState("");
+  const { get, set, isPending } = useUrlFilters();
+  const filter = (get("status") || "all") as EnquiryStatus | "all";
+  const [search, setSearch] = useDebouncedParam("q", set, get("q"));
   const [toast, setToast] = useState<string | undefined>();
+  const enquiries = data.rows;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [client, setClient] = useState<{ id: number; name: string } | null>(null);
 
   const [convertFor, setConvertFor] = useState<EnquiryListItem | null>(null);
   const [conv, setConv] = useState({ job_no: "", actual_cost: "", actual_profit: "", advance_amount: "", invoice_date: "", credit_days: "", due_date: "" });
@@ -107,17 +127,18 @@ export function EnquiriesClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return enquiries.filter(
-      (e) =>
-        (filter === "all" || e.status === filter) &&
-        (!q ||
-          e.ref.toLowerCase().includes(q) ||
-          e.client_name.toLowerCase().includes(q) ||
-          (e.order?.job_no?.toLowerCase().includes(q) ?? false))
-    );
-  }, [enquiries, filter, search]);
+  // ?followUp=<id> (deep link from a follow-up task) opens that enquiry even if it is on another page.
+  const [followUpId, setFollowUpId] = useState<number | null>(data.focus?.id ?? null);
+  const followUpFor =
+    followUpId === null ? null : enquiries.find((e) => e.id === followUpId) ?? (data.focus?.id === followUpId ? data.focus : null);
+  const closeFollowUp = () => {
+    setFollowUpId(null);
+    if (get("followUp")) set({ followUp: null, page: get("page") || null });
+  };
+  const [cancelFor, setCancelFor] = useState<EnquiryListItem | null>(null);
+  const followUpsDue = data.followUpsDue;
+
+  const visible = enquiries;
 
   function flash(message: string) {
     setToast(message);
@@ -142,9 +163,13 @@ export function EnquiriesClient({
 
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!client) {
+      setError("Select a client");
+      return;
+    }
     const data = await post("/api/enquiries", {
       ...form,
-      client_id: Number(form.client_id),
+      client_id: client.id,
       credit_days: form.payment_mode === "credit" ? Number(form.credit_days) : null,
       provisional_cost: Number(form.provisional_cost),
       provisional_profit: Number(form.provisional_profit),
@@ -203,7 +228,7 @@ export function EnquiriesClient({
               key={f.value}
               role="tab"
               aria-selected={filter === f.value}
-              onClick={() => setFilter(f.value)}
+              onClick={() => set({ status: f.value })}
               className={cn(
                 "cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition",
                 filter === f.value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
@@ -211,7 +236,7 @@ export function EnquiriesClient({
             >
               {f.label}
               <span className="ml-1 text-slate-400">
-                {f.value === "all" ? enquiries.length : enquiries.filter((e) => e.status === f.value).length}
+                {data.counts[f.value].toLocaleString()}
               </span>
             </button>
           ))}
@@ -229,6 +254,7 @@ export function EnquiriesClient({
             onClick={() => {
               setError(null);
               setForm(emptyForm());
+              setClient(null);
               setCreateOpen(true);
             }}
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
@@ -239,29 +265,38 @@ export function EnquiriesClient({
         )}
       </div>
 
+      {canFollowUp && followUpsDue > 0 && (
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+          <BellRing size={14} className="shrink-0" aria-hidden />
+          {followUpsDue} enquir{followUpsDue === 1 ? "y has" : "ies have"} been open for over 30 days. Log a follow-up or cancel with a reason.
+        </div>
+      )}
+
       {/* Table */}
       {visible.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title={enquiries.length === 0 ? "No enquiries yet" : "No enquiries match"}
-          message={enquiries.length === 0 && canCreate ? "Create an enquiry to capture a client's shipping request." : undefined}
+          title={data.counts.all === 0 && !search ? "No enquiries yet" : "No enquiries match"}
+          message={data.counts.all === 0 && !search && canCreate ? "Create an enquiry to capture a client's shipping request." : undefined}
         />
       ) : (
+        <div className={cn("space-y-1 transition-opacity", isPending && "opacity-60")} aria-busy={isPending}>
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full min-w-[1180px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3">Ref / Date</th>
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Mode / Route</th>
-                <th className="px-4 py-3">Term</th>
+                <th className="px-4 py-3">Job Ref</th>
+                <th className="px-4 py-3">Incoterm</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Clearance</th>
                 <th className="px-4 py-3 text-right">Cost</th>
                 <th className="px-4 py-3 text-right">Profit</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Job no</th>
-                {canConvert && <th className="px-4 py-3 text-right">Action</th>}
+                <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -272,6 +307,11 @@ export function EnquiriesClient({
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="block font-bold text-slate-900">{e.ref}</span>
                       <span className="block text-[11px] text-slate-500">{formatDate(e.enquiry_date)} · {e.created_by}</span>
+                      {e.status === "open" && (
+                        <span className={cn("block text-[11px]", e.follow_up_due ? "font-semibold text-amber-700" : "text-slate-400")}>
+                          Open {daysOpen(e.enquiry_date)} days{e.follow_up_due ? " · follow-up due" : ""}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-800">{e.client_name}</td>
                     <td className="px-4 py-3">
@@ -280,7 +320,28 @@ export function EnquiriesClient({
                         {e.from} <ArrowRight size={12} className="text-slate-400" /> {e.to}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-700">{e.term}</td>
+                    <td className="px-4 py-3">
+                      {e.job_ref ? (
+                        <span className="block whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold text-slate-800">{e.job_ref}</span>
+                          <span className="block text-[11px] text-slate-500">{jobRefNames[e.job_ref as JobRef] ?? ""}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {e.incoterm ? (
+                        <span
+                          title={incotermNames[e.incoterm as Incoterm] ?? e.incoterm}
+                          className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 ring-1 ring-slate-200"
+                        >
+                          {e.incoterm}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                       {titleCase(e.payment_mode)}
                       {e.payment_mode === "credit" && e.credit_days ? (
@@ -304,11 +365,18 @@ export function EnquiriesClient({
                         {converted ? `Prov. ${formatAmount(e.provisional_profit)}` : "Provisional"}
                       </span>
                     </td>
-                    <td className="px-4 py-3"><StatusBadge status={e.status} /></td>
+                    <td className="max-w-[200px] px-4 py-3">
+                      <StatusBadge status={e.status} />
+                      {e.status === "cancelled" && e.cancel_reason && (
+                        <span className="mt-1 block truncate text-[11px] text-slate-500" title={e.cancel_reason}>
+                          {e.cancel_reason}
+                        </span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-slate-700">{e.order?.job_no ?? "—"}</td>
-                    {canConvert && (
-                      <td className="px-4 py-3 text-right">
-                        {e.status === "open" && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {canConvert && e.status === "open" && (
                           <button
                             onClick={() => openConvert(e)}
                             className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
@@ -317,13 +385,40 @@ export function EnquiriesClient({
                             Convert to order
                           </button>
                         )}
-                      </td>
-                    )}
+                        {((canFollowUp && e.status === "open") || e.follow_ups.length > 0 || e.status === "cancelled") && (
+                          <button
+                            onClick={() => setFollowUpId(e.id)}
+                            className={cn(
+                              "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition",
+                              canFollowUp && e.follow_up_due
+                                ? "bg-amber-500 text-white hover:bg-amber-600"
+                                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            )}
+                          >
+                            <MessageSquareText size={12} />
+                            {canFollowUp && e.status === "open" ? "Follow up" : "Details"}
+                            {e.follow_ups.length > 0 && <span className="opacity-70">{e.follow_ups.length}</span>}
+                          </button>
+                        )}
+                        {canFollowUp && e.status === "open" && (
+                          <button
+                            onClick={() => setCancelFor(e)}
+                            aria-label={`Cancel ${e.ref}`}
+                            title="Cancel enquiry"
+                            className="inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-400 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <Ban size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isPending} noun="enquiries" onPage={(p) => set({ page: p })} />
         </div>
       )}
 
@@ -342,12 +437,10 @@ export function EnquiriesClient({
 
           {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</p>}
 
-          <SelectField id="enq-client" label="Client" required value={form.client_id} onChange={(v) => setForm({ ...form, client_id: v })}>
-            <option value="">Select a client...</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </SelectField>
+          <div className="block text-sm font-medium text-slate-700">
+            <label htmlFor="enq-client" className="mb-1 block">Client</label>
+            <ClientPicker id="enq-client" required value={client} onChange={setClient} />
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Enquiry date" type="date" required value={form.enquiry_date} onChange={(e) => setForm({ ...form, enquiry_date: e.target.value })} />
@@ -358,9 +451,16 @@ export function EnquiriesClient({
             </SelectField>
             <Input label="From" required value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} placeholder="Origin" />
             <Input label="To" required value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="Destination" />
-            <SelectField id="enq-term" label="Term" value={form.term} onChange={(v) => setForm({ ...form, term: v })}>
-              {enquiryTerms.map((t) => (
-                <option key={t} value={t}>{t}</option>
+            <SelectField id="enq-job-ref" label="Job Ref" required value={form.job_ref} onChange={(v) => setForm({ ...form, job_ref: v })}>
+              <option value="">Select job ref...</option>
+              {jobRefs.map((code) => (
+                <option key={code} value={code}>{code} — {jobRefNames[code]}</option>
+              ))}
+            </SelectField>
+            <SelectField id="enq-incoterm" label="Incoterm" required value={form.incoterm} onChange={(v) => setForm({ ...form, incoterm: v })}>
+              <option value="">Select incoterm...</option>
+              {incoterms.map((t) => (
+                <option key={t} value={t}>{t} — {incotermNames[t]}</option>
               ))}
             </SelectField>
             <SelectField id="enq-payment" label="Payment mode" value={form.payment_mode} onChange={(v) => setForm({ ...form, payment_mode: v })}>
@@ -472,6 +572,26 @@ export function EnquiriesClient({
           </div>
         </form>
       </Modal>
+
+      <FollowUpModal
+        enquiry={followUpFor}
+        canAdd={canFollowUp}
+        onClose={closeFollowUp}
+        onSaved={() => {
+          closeFollowUp();
+          flash("Follow-up saved");
+          router.refresh();
+        }}
+      />
+      <CancelEnquiryModal
+        enquiry={cancelFor}
+        onClose={() => setCancelFor(null)}
+        onCancelled={() => {
+          setCancelFor(null);
+          flash("Enquiry cancelled");
+          router.refresh();
+        }}
+      />
 
       <Toast message={toast} />
     </div>

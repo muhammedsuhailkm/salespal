@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { orderScopeWhere } from "@/lib/scoping";
 import { orderModes, orderPaymentModes } from "@/types/order";
+import { syncOrderPayments } from "@/lib/order-payments";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -48,18 +49,21 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: "Order amount cannot be less than what has already been paid" }, { status: 400 });
   }
 
-  const order = await prisma.order.update({
-    include: orderPaymentsInclude,
-    where: { id: Number(id) },
-    data: {
-      mode: body.mode ?? undefined,
-      description: body.description ?? undefined,
-      payment_mode: body.payment_mode ?? undefined,
-      amount: body.amount !== undefined ? effectiveAmount : undefined,
-      advance_amount: body.advance_amount !== undefined ? effectiveAdvance : undefined,
-      from: body.from ?? undefined,
-      to: body.to ?? undefined,
-    },
+  const order = await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id: Number(id) },
+      data: {
+        mode: body.mode ?? undefined,
+        description: body.description ?? undefined,
+        payment_mode: body.payment_mode ?? undefined,
+        amount: body.amount !== undefined ? effectiveAmount : undefined,
+        advance_amount: body.advance_amount !== undefined ? effectiveAdvance : undefined,
+        from: body.from ?? undefined,
+        to: body.to ?? undefined,
+      },
+    });
+    await syncOrderPayments(tx, Number(id));
+    return tx.order.findUniqueOrThrow({ where: { id: Number(id) }, include: orderPaymentsInclude });
   });
 
   revalidateTag("salesman-orders", { expire: 0 });
@@ -78,7 +82,13 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   if (!scoped) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (scoped.status !== "draft") return NextResponse.json({ error: "Only draft orders can be deleted" }, { status: 409 });
 
-  await prisma.order.delete({ where: { id: Number(id) } });
+  await prisma.$transaction(async (tx) => {
+    await tx.order.delete({ where: { id: Number(id) } });
+    // Without an order the enquiry can no longer count as completed.
+    if (scoped.enquiry_id) {
+      await tx.enquiry.updateMany({ where: { id: scoped.enquiry_id, status: "completed" }, data: { status: "order_created" } });
+    }
+  });
 
   revalidateTag("salesman-orders", { expire: 0 });
   revalidateTag("manager-orders", { expire: 0 });

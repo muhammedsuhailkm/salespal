@@ -1,35 +1,31 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedTasksData } from "@/lib/cached-queries";
+import { getTasksPage } from "@/lib/tasks-list";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SalesmanTasksList } from "@/components/tasks/SalesmanTasksList";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default async function SalesmanTasksPage() {
+export default async function SalesmanTasksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader title="My Tasks" subtitle="Manage your tasks and updates here." />
       <div className="mt-4">
         <Suspense fallback={<TasksListSkeleton />}>
-          <TasksListSection />
+          <TasksListSection params={params} />
         </Suspense>
       </div>
     </>
   );
 }
 
-async function TasksListSection() {
+async function TasksListSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const userId = session!.user.id;
+  const userId = Number(session!.user.id);
+  const data = await getTasksPage({ userId }, params);
 
-  const { myInProcessTasks, managerAssignedTasks } = await getCachedTasksData(userId);
-
-  return (
-    <SalesmanTasksList
-      myInProcessTasks={myInProcessTasks}
-      managerAssignedTasks={managerAssignedTasks}
-    />
-  );
+  return <SalesmanTasksList data={data} currentUserId={userId} />;
 }
 
 function TasksListSkeleton() {

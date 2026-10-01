@@ -1,29 +1,42 @@
 import { Suspense } from "react";
-import { getAccountantOrders } from "@/lib/cached-queries";
+import { getOrdersPage } from "@/lib/orders-list";
+import type { SearchParams } from "@/lib/list-params";
+import { getAccountantCompanies } from "@/lib/accountant-dashboard";
+import { getSalesPalSession } from "@/lib/auth";
+import { AccountantCompanyChips, NoAssignedCompanies } from "@/components/accountant/AccountantCompanies";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OrderList } from "@/components/orders/OrderList";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default function AccountantOrdersPage() {
+export default async function AccountantOrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const session = await getSalesPalSession();
+  const companies = await getAccountantCompanies(Number(session!.user.id));
+
   return (
     <>
       <PageHeader
         title="Orders"
-        subtitle="Review and approve accounts sign-off for orders company-wide."
+        subtitle="Review and approve accounts sign-off for orders of your assigned companies."
+        action={<AccountantCompanyChips companies={companies} />}
       />
       <div className="mt-4">
-        <Suspense fallback={<OrdersListSkeleton />}>
-          <AccountantOrdersSection />
-        </Suspense>
+        {companies.length === 0 ? (
+          <NoAssignedCompanies />
+        ) : (
+          <Suspense fallback={<OrdersListSkeleton />}>
+            <AccountantOrdersSection orgIds={companies.map((c) => c.id)} params={params} />
+          </Suspense>
+        )}
       </div>
     </>
   );
 }
 
-async function AccountantOrdersSection() {
-  const orders = await getAccountantOrders();
+async function AccountantOrdersSection({ orgIds, params }: { orgIds: number[]; params: SearchParams }) {
+  const data = await getOrdersPage({ client: { org_id: { in: orgIds } } }, params);
 
-  return <OrderList initialOrders={orders} role="accountant" />;
+  return <OrderList data={data} role="accountant" />;
 }
 
 function OrdersListSkeleton() {

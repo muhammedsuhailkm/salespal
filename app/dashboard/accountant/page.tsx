@@ -4,7 +4,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import { PastDueTable } from "@/components/accountant/PastDueTable";
-import { DEFAULT_CREDIT_DAYS, getAccountantDashboard } from "@/lib/accountant-dashboard";
+import { AccountantCompanyChips, NoAssignedCompanies } from "@/components/accountant/AccountantCompanies";
+import { DEFAULT_CREDIT_DAYS, getAccountantCompanies, getAccountantDashboard } from "@/lib/accountant-dashboard";
+import { getSalesPalSession } from "@/lib/auth";
 import { cn, formatAmount, formatDate, titleCase } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -12,29 +14,48 @@ export const dynamic = "force-dynamic";
 const orderNo = (id: number) => `#${String(id).padStart(5, "0")}`;
 
 export default async function AccountantDashboardPage() {
-  const { pending, pastDue, newEnquiries, totals } = await getAccountantDashboard();
+  const session = await getSalesPalSession();
+  const companies = await getAccountantCompanies(Number(session!.user.id));
+  const header = (
+    <PageHeader
+      title="Dashboard"
+      subtitle="Receivables, overdue payments and enquiries waiting for conversion."
+      action={<AccountantCompanyChips companies={companies} />}
+    />
+  );
+
+  if (companies.length === 0) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <NoAssignedCompanies />
+      </div>
+    );
+  }
+
+  const { pending, pastDue, newEnquiries, counts, totals } = await getAccountantDashboard(companies.map((c) => c.id));
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" subtitle="Receivables, overdue payments and enquiries waiting for conversion." />
+      {header}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Link href="/dashboard/accountant/orders" className="rounded-3xl transition hover:-translate-y-0.5 hover:shadow-md">
-          <StatCard icon={Wallet} label="Pending payments" value={formatAmount(totals.outstanding)} badgeLabel={`${pending.length} orders`} badgeDirection="flat" theme={{ bg: "bg-blue-600" }} />
+          <StatCard icon={Wallet} label="Pending payments" value={formatAmount(totals.outstanding)} badgeLabel={`${counts.pending} orders`} badgeDirection="flat" theme={{ bg: "bg-blue-600" }} />
         </Link>
         <a href="#past-due" className="rounded-3xl transition hover:-translate-y-0.5 hover:shadow-md">
           <StatCard
             icon={AlertTriangle}
             label="Past due"
             value={formatAmount(totals.pastDue)}
-            badgeLabel={`${pastDue.length} orders`}
-            badgeDirection={pastDue.length > 0 ? "up" : "flat"}
-            theme={{ bg: pastDue.length > 0 ? "bg-red-600" : "bg-slate-700" }}
+            badgeLabel={`${counts.pastDue} orders`}
+            badgeDirection={counts.pastDue > 0 ? "up" : "flat"}
+            theme={{ bg: counts.pastDue > 0 ? "bg-red-600" : "bg-slate-700" }}
           />
         </a>
         <Link href="/dashboard/accountant/enquiries" className="rounded-3xl transition hover:-translate-y-0.5 hover:shadow-md">
-          <StatCard icon={ClipboardList} label="New enquiries" value={newEnquiries.length} badgeLabel="to convert" badgeDirection="flat" theme={{ bg: "bg-violet-600" }} />
+          <StatCard icon={ClipboardList} label="New enquiries" value={counts.newEnquiries} badgeLabel="to convert" badgeDirection="flat" theme={{ bg: "bg-violet-600" }} />
         </Link>
         <StatCard icon={Clock} label="Collected this month" value={formatAmount(totals.collectedThisMonth)} theme={{ bg: "bg-teal-600" }} />
       </div>
@@ -56,7 +77,7 @@ export default async function AccountantDashboardPage() {
         {/* Pending payment orders */}
         <SectionCard
           title="Pending payment orders"
-          subtitle={`${pending.length} orders with a balance, by due date`}
+          subtitle={`${counts.pending} orders with a balance, by due date${counts.pending > pending.length ? ` · first ${pending.length} shown` : ""}`}
           href="/dashboard/accountant/orders"
           className="flex flex-col lg:h-[460px]"
           bodyClassName="min-h-0 flex-1 overflow-y-auto -mx-2 px-2"
@@ -91,7 +112,7 @@ export default async function AccountantDashboardPage() {
         {/* New enquiries */}
         <SectionCard
           title="New enquiries"
-          subtitle="Open enquiries waiting to be converted to orders"
+          subtitle={`${counts.newEnquiries} open enquiries waiting to be converted${counts.newEnquiries > newEnquiries.length ? ` · newest ${newEnquiries.length} shown` : ""}`}
           href="/dashboard/accountant/enquiries"
           className="flex flex-col lg:h-[460px]"
           bodyClassName="min-h-0 flex-1 overflow-y-auto -mx-2 px-2"

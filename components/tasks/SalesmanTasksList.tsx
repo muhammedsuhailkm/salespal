@@ -1,14 +1,20 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import type { TasksPage } from "@/lib/tasks-list";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Plus,
   Calendar,
   X,
   Loader2,
-  ListTodo
+  ListTodo,
+  MessageSquareText
 } from "lucide-react";
+import { enquiryRef } from "@/types/enquiry";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
@@ -26,11 +32,14 @@ type Task = {
   isClientTask?: boolean;
   clientId?: number | null;
   clientName?: string | null;
+  /** Set on automatic enquiry follow-up tasks. */
+  enquiry?: { id: number; status: string } | null;
 };
 
 interface SalesmanTasksListProps {
-  myInProcessTasks: Task[];
-  managerAssignedTasks: Task[];
+  /** One server-sorted page of the salesman's tasks (created by them or assigned to them). */
+  data: TasksPage;
+  currentUserId: number;
 }
 
 const STATUS_SELECT_COLORS: Record<string, string> = {
@@ -40,27 +49,18 @@ const STATUS_SELECT_COLORS: Record<string, string> = {
   unsuccessful: "bg-red-50 text-red-700 ring-red-200",
 };
 
-export function SalesmanTasksList({
-  myInProcessTasks,
-  managerAssignedTasks
-}: SalesmanTasksListProps) {
+export function SalesmanTasksList({ data, currentUserId }: SalesmanTasksListProps) {
   const router = useRouter();
+  const { get, set, isPending: isNavigating } = useUrlFilters();
+  const typeFilter = (get("type") || "all") as "all" | "general" | "client";
 
-  // Local state for instant optimistic updates
-  const [localMyTasks, setLocalMyTasks] = useState<Task[]>(myInProcessTasks);
-  const [localManagerTasks, setLocalManagerTasks] = useState<Task[]>(managerAssignedTasks);
-
-  // Sync local state when props change
-  useEffect(() => {
-    setLocalMyTasks(myInProcessTasks);
-  }, [myInProcessTasks]);
-
-  useEffect(() => {
-    setLocalManagerTasks(managerAssignedTasks);
-  }, [managerAssignedTasks]);
-
-  // Type filter: "all" | "general" | "client"
-  const [typeFilter, setTypeFilter] = useState<"all" | "general" | "client">("all");
+  // Optimistic edits layered over the server page until router.refresh() delivers fresh rows.
+  const [localTasks, setLocalTasks] = useState<Task[]>(data.rows);
+  const [syncedRows, setSyncedRows] = useState(data.rows);
+  if (data.rows !== syncedRows) {
+    setSyncedRows(data.rows);
+    setLocalTasks(data.rows);
+  }
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -84,42 +84,7 @@ export function SalesmanTasksList({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Status priority: pending at top, unsuccessful at bottom
-  const STATUS_PRIORITY: Record<string, number> = {
-    pending: 0,
-    in_process: 1,
-    achieved: 2,
-    unsuccessful: 3,
-  };
-
-  // Combine tasks into a single list
-  const combinedTasks = useMemo(() => {
-    const list: Array<{ id: string; date: Date; data: Task }> = [];
-
-    localMyTasks.forEach((t) => {
-      const prefix = t.isClientTask ? "client-task" : "task";
-      list.push({ id: `${prefix}-${t.id}`, date: new Date(t.due_date), data: t });
-    });
-    localManagerTasks.forEach((t) => {
-      const prefix = t.isClientTask ? "client-task" : "task";
-      list.push({ id: `${prefix}-${t.id}`, date: new Date(t.due_date), data: t });
-    });
-
-    // Apply type filter
-    const filtered = list.filter((item) => {
-      if (typeFilter === "general") return !item.data.isClientTask;
-      if (typeFilter === "client") return !!item.data.isClientTask;
-      return true;
-    });
-
-    // Sort by status priority first, then by due date within same status
-    return filtered.sort((a, b) => {
-      const priorityA = STATUS_PRIORITY[a.data.status] ?? 99;
-      const priorityB = STATUS_PRIORITY[b.data.status] ?? 99;
-      if (priorityA !== priorityB) return priorityA - priorityB;
-      return a.date.getTime() - b.date.getTime();
-    });
-  }, [localMyTasks, localManagerTasks, typeFilter]);
+  const combinedTasks = localTasks.map((t) => ({ id: `${t.isClientTask ? "client-task" : "task"}-${t.id}`, data: t }));
 
   // Add task submission
   async function handleAddSubmit(e: React.FormEvent) {
@@ -153,7 +118,7 @@ export function SalesmanTasksList({
       });
       setIsAddOpen(false);
       if (data.task) {
-        setLocalMyTasks((prev) => [data.task, ...prev]);
+        setLocalTasks((prev) => [{ ...data.task, isClientTask: false, created_by_id: currentUserId }, ...prev]);
       }
       router.refresh();
     } catch (err: any) {
@@ -184,11 +149,8 @@ export function SalesmanTasksList({
 
       triggerToast("Task status updated");
       if (data.task) {
-        setLocalMyTasks((prev) =>
-          prev.map((t) => (t.id === data.task.id ? { ...t, status: data.task.status } : t)),
-        );
-        setLocalManagerTasks((prev) =>
-          prev.map((t) => (t.id === data.task.id ? { ...t, status: data.task.status } : t)),
+        setLocalTasks((prev) =>
+          prev.map((t) => (t.id === data.task.id && !!t.isClientTask === !!isClientTask ? { ...t, status: data.task.status } : t)),
         );
       }
       router.refresh();
@@ -206,11 +168,11 @@ export function SalesmanTasksList({
       {/* Header and Add Action */}
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Tasks ({combinedTasks.length})</h2>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Tasks ({data.total.toLocaleString()})</h2>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-500 font-medium">
-            <span>Created by you: <strong className="text-slate-800 font-semibold">{myInProcessTasks.length}</strong></span>
+            <span>Created by you: <strong className="text-slate-800 font-semibold">{data.createdByMe.toLocaleString()}</strong></span>
             <span className="hidden sm:inline text-slate-300">•</span>
-            <span>Assigned by managers: <strong className="text-slate-800 font-semibold">{managerAssignedTasks.length}</strong></span>
+            <span>Assigned by managers: <strong className="text-slate-800 font-semibold">{data.assignedToMe.toLocaleString()}</strong></span>
           </div>
         </div>
 
@@ -235,7 +197,7 @@ export function SalesmanTasksList({
         ]).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setTypeFilter(tab.key)}
+            onClick={() => set({ type: tab.key })}
             className={cn(
               "px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer",
               typeFilter === tab.key
@@ -249,7 +211,7 @@ export function SalesmanTasksList({
       </div>
 
       {/* Unified Single Vertical List Layout */}
-      <div className="w-full space-y-4">
+      <div className={cn("w-full space-y-4 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
         {combinedTasks.length > 0 ? (
           combinedTasks.map((item) => {
             const task = item.data;
@@ -270,9 +232,16 @@ export function SalesmanTasksList({
                         <span>Client: {task.clientName}</span>
                       </span>
                     )}
-                    <span className="text-[11px] font-medium text-slate-400">
-                      {task.createdBy?.name ? `Assigned by ${task.createdBy.name}` : "Created by you"}
-                    </span>
+                    {task.enquiry ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                        <MessageSquareText size={10} />
+                        <span>Follow-up · {enquiryRef(task.enquiry.id)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-slate-400">
+                        {task.created_by_id === currentUserId || !task.createdBy?.name ? "Created by you" : `Assigned by ${task.createdBy.name}`}
+                      </span>
+                    )}
                   </div>
                   <div className="relative shrink-0">
                     {updatingTaskId === task.id && (
@@ -316,7 +285,7 @@ export function SalesmanTasksList({
                 </div>
 
                 {/* Task Footer */}
-                <div className="mt-1 flex items-center border-t border-slate-50 pt-2.5 text-[11px] text-slate-400">
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-slate-50 pt-2.5 text-[11px] text-slate-400">
                   <div className="flex items-center gap-1 text-[11px]">
                     <Calendar size={12} className={(() => {
                       const days = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -331,6 +300,15 @@ export function SalesmanTasksList({
                       return "font-bold text-emerald-600";
                     })()}>Due {formatDate(task.due_date)}</span>
                   </div>
+                  {task.enquiry && (task.status === "pending" || task.status === "in_process") && task.enquiry.status === "open" && (
+                    <Link
+                      href={`/dashboard/salesman/enquiries?followUp=${task.enquiry.id}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-600"
+                    >
+                      <MessageSquareText size={12} />
+                      Add follow-up comment
+                    </Link>
+                  )}
                 </div>
               </div>
             );
@@ -340,6 +318,7 @@ export function SalesmanTasksList({
             No tasks found.
           </div>
         )}
+        <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isNavigating} noun="tasks" onPage={(p) => set({ page: p })} />
       </div>
 
       {/* Add Task Modal */}

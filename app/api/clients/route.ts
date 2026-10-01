@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { literal } from "@/lib/list-params";
 import { clientScopeWhere, isRole } from "@/lib/scoping";
 import { normalizeCrNo, parseCrExpiryDate } from "@/lib/client-fields";
 
@@ -10,7 +11,25 @@ export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const clients = await prisma.client.findMany({ where: await clientScopeWhere(token), include: { organization: { select: { name: true } }, assignedSalesman: { select: { name: true } } }, orderBy: { id: "desc" } });
+  // Lightweight search for pickers: ?q=&limit= (max 50) → [{ id, name }]. Never returns the whole table.
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q")?.trim() ?? "";
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 20, 1), 50);
+  const search: Prisma.ClientWhereInput = q
+    ? {
+        OR: [
+          { name: { contains: literal(q), mode: "insensitive" } },
+          { cr_no: { contains: literal(q), mode: "insensitive" } },
+          { contact_no: { contains: literal(q) } },
+        ],
+      }
+    : {};
+  const clients = await prisma.client.findMany({
+    where: { AND: [await clientScopeWhere(token), search] },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
   return NextResponse.json({ clients });
 }
 

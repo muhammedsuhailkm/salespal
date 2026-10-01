@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getCachedManagerClientsPageData } from "@/lib/cached-queries";
+import { getClientsPage } from "@/lib/clients-list";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ManagerClientsList } from "./ManagerClientsList";
 
-export default function ManagerClientsPage() {
+export default async function ManagerClientsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
@@ -14,16 +16,23 @@ export default function ManagerClientsPage() {
         subtitle="Manage and monitor clients under your assigned sales team."
       />
       <Suspense fallback={<ClientsTableSkeleton />}>
-        <ManagerClientsSection />
+        <ManagerClientsSection params={params} />
       </Suspense>
     </>
   );
 }
 
-async function ManagerClientsSection() {
+async function ManagerClientsSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const [{ salesmen, clients }, managerOrgs] = await Promise.all([
-    getCachedManagerClientsPageData(session!.user.id),
+  const managerId = Number(session!.user.id);
+  const salesmen = await prisma.user.findMany({
+    where: { salesmanManager: { some: { manager_id: managerId } } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  // Same scope as before: clients assigned to this manager's salesmen.
+  const [clients, managerOrgs] = await Promise.all([
+    getClientsPage({ assigned_salesman_id: { in: salesmen.map((s) => s.id) } }, params),
     prisma.managerOrg.findMany({
       where: { manager_id: Number(session!.user.id) },
       select: { org: { select: { id: true, name: true } } },
@@ -33,7 +42,10 @@ async function ManagerClientsSection() {
 
   return (
     <ManagerClientsList
-      initialClients={clients}
+      initialClients={clients.rows}
+      total={clients.total}
+      page={clients.page}
+      pageSize={clients.pageSize}
       salesmen={salesmen}
       companies={managerOrgs.map((item) => item.org)}
     />

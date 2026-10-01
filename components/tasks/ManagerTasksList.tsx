@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { ClientPicker } from "@/components/clients/ClientPicker";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
+import type { TasksPage } from "@/lib/tasks-list";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -38,15 +42,10 @@ type SalesmanItem = {
   name: string;
 };
 
-type ClientItem = {
-  id: number;
-  name: string;
-};
-
 interface ManagerTasksListProps {
-  initialTasks: UnifiedTask[];
+  /** One server-filtered page of tasks (general + client tasks merged). */
+  data: TasksPage;
   salesmen: SalesmanItem[];
-  clients: ClientItem[];
 }
 
 const STATUS_SELECT_COLORS: Record<string, string> = {
@@ -56,26 +55,24 @@ const STATUS_SELECT_COLORS: Record<string, string> = {
   unsuccessful: "bg-red-50 text-red-700 ring-red-200",
 };
 
-export function ManagerTasksList({
-  initialTasks,
-  salesmen,
-  clients,
-}: ManagerTasksListProps) {
+export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
   const router = useRouter();
 
-  // Local state for tasks
-  const [localTasks, setLocalTasks] = useState<UnifiedTask[]>(initialTasks);
+  // Optimistic edits layered over the server page until router.refresh() delivers fresh rows.
+  const [localTasks, setLocalTasks] = useState<UnifiedTask[]>(data.rows);
+  const [syncedRows, setSyncedRows] = useState(data.rows);
+  if (data.rows !== syncedRows) {
+    setSyncedRows(data.rows);
+    setLocalTasks(data.rows);
+  }
 
-  // Sync state when props change
-  useEffect(() => {
-    setLocalTasks(initialTasks);
-  }, [initialTasks]);
-
-  // Filters and search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [salesmanFilter, setSalesmanFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "general" | "client">("all");
+  // Filters and search live in the URL and are applied by the server.
+  const { get, set, isPending: isNavigating } = useUrlFilters();
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
+  const statusFilter = get("status", "all");
+  const salesmanFilter = get("salesman", "all");
+  const typeFilter = (get("type") || "all") as "all" | "general" | "client";
+  const [pickedClient, setPickedClient] = useState<{ id: number; name: string } | null>(null);
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -103,63 +100,7 @@ export function ManagerTasksList({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Status priority
-  const STATUS_PRIORITY: Record<string, number> = {
-    pending: 0,
-    in_process: 1,
-    achieved: 2,
-    unsuccessful: 3,
-  };
-
-  // Filter and search logic
-  const filteredTasks = useMemo(() => {
-    return localTasks
-      .filter((task) => {
-        // Type filter: all, general, client
-        if (typeFilter === "general" && task.isClientTask) {
-          return false;
-        }
-        if (typeFilter === "client" && !task.isClientTask) {
-          return false;
-        }
-
-        // Status filter
-        if (statusFilter !== "all" && task.status !== statusFilter) {
-          return false;
-        }
-
-        // Salesman filter
-        if (
-          salesmanFilter !== "all" &&
-          task.assignedTo?.name !== salesmanFilter
-        ) {
-          return false;
-        }
-
-        // Search text
-        if (searchQuery.trim() !== "") {
-          const query = searchQuery.toLowerCase();
-          const matchesDesc = task.description.toLowerCase().includes(query);
-          const matchesSalesman = task.assignedTo?.name
-            ?.toLowerCase()
-            .includes(query);
-          const matchesClient = task.clientName?.toLowerCase().includes(query);
-          if (!matchesDesc && !matchesSalesman && !matchesClient) {
-            return false;
-          }
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        const priorityA = STATUS_PRIORITY[a.status] ?? 99;
-        const priorityB = STATUS_PRIORITY[b.status] ?? 99;
-        if (priorityA !== priorityB) return priorityA - priorityB;
-        return (
-          new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-        );
-      });
-  }, [localTasks, statusFilter, salesmanFilter, searchQuery, typeFilter]);
+  const filteredTasks = localTasks;
 
   // Submit task handler
   async function handleAddSubmit(e: React.FormEvent) {
@@ -167,8 +108,8 @@ export function ManagerTasksList({
     setErrorMsg(null);
     setIsSaving(true);
 
-    const isClientLinked = addTaskForm.client_id !== "";
-    const selectedClientId = Number(addTaskForm.client_id);
+    const isClientLinked = pickedClient !== null;
+    const selectedClientId = pickedClient?.id ?? 0;
     const assignedSalesmanId = Number(addTaskForm.assigned_to_id);
 
     if (isNaN(assignedSalesmanId)) {
@@ -223,6 +164,7 @@ export function ManagerTasksList({
         client_id: "",
         notification: true,
       });
+      setPickedClient(null);
       setIsAddOpen(false);
 
       // Append new task to local view
@@ -231,9 +173,7 @@ export function ManagerTasksList({
           ...data.task,
           isClientTask: isClientLinked,
           clientId: isClientLinked ? selectedClientId : null,
-          clientName: isClientLinked
-            ? clients.find((c) => c.id === selectedClientId)?.name
-            : null,
+          clientName: isClientLinked ? pickedClient?.name ?? null : null,
           assignedTo: {
             name: salesmen.find((s) => s.id === assignedSalesmanId)?.name || null,
           },
@@ -349,6 +289,7 @@ export function ManagerTasksList({
               placeholder="Search description, salesman, client..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search tasks"
               className="w-full h-10 pl-9 pr-4 text-xs rounded-xl border border-slate-200 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 bg-slate-50"
             />
           </div>
@@ -357,12 +298,13 @@ export function ManagerTasksList({
           <div>
             <select
               value={salesmanFilter}
-              onChange={(e) => setSalesmanFilter(e.target.value)}
+              onChange={(e) => set({ salesman: e.target.value })}
+              aria-label="Filter by salesman"
               className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:border-slate-400"
             >
               <option value="all">All Salesmen</option>
               {salesmen.map((s) => (
-                <option key={s.id} value={s.name}>
+                <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
@@ -373,7 +315,8 @@ export function ManagerTasksList({
           <div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
+              aria-label="Filter by status"
               className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:border-slate-400"
             >
               <option value="all">All Statuses</option>
@@ -397,7 +340,7 @@ export function ManagerTasksList({
           ]).map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setTypeFilter(tab.key)}
+              onClick={() => set({ type: tab.key })}
               className={cn(
                 "px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer",
                 typeFilter === tab.key
@@ -410,6 +353,7 @@ export function ManagerTasksList({
           ))}
         </div>
 
+        <div className={cn("space-y-4 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
         {filteredTasks.length > 0 ? (
           filteredTasks.map((task) => {
             const isOverdue =
@@ -528,6 +472,8 @@ export function ManagerTasksList({
             No tasks found matching current filters.
           </div>
         )}
+        <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isNavigating} noun="tasks" onPage={(p) => set({ page: p })} />
+        </div>
       </div>
 
       {/* Assign Task Modal */}
@@ -645,19 +591,7 @@ export function ManagerTasksList({
                 <label className="text-xs font-semibold text-slate-700" htmlFor="task-client">
                   Client (Optional)
                 </label>
-                <select
-                  id="task-client"
-                  value={addTaskForm.client_id}
-                  onChange={(e) => setAddTaskForm({ ...addTaskForm, client_id: e.target.value })}
-                  className="h-10 px-3 text-xs rounded-md border border-slate-350 bg-white outline-none cursor-pointer focus:border-slate-950"
-                >
-                  <option value="">Select client...</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <ClientPicker id="task-client" value={pickedClient} onChange={setPickedClient} inputClassName="text-xs" />
               </div>
             </div>
 

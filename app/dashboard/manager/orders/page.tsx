@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getManagerOrders } from "@/lib/cached-queries";
+import { getOrdersPage } from "@/lib/orders-list";
+import { orderScopeWhere } from "@/lib/scoping";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OrderList } from "@/components/orders/OrderList";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default function ManagerOrdersPage() {
+export default async function ManagerOrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
@@ -14,18 +17,18 @@ export default function ManagerOrdersPage() {
       />
       <div className="mt-4">
         <Suspense fallback={<OrdersListSkeleton />}>
-          <ManagerOrdersSection />
+          <ManagerOrdersSection params={params} />
         </Suspense>
       </div>
     </>
   );
 }
 
-async function ManagerOrdersSection() {
+async function ManagerOrdersSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const orders = await getManagerOrders(session!.user.id);
+  const data = await getOrdersPage(await orderScopeWhere(session!.user), params);
 
-  return <OrderList initialOrders={orders} role="manager" />;
+  return <OrderList data={data} role="manager" />;
 }
 
 function OrdersListSkeleton() {

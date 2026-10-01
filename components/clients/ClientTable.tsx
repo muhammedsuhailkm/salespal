@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, Fragment } from "react";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
 import { RotateCcw, Search, ChevronDown, Navigation, Building, User, Mail, Calendar, X } from "lucide-react";
@@ -56,100 +58,37 @@ const rowColors: Record<string, string> = {
   unsuccessful: "bg-red-100/40 hover:bg-red-100/60 text-red-950",
 };
 
+/** Server-paginated client table: filters and search are URL params applied by the server. */
 export function ClientTable({
   clients,
+  total,
+  page,
+  pageSize,
   companies = [],
   managers = [],
   managerSalesmen = [],
 }: {
   clients: Client[];
+  total: number;
+  page: number;
+  pageSize: number;
   companies?: Company[];
   managers?: Manager[];
   managerSalesmen?: ManagerSalesman[];
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [companyFilter, setCompanyFilter] = useState("all");
-  const [managerFilter, setManagerFilter] = useState("all");
-  const [dateFilterRange, setDateFilterRange] = useState("all");
-  const [customDate, setCustomDate] = useState("");
+  const { get, set, reset, isPending } = useUrlFilters();
+  const statusFilter = get("status", "all");
+  const companyFilter = get("company", "all");
+  const managerFilter = get("manager", "all");
+  const dateFilterRange = get("date", "all");
+  const customDate = get("day");
+  const [searchQuery, setSearchQuery] = useDebouncedParam("q", set, get("q"));
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
-
-  // Memoized client filtering logic
-  const filteredClients = useMemo(() => {
-    return clients.filter((client) => {
-      // 1. Search Query (Client Name, contact, or email)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesName = client.name.toLowerCase().includes(query);
-        const matchesContactPerson = client.contact_person_name.toLowerCase().includes(query);
-        const matchesEmail = client.mail_id?.toLowerCase().includes(query) ?? false;
-        const matchesCr = client.cr_no?.toLowerCase().includes(query) ?? false;
-        if (!matchesName && !matchesContactPerson && !matchesEmail && !matchesCr) {
-          return false;
-        }
-      }
-
-      // 2. Company/Org Filter
-      if (companyFilter !== "all" && client.org_id !== Number(companyFilter)) {
-        return false;
-      }
-
-      // 3. Manager Filter
-      if (managerFilter !== "all") {
-        const assignedSalesmanIds = managerSalesmen
-          .filter((ms) => ms.manager_id === Number(managerFilter))
-          .map((ms) => ms.salesman_id);
-        if (!assignedSalesmanIds.includes(client.assigned_salesman_id)) {
-          return false;
-        }
-      }
-
-      // 4. Status Filter
-      if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
-      }
-
-      // 5. Date Filter
-      if (dateFilterRange !== "all") {
-        const clientDate = new Date(client.created_at);
-        clientDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilterRange === "today") {
-          if (clientDate.getTime() !== today.getTime()) return false;
-        } else if (dateFilterRange === "yesterday") {
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          if (clientDate.getTime() !== yesterday.getTime()) return false;
-        } else if (dateFilterRange === "week") {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          if (clientDate.getTime() < sevenDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
-        } else if (dateFilterRange === "month") {
-          const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          if (clientDate.getTime() < thirtyDaysAgo.getTime() || clientDate.getTime() > today.getTime()) return false;
-        } else if (dateFilterRange === "custom" && customDate) {
-          const selectedDate = new Date(customDate);
-          selectedDate.setHours(0, 0, 0, 0);
-          if (clientDate.getTime() !== selectedDate.getTime()) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [clients, searchQuery, companyFilter, managerFilter, managerSalesmen, statusFilter, dateFilterRange, customDate]);
+  const filteredClients = clients;
 
   function handleReset() {
     setSearchQuery("");
-    setStatusFilter("all");
-    setCompanyFilter("all");
-    setManagerFilter("all");
-    setDateFilterRange("all");
-    setCustomDate("");
+    reset();
   }
 
   const hasActiveFilters =
@@ -190,7 +129,7 @@ export function ClientTable({
             </label>
             <select
               value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
+              onChange={(e) => set({ company: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Companies</option>
@@ -210,7 +149,7 @@ export function ClientTable({
               </label>
               <select
                 value={managerFilter}
-                onChange={(e) => setManagerFilter(e.target.value)}
+                onChange={(e) => set({ manager: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               >
                 <option value="all">All Managers</option>
@@ -230,7 +169,7 @@ export function ClientTable({
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => set({ status: e.target.value })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
@@ -255,10 +194,7 @@ export function ClientTable({
             </label>
             <select
               value={dateFilterRange}
-              onChange={(e) => {
-                setDateFilterRange(e.target.value);
-                if (e.target.value !== "custom") setCustomDate("");
-              }}
+              onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
               className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
             >
               <option value="all">All Dates</option>
@@ -279,7 +215,7 @@ export function ClientTable({
               <input
                 type="date"
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
+                onChange={(e) => set({ date: "custom", day: e.target.value })}
                 className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
               />
             </div>
@@ -301,6 +237,7 @@ export function ClientTable({
 
       {/* Table Section */}
       {filteredClients.length > 0 ? (
+        <div className={cn("space-y-1 transition-opacity", isPending && "opacity-60")} aria-busy={isPending}>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase text-slate-500">
@@ -455,6 +392,8 @@ export function ClientTable({
               })}
             </tbody>
           </table>
+        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} pending={isPending} noun="clients" onPage={(p) => set({ page: p })} />
         </div>
       ) : (
         /* Empty State */

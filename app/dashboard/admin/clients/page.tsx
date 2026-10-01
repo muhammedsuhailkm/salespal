@@ -2,16 +2,17 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ClientTable } from "@/components/clients/ClientTable";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { getClientsPage } from "@/lib/clients-list";
+import type { SearchParams } from "@/lib/list-params";
 import {
-  getCachedAdminClientsList,
   getCachedAdminOrgs,
   getCachedAdminManagersList,
   getCachedAdminRelationsList,
 } from "@/lib/cached-queries";
 
-async function ClientTableContainer() {
+async function ClientTableContainer({ searchParams }: { searchParams: SearchParams }) {
   const [clients, companies, managers, managerSalesmen] = await Promise.all([
-    getCachedAdminClientsList(),
+    getClientsPage({}, searchParams),
     getCachedAdminOrgs(),
     getCachedAdminManagersList(),
     getCachedAdminRelationsList(),
@@ -19,7 +20,10 @@ async function ClientTableContainer() {
 
   return (
     <ClientTable
-      clients={clients}
+      clients={clients.rows}
+      total={clients.total}
+      page={clients.page}
+      pageSize={clients.pageSize}
       companies={companies}
       managers={managers}
       managerSalesmen={managerSalesmen}
@@ -60,12 +64,13 @@ function ClientsTableSkeleton() {
   );
 }
 
-export default async function AdminClientsPage() {
+export default async function AdminClientsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader title="Client database" subtitle="Read-only view of all logistics prospects and customers." />
       <Suspense fallback={<ClientsTableSkeleton />}>
-        <ClientTableContainer />
+        <ClientTableContainer searchParams={params} />
       </Suspense>
     </>
   );

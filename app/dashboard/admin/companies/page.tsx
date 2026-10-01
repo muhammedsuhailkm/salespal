@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   getCachedAdminCompaniesPageOrgs,
   getCachedAdminCompaniesPageManagers,
+  getCachedAdminCompaniesPageAccountants,
   getCachedAdminCompaniesPageSalesmen,
   getCachedAdminCompaniesPageRelations,
   getCachedAdminCompaniesPageClientCounts
@@ -16,12 +17,14 @@ async function CompaniesDashboardWrapper() {
   const [
     companies,
     managersList,
+    accountantsList,
     salesmenList,
     managerSalesmen,
     clientCounts
   ] = await Promise.all([
     getCachedAdminCompaniesPageOrgs(),
     getCachedAdminCompaniesPageManagers(),
+    getCachedAdminCompaniesPageAccountants(),
     getCachedAdminCompaniesPageSalesmen(),
     getCachedAdminCompaniesPageRelations(),
     getCachedAdminCompaniesPageClientCounts()
@@ -31,6 +34,7 @@ async function CompaniesDashboardWrapper() {
     <CompaniesClient
       companies={companies}
       managersList={managersList}
+      accountantsList={accountantsList}
       salesmenList={salesmenList}
       managerSalesmen={managerSalesmen}
       clientCounts={clientCounts}
@@ -91,7 +95,7 @@ export default async function CompaniesPage() {
     <>
       <PageHeader
         title="Companies"
-        subtitle="Assign managers and salesmen to each company"
+        subtitle="Create companies, manage their documents, and assign managers, salesmen and accountants"
       />
       <div className="mt-6">
         <Suspense fallback={<CompaniesSkeleton />}>

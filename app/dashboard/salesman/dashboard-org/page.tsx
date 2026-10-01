@@ -3,18 +3,70 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ShippingRateTable } from "@/components/shipping-rates/ShippingRateTable";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getShippingRates } from "@/lib/cached-queries";
+import { getSalesPalSession } from "@/lib/auth";
+import { getSalesmanOrgIds } from "@/lib/scoping";
+import { getCompanyProfiles } from "@/lib/company-documents";
+import { CompanyInfoCard } from "@/components/companies/CompanyInfoCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Building } from "lucide-react";
 
 export default function SalesmanDashboardOrgPage() {
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        subtitle="Salesman dashboard workspace"
+        subtitle="Your company details, documents and the current shipping rates."
       />
+
+      <Suspense fallback={<CompanySkeleton />}>
+        <CompanySection />
+      </Suspense>
 
       <Suspense fallback={<ShippingRatesSkeleton />}>
         <ShippingRatesSection />
       </Suspense>
+    </div>
+  );
+}
+
+async function CompanySection() {
+  const session = await getSalesPalSession();
+  const companies = await getCompanyProfiles(await getSalesmanOrgIds(Number(session!.user.id)));
+
+  if (companies.length === 0) {
+    return (
+      <EmptyState
+        icon={Building}
+        title="No company linked yet"
+        message="Company details appear here once your manager is assigned to a company."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {companies.map((company) => (
+        <CompanyInfoCard key={company.id} company={company} />
+      ))}
+    </div>
+  );
+}
+
+function CompanySkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm animate-pulse space-y-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3 w-64" />
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-14 rounded-xl" />
+        ))}
+      </div>
     </div>
   );
 }

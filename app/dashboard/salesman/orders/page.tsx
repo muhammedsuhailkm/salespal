@@ -2,13 +2,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getSalesmanOrders } from "@/lib/cached-queries";
+import { getDraftOrders, getOrdersPage } from "@/lib/orders-list";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OrderList } from "@/components/orders/OrderList";
 import { OrderDraftTable } from "@/components/orders/OrderDraftTable";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default function SalesmanOrdersPage() {
+export default async function SalesmanOrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
@@ -26,23 +28,24 @@ export default function SalesmanOrdersPage() {
       />
       <div className="mt-4">
         <Suspense fallback={<OrdersListSkeleton />}>
-          <OrdersListSection />
+          <OrdersListSection params={params} />
         </Suspense>
       </div>
     </>
   );
 }
 
-async function OrdersListSection() {
+async function OrdersListSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const orders = await getSalesmanOrders(session!.user.id);
+  const userId = Number(session!.user.id);
+  const [drafts, data] = await Promise.all([getDraftOrders(userId), getOrdersPage({ created_by_id: userId }, params)]);
 
   return (
     <div className="space-y-8">
-      <OrderDraftTable orders={orders} />
+      <OrderDraftTable orders={drafts} />
       <div>
         <h2 className="text-sm font-bold text-slate-900 mb-3">All Orders</h2>
-        <OrderList initialOrders={orders} role="salesman" detailBasePath="/dashboard/salesman/orders" liveUpdates />
+        <OrderList data={data} role="salesman" detailBasePath="/dashboard/salesman/orders" />
       </div>
     </div>
   );

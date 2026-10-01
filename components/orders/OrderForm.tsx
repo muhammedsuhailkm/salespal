@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useClients } from "@/hooks/useClients";
+import { ClientPicker } from "@/components/clients/ClientPicker";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -12,10 +12,9 @@ import { titleCase } from "@/lib/utils";
 
 export function OrderForm() {
   const router = useRouter();
-  const { clients, loading: clientsLoading } = useClients();
+  const [client, setClient] = useState<{ id: number; name: string } | null>(null);
 
   const [form, setForm] = useState({
-    client_id: "",
     mode: orderModes[0] as string,
     payment_mode: orderPaymentModes[0] as string,
     description: "",
@@ -31,6 +30,10 @@ export function OrderForm() {
     e.preventDefault();
     setErrorMsg(null);
 
+    if (!client) {
+      setErrorMsg("Select a client.");
+      return;
+    }
     if (form.advance_amount && Number(form.advance_amount) > Number(form.amount)) {
       setErrorMsg("Advance amount cannot exceed the order amount.");
       return;
@@ -43,7 +46,7 @@ export function OrderForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          client_id: Number(form.client_id),
+          client_id: client.id,
           mode: form.mode,
           payment_mode: form.payment_mode,
           description: form.description,
@@ -78,21 +81,7 @@ export function OrderForm() {
         <label className="text-xs font-semibold text-slate-700" htmlFor="order-client">
           Client
         </label>
-        <Select
-          id="order-client"
-          required
-          value={form.client_id}
-          onChange={(e) => setForm({ ...form, client_id: e.target.value })}
-          disabled={clientsLoading}
-          className="w-full"
-        >
-          <option value="">{clientsLoading ? "Loading clients..." : "Select client..."}</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+        <ClientPicker id="order-client" required value={client} onChange={setClient} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

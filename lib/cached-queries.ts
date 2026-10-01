@@ -3,6 +3,7 @@ import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { unstable_cache } from "next/cache";
 import { Prisma } from "@prisma/client";
 import type { OrderStatsScope } from "@/lib/scoping";
+import { serializeCompanyDocument } from "@/lib/company-documents";
 
 /* ═══════════════════════════════════════════════════════
    Salesman Dashboard — split into independent cached queries
@@ -36,16 +37,14 @@ export const getCachedSalesmanInfo = unstable_cache(
   { revalidate: 60, tags: ["salesman-dashboard"] }
 );
 
-// 1b. All assigned clients with status (used for KPI cards + KPI score)
-export const getCachedClientStatuses = unstable_cache(
-  async (userId: number) => {
-    return prisma.client.findMany({
-      where: { assigned_salesman_id: userId },
-      select: { status: true },
-    });
+// 1b. { status: count } of the salesman's clients (KPI cards + KPI score), counted in SQL
+export const getCachedClientStatusCounts = unstable_cache(
+  async (userId: number): Promise<Record<string, number>> => {
+    const rows = await prisma.client.groupBy({ by: ["status"], where: { assigned_salesman_id: userId }, _count: { _all: true } });
+    return Object.fromEntries(rows.map((r) => [r.status, r._count._all]));
   },
-  ["salesman-client-statuses"],
-  { revalidate: 30, tags: ["salesman-dashboard"] }
+  ["salesman-client-status-counts"],
+  { revalidate: 30, tags: ["salesman-dashboard", "salesman-clients"] }
 );
 
 // 1c. Client logs for a given date range (this month / last month)
@@ -98,134 +97,13 @@ export const getCachedOnboardedByMonth = unstable_cache(
   { revalidate: 60, tags: ["salesman-dashboard"] }
 );
 
-/* ─── Legacy wrapper — keeps back-compat if anything still imports it ─── */
-export async function getCachedDashboardData(userId: number) {
-  const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-
-  const [user, clients, thisMonthLogs, lastMonthLogs, tasks, onboardedByMonth] =
-    await Promise.all([
-      getCachedSalesmanInfo(userId),
-      getCachedClientStatuses(userId),
-      getCachedMonthLogs(userId, thisMonthStart.toISOString()),
-      getCachedMonthLogs(userId, lastMonthStart.toISOString(), lastMonthEnd.toISOString()),
-      getCachedSalesmanTasks(userId),
-      getCachedOnboardedByMonth(userId, sixMonthsAgo.toISOString()),
-    ]);
-
-  return { user, clients, thisMonthLogs, lastMonthLogs, tasks, onboardedByMonth };
-}
-
-
 /* ═══════════════════════════════════════════════════════
    Salesman Clients List
    ═══════════════════════════════════════════════════════ */
 
-export const getCachedClientsData = unstable_cache(
-  async (userId: number) => {
-    return prisma.client.findMany({
-      where: { assigned_salesman_id: userId },
-      include: {
-        organization: { select: { name: true } }
-      },
-      orderBy: { id: "desc" }
-    });
-  },
-  ["salesman-clients"],
-  { revalidate: 30, tags: ["salesman-clients"] }
-);
-
-
 /* ═══════════════════════════════════════════════════════
    Salesman Tasks List
    ═══════════════════════════════════════════════════════ */
-
-export const getCachedTasksData = unstable_cache(
-  async (userId: number) => {
-    const [
-      myInProcessTasks,
-      managerAssignedTasks,
-      myInProcessClientTasks,
-      managerAssignedClientTasks,
-    ] = await Promise.all([
-      prisma.task.findMany({
-        where: {
-          created_by_id: userId,
-        },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-      prisma.task.findMany({
-        where: {
-          assigned_to_id: userId,
-          created_by_id: { not: userId },
-        },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-      prisma.clientTask.findMany({
-        where: {
-          created_by_id: userId,
-        },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-          client: { select: { id: true, name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-      prisma.clientTask.findMany({
-        where: {
-          assigned_to_id: userId,
-          created_by_id: { not: userId },
-        },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-          client: { select: { id: true, name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-    ]);
-
-    const mappedMyClientTasks = myInProcessClientTasks.map((t) => ({
-      ...t,
-      isClientTask: true,
-      clientId: t.client_id,
-      clientName: t.client.name,
-    }));
-
-    const mappedManagerClientTasks = managerAssignedClientTasks.map((t) => ({
-      ...t,
-      isClientTask: true,
-      clientId: t.client_id,
-      clientName: t.client.name,
-    }));
-
-    return {
-      myInProcessTasks: [
-        ...myInProcessTasks.map((t) => ({ ...t, isClientTask: false })),
-        ...mappedMyClientTasks,
-      ],
-      managerAssignedTasks: [
-        ...managerAssignedTasks.map((t) => ({ ...t, isClientTask: false })),
-        ...mappedManagerClientTasks,
-      ],
-    };
-  },
-  ["salesman-tasks"],
-  { revalidate: 30, tags: ["salesman-tasks"] }
-);
-
 
 /* ═══════════════════════════════════════════════════════
    Client Detail (for server-component client overview page)
@@ -261,7 +139,6 @@ export const getCachedClientDetail = unstable_cache(
   { revalidate: 15, tags: ["salesman-clients"] }
 );
 
-
 /* ═══════════════════════════════════════════════════════
    Admin / Owner Dashboard — cached queries
    Each query is independent so Suspense boundaries
@@ -278,107 +155,6 @@ export const getCachedAdminOrgs = unstable_cache(
   },
   ["admin-orgs"],
   { revalidate: 300, tags: ["admin-dashboard"] }
-);
-
-// A2. All clients with status + org + salesman (core data)
-export const getCachedAdminClients = unstable_cache(
-  async (orgId?: number) => {
-    const where = orgId ? { org_id: orgId } : {};
-    return prisma.client.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        org_id: true,
-        assigned_salesman_id: true,
-        created_at: true,
-        organization: { select: { name: true } },
-        assignedSalesman: { select: { id: true, name: true } },
-      },
-    });
-  },
-  ["admin-clients"],
-  { revalidate: 30, tags: ["admin-dashboard"] }
-);
-
-// A3. Client logs filtered by action keyword + date range
-export const getCachedAdminLogsByAction = unstable_cache(
-  async (actionContains: string, sinceIso: string, untilIso?: string) => {
-    const dateFilter: Record<string, Date> = { gte: new Date(sinceIso) };
-    if (untilIso) dateFilter.lte = new Date(untilIso);
-    return prisma.clientLog.findMany({
-      where: {
-        action: { contains: actionContains },
-        created_at: dateFilter,
-      },
-      select: {
-        id: true,
-        action: true,
-        done_by: true,
-        client_id: true,
-        created_at: true,
-        client: { select: { name: true, org_id: true, status: true, organization: { select: { name: true } } } },
-        author: { select: { id: true, name: true } },
-      },
-    });
-  },
-  ["admin-logs-by-action"],
-  { revalidate: 30, tags: ["admin-dashboard"] }
-);
-
-// A4. Count of logs by action keyword + date range
-export const getCachedAdminLogCount = unstable_cache(
-  async (actionContains: string, sinceIso: string, untilIso?: string) => {
-    const dateFilter: Record<string, Date> = { gte: new Date(sinceIso) };
-    if (untilIso) dateFilter.lte = new Date(untilIso);
-    return prisma.clientLog.count({
-      where: {
-        action: { contains: actionContains },
-        created_at: dateFilter,
-      },
-    });
-  },
-  ["admin-log-count"],
-  { revalidate: 30, tags: ["admin-dashboard"] }
-);
-
-// A5. All tasks with status
-export const getCachedAdminTasks = unstable_cache(
-  async () => {
-    return prisma.task.findMany({
-      select: { id: true, status: true, description: true, due_date: true, assigned_to_id: true },
-    });
-  },
-  ["admin-tasks"],
-  { revalidate: 30, tags: ["admin-dashboard"] }
-);
-
-// A6. Salesmen with assigned clients + manager info
-export const getCachedAdminSalesmen = unstable_cache(
-  async () => {
-    return prisma.user.findMany({
-      where: { role_id: 3 },
-      select: {
-        id: true,
-        name: true,
-        assignedClients: { select: { status: true, org_id: true } },
-        salesmanManager: {
-          select: {
-            manager: {
-              select: {
-                name: true,
-                managerOrgs: { select: { org: { select: { name: true } } } },
-              },
-            },
-          },
-          take: 1,
-        },
-      },
-    });
-  },
-  ["admin-salesmen"],
-  { revalidate: 60, tags: ["admin-dashboard"] }
 );
 
 // A7. Latest activity feed (client_logs + user/client names)
@@ -400,65 +176,13 @@ export const getCachedAdminActivityFeed = unstable_cache(
   { revalidate: 15, tags: ["admin-dashboard"] }
 );
 
-// A8. Managers with their org assignments
-export const getCachedAdminManagers = unstable_cache(
-  async () => {
-    return prisma.user.findMany({
-      where: { role_id: 2 },
-      select: {
-        id: true,
-        name: true,
-        managerOrgs: {
-          select: { org: { select: { id: true, name: true } } },
-        },
-        managerSalesmen: {
-          select: {
-            salesman: {
-              select: {
-                id: true,
-                name: true,
-                assignedClients: { select: { status: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-  },
-  ["admin-managers"],
-  { revalidate: 300, tags: ["admin-dashboard"] }
-);
-
-// A9. Onboarded logs for trend chart (last 6 months, grouped by month + org)
-export const getCachedAdminTrendData = unstable_cache(
-  async (sinceIso: string) => {
-    return prisma.clientLog.findMany({
-      where: {
-        action: { contains: "onboarded" },
-        created_at: { gte: new Date(sinceIso) },
-      },
-      select: {
-        created_at: true,
-        client: { select: { org_id: true } },
-      },
-    });
-  },
-  ["admin-trend-data"],
-  { revalidate: 300, tags: ["admin-dashboard"] }
-);
-
 // A10. Organizations with managers and clients for companies page
 export const getCachedAdminCompaniesPageOrgs = unstable_cache(
   async () => {
-    return prisma.organization.findMany({
+    const [orgs, statusRows] = await Promise.all([
+      prisma.organization.findMany({
       orderBy: { name: "asc" },
       include: {
-        clients: {
-          select: {
-            id: true,
-            status: true,
-          },
-        },
         managers: {
           include: {
             manager: {
@@ -471,11 +195,40 @@ export const getCachedAdminCompaniesPageOrgs = unstable_cache(
             },
           },
         },
+        accountants: {
+          include: {
+            accountant: { select: { id: true, name: true, email: true, phone: true } },
+          },
+        },
+        documents: {
+          include: { uploadedBy: { select: { name: true } } },
+          orderBy: [{ label: "asc" }, { id: "asc" }],
+        },
       },
+    }),
+      prisma.client.groupBy({ by: ["org_id", "status"], _count: { _all: true } }),
+    ]);
+    // Per-company client status counts (instead of loading every client row).
+    const clientCounts = new Map<number, Record<string, number>>();
+    for (const r of statusRows) {
+      const c = clientCounts.get(r.org_id) ?? {};
+      c[r.status] = r._count._all;
+      clientCounts.set(r.org_id, c);
+    }
+
+    // Serialize here: unstable_cache JSON-encodes its result, which would turn Dates into strings.
+    return orgs.map(({ documents, created_at, ...org }) => {
+      const counts = clientCounts.get(org.id) ?? {};
+      return {
+        ...org,
+        clientStatusCounts: counts,
+        clientTotal: Object.values(counts).reduce((a, b) => a + b, 0),
+        documents: documents.map(serializeCompanyDocument),
+      };
     });
   },
   ["admin-companies-page-orgs"],
-  { revalidate: 300, tags: ["admin-companies"] }
+  { revalidate: 300, tags: ["admin-companies", "admin-clients"] }
 );
 
 // A11. Managers list for companies page
@@ -493,6 +246,19 @@ export const getCachedAdminCompaniesPageManagers = unstable_cache(
     });
   },
   ["admin-companies-page-managers"],
+  { revalidate: 300, tags: ["admin-companies"] }
+);
+
+// A11b. Accountants list for companies page
+export const getCachedAdminCompaniesPageAccountants = unstable_cache(
+  async () => {
+    return prisma.user.findMany({
+      where: { role_id: 4 },
+      select: { id: true, name: true, email: true, phone: true, role_id: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["admin-companies-page-accountants"],
   { revalidate: 300, tags: ["admin-companies"] }
 );
 
@@ -542,21 +308,6 @@ export const getCachedAdminCompaniesPageClientCounts = unstable_cache(
   { revalidate: 300, tags: ["admin-companies"] }
 );
 
-// A15. All clients list with org name and salesman name for admin clients page
-export const getCachedAdminClientsList = unstable_cache(
-  async () => {
-    return prisma.client.findMany({
-      include: {
-        organization: { select: { id: true, name: true } },
-        assignedSalesman: { select: { name: true } },
-      },
-      orderBy: { id: "desc" },
-    });
-  },
-  ["admin-clients-list"],
-  { revalidate: 30, tags: ["admin-clients"] }
-);
-
 // A16. Managers list for admin clients page
 export const getCachedAdminManagersList = unstable_cache(
   async () => {
@@ -581,35 +332,11 @@ export const getCachedAdminRelationsList = unstable_cache(
   { revalidate: 300, tags: ["admin-clients"] }
 );
 
-
 /* ═══════════════════════════════════════════════════════
    Manager Dashboard — cached queries
    Each query is independent so Suspense boundaries
    can stream them in parallel.
    ═══════════════════════════════════════════════════════ */
-
-// M1. Salesmen assigned to this manager, with their clients (status)
-export const getCachedManagerSalesmen = unstable_cache(
-  async (managerId: number) => {
-    const relations = await prisma.managerSalesman.findMany({
-      where: { manager_id: managerId },
-      select: {
-        salesman: {
-          select: {
-            id: true,
-            name: true,
-            assignedClients: {
-              select: { id: true, status: true },
-            },
-          },
-        },
-      },
-    });
-    return relations.map((r) => r.salesman);
-  },
-  ["manager-salesmen"],
-  { revalidate: 60, tags: ["manager-dashboard"] }
-);
 
 // M2. Manager's organization(s) via manager_org
 export const getCachedManagerOrg = unstable_cache(
@@ -622,47 +349,6 @@ export const getCachedManagerOrg = unstable_cache(
   },
   ["manager-org"],
   { revalidate: 300, tags: ["manager-dashboard"] }
-);
-
-// M3. Client logs for all salesmen under a manager (scoped by date range)
-export const getCachedManagerLogs = unstable_cache(
-  async (salesmanIds: number[], sinceIso: string, untilIso?: string) => {
-    const dateFilter: Record<string, Date> = { gte: new Date(sinceIso) };
-    if (untilIso) dateFilter.lte = new Date(untilIso);
-    return prisma.clientLog.findMany({
-      where: {
-        done_by: { in: salesmanIds },
-        created_at: dateFilter,
-      },
-      select: {
-        id: true,
-        action: true,
-        done_by: true,
-        created_at: true,
-        client: { select: { name: true, status: true } },
-        author: { select: { id: true, name: true } },
-      },
-    });
-  },
-  ["manager-logs"],
-  { revalidate: 30, tags: ["manager-dashboard"] }
-);
-
-// M4. Tasks assigned to salesmen under this manager
-export const getCachedManagerTasks = unstable_cache(
-  async (salesmanIds: number[]) => {
-    return prisma.task.findMany({
-      where: {
-        assigned_to_id: { in: salesmanIds },
-      },
-      include: {
-        assignedTo: { select: { id: true, name: true } },
-      },
-      orderBy: { due_date: "asc" },
-    });
-  },
-  ["manager-tasks"],
-  { revalidate: 30, tags: ["manager-dashboard"] }
 );
 
 // M5. Latest activity feed for manager's team
@@ -685,200 +371,10 @@ export const getCachedManagerActivityFeed = unstable_cache(
   { revalidate: 15, tags: ["manager-dashboard"] }
 );
 
-// M6. Manager tasks page data
-export const getCachedManagerTasksPageData = unstable_cache(
-  async (managerId: number) => {
-    const [salesmanRelations, orgRelations] = await Promise.all([
-      prisma.managerSalesman.findMany({
-        where: { manager_id: managerId },
-        select: { salesman_id: true },
-      }),
-      prisma.managerOrg.findMany({
-        where: { manager_id: managerId },
-        select: { org_id: true },
-      }),
-    ]);
-
-    const salesmanIds = salesmanRelations.map((item) => item.salesman_id);
-    const orgIds = orgRelations.map((item) => item.org_id);
-
-    const [salesmen, clients, regularTasks, clientTasks] = await Promise.all([
-      prisma.user.findMany({
-        where: { id: { in: salesmanIds } },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.client.findMany({
-        where: { org_id: { in: orgIds } },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.task.findMany({
-        where: { assigned_to_id: { in: salesmanIds } },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-      prisma.clientTask.findMany({
-        where: { assigned_to_id: { in: salesmanIds } },
-        include: {
-          assignedTo: { select: { name: true } },
-          createdBy: { select: { name: true } },
-          client: { select: { id: true, name: true } },
-        },
-        orderBy: { due_date: "asc" },
-      }),
-    ]);
-
-    const mappedRegularTasks = regularTasks.map((task) => ({
-      ...task,
-      isClientTask: false,
-      clientId: null,
-      clientName: null,
-    }));
-
-    const mappedClientTasks = clientTasks.map((task) => ({
-      ...task,
-      isClientTask: true,
-      clientId: task.client_id,
-      clientName: task.client.name,
-    }));
-
-    const tasks = [...mappedRegularTasks, ...mappedClientTasks].sort(
-      (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-    );
-
-    return { salesmen, clients, tasks };
-  },
-  ["manager-tasks-page"],
-  { revalidate: 30, tags: ["manager-dashboard", "manager-tasks"] }
-);
-
-// M7. Manager clients page data
-export const getCachedManagerClientsPageData = unstable_cache(
-  async (managerId: number) => {
-    const salesmanRelations = await prisma.managerSalesman.findMany({
-      where: { manager_id: managerId },
-      select: { salesman_id: true },
-    });
-
-    const salesmanIds = salesmanRelations.map((item) => item.salesman_id);
-
-    const [salesmen, clients] = await Promise.all([
-      prisma.user.findMany({
-        where: { id: { in: salesmanIds } },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.client.findMany({
-        where: { assigned_salesman_id: { in: salesmanIds } },
-        include: {
-          organization: { select: { name: true } },
-          assignedSalesman: { select: { name: true } },
-        },
-        orderBy: { id: "desc" },
-      }),
-    ]);
-
-    return { salesmen, clients };
-  },
-  ["manager-clients-page"],
-  { revalidate: 30, tags: ["manager-dashboard", "manager-clients"] }
-);
-
-// M8. Manager team page data
-export const getCachedManagerTeamPageData = unstable_cache(
-  async (managerId: number) => {
-    const relations = await prisma.managerSalesman.findMany({
-      where: { manager_id: managerId },
-      select: { salesman_id: true },
-    });
-
-    const salesmanIds = relations.map((item) => item.salesman_id);
-
-    return prisma.user.findMany({
-      where: { id: { in: salesmanIds } },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        assignedClients: {
-          select: { status: true },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
-  },
-  ["manager-team-page"],
-  { revalidate: 60, tags: ["manager-dashboard", "manager-team"] }
-);
-
 
 /* ═══════════════════════════════════════════════════════
    Orders — cached queries
    ═══════════════════════════════════════════════════════ */
-
-// O1. Orders created by a salesman
-export const getSalesmanOrders = unstable_cache(
-  async (userId: number) => {
-    const orders = await prisma.order.findMany({
-      where: { created_by_id: userId },
-      include: {
-        client: { select: { id: true, name: true } },
-        createdBy: { select: { name: true } },
-        ...orderPaymentsInclude,
-      },
-      orderBy: { created_at: "desc" },
-    });
-    return orders.map(serializeOrder);
-  },
-  ["salesman-orders"],
-  { revalidate: 30, tags: ["salesman-orders"] }
-);
-
-// O2. Orders scoped to a manager's org(s)
-export const getManagerOrders = unstable_cache(
-  async (managerId: number) => {
-    const orgs = await prisma.managerOrg.findMany({
-      where: { manager_id: managerId },
-      select: { org_id: true },
-    });
-    const orgIds = orgs.map((o) => o.org_id);
-
-    const orders = await prisma.order.findMany({
-      where: { client: { org_id: { in: orgIds } } },
-      include: {
-        client: { select: { id: true, name: true } },
-        createdBy: { select: { name: true } },
-        ...orderPaymentsInclude,
-      },
-      orderBy: { created_at: "desc" },
-    });
-    return orders.map(serializeOrder);
-  },
-  ["manager-orders"],
-  { revalidate: 30, tags: ["manager-orders"] }
-);
-
-// O2b. All orders, for accountants (company-wide accounts approval — not org-scoped)
-export const getAccountantOrders = unstable_cache(
-  async () => {
-    const orders = await prisma.order.findMany({
-      include: {
-        client: { select: { id: true, name: true } },
-        createdBy: { select: { name: true } },
-        ...orderPaymentsInclude,
-      },
-      orderBy: { created_at: "desc" },
-    });
-    return orders.map(serializeOrder);
-  },
-  ["accountant-orders"],
-  { revalidate: 30, tags: ["accountant-orders"] }
-);
 
 // O3. Single order detail
 export const getOrderById = unstable_cache(
@@ -941,7 +437,6 @@ export const getMonthlyOrderStats = unstable_cache(
   ["order-monthly-stats"],
   { revalidate: 60, tags: ["order-stats"] }
 );
-
 
 /* ═══════════════════════════════════════════════════════
    Shipping Rates — set by accountants, read by everyone

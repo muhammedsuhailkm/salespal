@@ -1,28 +1,28 @@
 import { Suspense } from "react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getCachedClientsData } from "@/lib/cached-queries";
+import { getClientsPage } from "@/lib/clients-list";
+import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SalesmanClientsList } from "./SalesmanClientsList";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-export default async function SalesmanClientsPage() {
+export default async function SalesmanClientsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader title="My Clients" />
       <Suspense fallback={<ClientsTableSkeleton />}>
-        <ClientsListSection />
+        <ClientsListSection params={params} />
       </Suspense>
     </>
   );
 }
 
-async function ClientsListSection() {
+async function ClientsListSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
-  const userId = session!.user.id;
+  const clients = await getClientsPage({ assigned_salesman_id: Number(session!.user.id) }, params);
 
-  const clients = await getCachedClientsData(userId);
-
-  return <SalesmanClientsList initialClients={clients} />;
+  return <SalesmanClientsList initialClients={clients.rows} total={clients.total} page={clients.page} pageSize={clients.pageSize} />;
 }
 
 function ClientsTableSkeleton() {
