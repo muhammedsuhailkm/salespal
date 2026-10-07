@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { getTokenUserId, isRole } from "@/lib/scoping";
 import { enquiryScopeWhere, revalidateEnquiryPages } from "@/lib/enquiries";
+import { isActiveEnquiry } from "@/types/enquiry";
 import { closeFollowUpTasks, nextFollowUpDate, revalidateTaskViews } from "@/lib/enquiry-follow-ups";
 
 /**
@@ -22,11 +23,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const enquiry = await prisma.enquiry.findFirst({
     where: { AND: [{ id: Number(id) }, await enquiryScopeWhere(token)] },
-    include: { order: { select: { id: true } } },
   });
   if (!enquiry) return NextResponse.json({ error: "Enquiry not found" }, { status: 404 });
-  if (enquiry.status !== "open" || enquiry.order) {
-    return NextResponse.json({ error: "Follow-ups can only be added to open enquiries" }, { status: 409 });
+  if (!isActiveEnquiry(enquiry.status)) {
+    return NextResponse.json({ error: "Follow-ups can only be added to enquiries that are still in progress" }, { status: 409 });
   }
 
   const followUp = await prisma.$transaction(async (tx) => {

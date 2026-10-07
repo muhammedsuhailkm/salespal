@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
+    <div className="space-y-4 animate-page-in">
       {/* Page header skeleton */}
       <div className="space-y-2">
         <Skeleton className="h-7 w-24" />
@@ -10,12 +10,12 @@ export default function Loading() {
       </div>
 
       {/* Table skeleton */}
-      <div className="rounded-xl border border-slate-200/80 bg-white overflow-hidden">
-        <div className="border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
+      <div className="rounded-card border border-border/80 bg-card overflow-hidden">
+        <div className="border-b border-border px-5 py-3.5 flex items-center justify-between">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-9 w-28 rounded-lg" />
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="px-5 py-3.5 flex items-center gap-4">
               <Skeleton className="h-9 w-9 rounded-full shrink-0" />

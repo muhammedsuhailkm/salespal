@@ -83,7 +83,7 @@ export async function getSalesmenWithTargets(user: { id: number; role_id: number
   });
 }
 
-/** Achieved amount for every target of these salesmen in one query: their non-cancelled orders created inside the period. */
+/** Achieved amount for every target of these salesmen in one query: their orders created inside the period that still count (not cancelled / sent back for revision). */
 async function getTargetAchievements(salesmanIds: number[]) {
   if (salesmanIds.length === 0) return new Map<number, number>();
   const rows = await prisma.$queryRaw<{ id: number; achieved: number }[]>(Prisma.sql`
@@ -91,7 +91,7 @@ async function getTargetAchievements(salesmanIds: number[]) {
     FROM salesman_targets t
     LEFT JOIN orders o
       ON o.created_by_id = t.salesman_id
-     AND o.status <> 'cancelled'
+     AND o.status NOT IN ('cancelled', 'revision_requested')
      AND o.created_at >= t.period_start
      AND o.created_at < t.period_end + 1
     WHERE t.salesman_id IN (${Prisma.join(salesmanIds)})
@@ -100,15 +100,16 @@ async function getTargetAchievements(salesmanIds: number[]) {
   return new Map(rows.map((r) => [r.id, Number(r.achieved)]));
 }
 
-/** Actual profit from each salesman's completed enquiries (stored status, kept in sync with payments). */
+/** Actual profit from each salesman's enquiries whose order accounts have marked completed (paid in full). */
 async function getCompletedEnquiryProfit(salesmanIds: number[]) {
   const totals = new Map<number, { profit: number; count: number }>();
   if (salesmanIds.length === 0) return totals;
   const rows = await prisma.$queryRaw<{ created_by_id: number; profit: number; count: number }[]>(Prisma.sql`
-    SELECT created_by_id, COALESCE(SUM(COALESCE(actual_profit, provisional_profit)), 0)::float8 AS profit, COUNT(*)::int AS count
-    FROM enquiries
-    WHERE status = 'completed' AND created_by_id IN (${Prisma.join(salesmanIds)})
-    GROUP BY created_by_id
+    SELECT e.created_by_id, COALESCE(SUM(COALESCE(e.actual_profit, e.provisional_profit)), 0)::float8 AS profit, COUNT(*)::int AS count
+    FROM enquiries e
+    JOIN orders o ON o.enquiry_id = e.id AND o.status = 'completed'
+    WHERE e.created_by_id IN (${Prisma.join(salesmanIds)})
+    GROUP BY e.created_by_id
   `);
   for (const r of rows) totals.set(r.created_by_id, { profit: Number(r.profit), count: Number(r.count) });
   return totals;

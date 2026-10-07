@@ -2,15 +2,35 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { orderPaymentsInclude, serializeOrder } from "@/lib/order-serialize";
 import { literal, pageParam, paging, param, PAGE_SIZE, type Paged, type SearchParams } from "@/lib/list-params";
-import { orderStatuses } from "@/types/order";
+import { VOID_ORDER_STATUSES, orderStatuses } from "@/types/order";
 
 const orderListInclude = {
   client: { select: { id: true, name: true } },
   createdBy: { select: { name: true } },
+  enquiry: { select: { provisional_cost: true, provisional_profit: true, actual_cost: true, actual_profit: true, credit_days: true } },
   ...orderPaymentsInclude,
 } satisfies Prisma.OrderInclude;
 
-export type OrderRow = ReturnType<typeof serializeOrder<Prisma.OrderGetPayload<{ include: typeof orderListInclude }>>>;
+type OrderWithList = Prisma.OrderGetPayload<{ include: typeof orderListInclude }>;
+
+/** serializeOrder + the source enquiry's figures as plain numbers (Decimals can't cross to the client). */
+function toOrderRow(order: OrderWithList) {
+  const { enquiry, ...rest } = serializeOrder(order);
+  return {
+    ...rest,
+    quote: enquiry
+      ? {
+          cost: enquiry.provisional_cost?.toNumber() ?? null,
+          profit: enquiry.provisional_profit?.toNumber() ?? null,
+          actual_cost: enquiry.actual_cost?.toNumber() ?? null,
+          actual_profit: enquiry.actual_profit?.toNumber() ?? null,
+          credit_days: enquiry.credit_days,
+        }
+      : null,
+  };
+}
+
+export type OrderRow = ReturnType<typeof toOrderRow>;
 
 /** Search: #00012 / 12 (order no), ENQ-00012 (enquiry), client, salesman, job no, route, description. */
 function orderSearchWhere(q: string | undefined): Prisma.OrderWhereInput {
@@ -24,13 +44,13 @@ function orderSearchWhere(q: string | undefined): Prisma.OrderWhereInput {
     { description: { contains: literal(q), mode: "insensitive" } },
   ];
   const enq = /^enq-?(\d+)$/i.exec(q);
-  if (enq) or.push({ enquiry_id: Number(enq[1]) });
+  if (enq) or.push({ enquiry_id: Number(enq[1]) }, { origin_enquiry_id: Number(enq[1]) });
   const no = /^#?(\d+)$/.exec(q);
   if (no) or.push({ id: Number(no[1]) });
   return { OR: or };
 }
 
-/** Status (draft/completed/cancelled), payment (due/paid) and search filters, all applied in SQL. */
+/** Status (transit / delivered / completed / revision_requested / cancelled), payment (due/paid) and search filters, all applied in SQL. */
 export function orderFilterWhere(params: SearchParams): Prisma.OrderWhereInput {
   const and: Prisma.OrderWhereInput[] = [orderSearchWhere(param(params, "q"))];
   const status = param(params, "status");
@@ -42,7 +62,7 @@ export function orderFilterWhere(params: SearchParams): Prisma.OrderWhereInput {
 }
 
 export type OrdersPage = Paged<OrderRow> & {
-  /** Sums over every matching, non-cancelled order (not just this page). */
+  /** Sums over every matching order that still counts (not cancelled / sent back), not just this page. */
   totals: { amount: number; paid: number; balance: number };
 };
 
@@ -52,20 +72,9 @@ export async function getOrdersPage(scope: Prisma.OrderWhereInput, params: Searc
   const [rows, total, sums] = await Promise.all([
     prisma.order.findMany({ where, include: orderListInclude, orderBy: { created_at: "desc" }, ...paging(page) }),
     prisma.order.count({ where }),
-    prisma.order.aggregate({ where: { AND: [where, { status: { not: "cancelled" } }] }, _sum: { amount: true, paid_total: true } }),
+    prisma.order.aggregate({ where: { AND: [where, { status: { notIn: [...VOID_ORDER_STATUSES] } }] }, _sum: { amount: true, paid_total: true } }),
   ]);
   const amount = sums._sum.amount?.toNumber() ?? 0;
   const paid = sums._sum.paid_total?.toNumber() ?? 0;
-  return { rows: rows.map(serializeOrder), total, page, pageSize: PAGE_SIZE, totals: { amount, paid, balance: amount - paid } };
-}
-
-/** A salesman's draft orders (editable / deletable), newest first. */
-export async function getDraftOrders(salesmanId: number, limit = 100) {
-  const rows = await prisma.order.findMany({
-    where: { created_by_id: salesmanId, status: "draft" },
-    include: orderListInclude,
-    orderBy: { created_at: "desc" },
-    take: limit,
-  });
-  return rows.map(serializeOrder);
+  return { rows: rows.map(toOrderRow), total, page, pageSize: PAGE_SIZE, totals: { amount, paid, balance: amount - paid } };
 }

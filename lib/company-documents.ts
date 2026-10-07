@@ -23,9 +23,14 @@ export function validateDocumentFile(file: File) {
   return null;
 }
 
-export async function storeDocumentFile(orgId: number, file: File) {
+export function storeDocumentFile(orgId: number, file: File) {
+  return storeUploadedFile(path.join("companies", String(orgId)), file);
+}
+
+/** Saves a validated upload under uploads/<folder>/ with a random name; returns the columns to store. */
+export async function storeUploadedFile(folder: string, file: File) {
   const ext = path.extname(file.name).slice(1).toLowerCase();
-  const relativePath = path.join("companies", String(orgId), `${randomUUID()}.${ext}`);
+  const relativePath = path.join(folder, `${randomUUID()}.${ext}`);
   const full = resolveStoredPath(relativePath);
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, Buffer.from(await file.arrayBuffer()));

@@ -13,7 +13,7 @@ export default async function ManagerOrdersPage({ searchParams }: { searchParams
     <>
       <PageHeader
         title="Team Orders"
-        subtitle="Review and approve shipment orders raised by your salesmen."
+        subtitle="Orders from your team's confirmed enquiries. Request a revision or cancel when needed."
       />
       <div className="mt-4">
         <Suspense fallback={<OrdersListSkeleton />}>
@@ -33,15 +33,15 @@ async function ManagerOrdersSection({ params }: { params: SearchParams }) {
 
 function OrdersListSkeleton() {
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+    <div className="space-y-4 animate-page-in">
+      <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl w-fit">
         <Skeleton className="h-7 w-20 rounded-lg" />
         <Skeleton className="h-7 w-16 rounded-lg" />
         <Skeleton className="h-7 w-24 rounded-lg" />
       </div>
       <div className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-card border border-border bg-card p-4 shadow-card">
             <div className="flex-1 space-y-2.5 min-w-0">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-3 w-56" />

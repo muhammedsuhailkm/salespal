@@ -14,9 +14,9 @@ const STATUS_PRIORITY: Record<string, number> = {
 
 function getDueDateColor(dueDate: Date | string) {
   const days = Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  if (days <= 2) return { text: "font-bold text-red-600", icon: "text-red-500" };
-  if (days <= 7) return { text: "font-bold text-amber-600", icon: "text-amber-500" };
-  return { text: "font-bold text-emerald-600", icon: "text-emerald-500" };
+  if (days <= 2) return { text: "font-semibold text-danger-foreground", icon: "text-danger-foreground" };
+  if (days <= 7) return { text: "font-semibold text-warning-foreground", icon: "text-warning-foreground" };
+  return { text: "font-semibold text-success-foreground", icon: "text-success-foreground" };
 }
 
 export function TaskOverview({ tasks }: { tasks: TaskItem[] }) {
@@ -32,17 +32,17 @@ export function TaskOverview({ tasks }: { tasks: TaskItem[] }) {
   const displayedTasks = sortedTasks.slice(0, 5);
 
   return (
-    <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+    <div className="divide-y divide-border rounded-xl border border-border">
       {displayedTasks.map((task) => {
         const colors = getDueDateColor(task.due_date);
         return (
           <div
-            className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-slate-50"
+            className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-subtle"
             key={task.id}
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-900">{task.description}</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+              <p className="truncate text-sm font-medium text-foreground">{task.description}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span>{task.assignedTo?.name ?? "Unassigned"}</span>
                 <span aria-hidden>·</span>
                 <span className={cn("inline-flex items-center gap-1", colors.text)}>

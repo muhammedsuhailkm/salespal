@@ -1,5 +1,7 @@
 "use client";
 
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 
@@ -59,61 +61,20 @@ export function DashboardFilters({ orgs }: { orgs: Org[] }) {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      {/* Org tabs */}
-      <div className="flex rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
-        <button
-          type="button"
-          onClick={() => handleOrgChange("all")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer ${
-            selectedOrg === "all"
-              ? "bg-slate-950 text-white shadow-sm font-semibold"
-              : "text-slate-500 hover:text-slate-700 hover:bg-slate-100/50"
-          }`}
-        >
-          All
-        </button>
-        {orgs.map((org) => {
-          const isCompanyA = org.name.toLowerCase().includes("company a") || org.name.toLowerCase().endsWith("a");
-          const isCompanyB = org.name.toLowerCase().includes("company b") || org.name.toLowerCase().endsWith("b");
-          const isActive = selectedOrg === String(org.id);
-
-          let tabClass = "";
-          if (isActive) {
-            if (isCompanyA) {
-              tabClass = "bg-teal-600 text-white shadow-sm font-semibold";
-            } else if (isCompanyB) {
-              tabClass = "bg-blue-600 text-white shadow-sm font-semibold";
-            } else {
-              tabClass = "bg-slate-950 text-white shadow-sm font-semibold";
-            }
-          } else {
-            if (isCompanyA) {
-              tabClass = "text-teal-700/85 hover:text-teal-800 hover:bg-teal-50/60";
-            } else if (isCompanyB) {
-              tabClass = "text-blue-700/85 hover:text-blue-800 hover:bg-blue-50/60";
-            } else {
-              tabClass = "text-slate-500 hover:text-slate-700 hover:bg-slate-100/50";
-            }
-          }
-
-          return (
-            <button
-              key={org.id}
-              type="button"
-              onClick={() => handleOrgChange(String(org.id))}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer ${tabClass}`}
-            >
-              {org.name}
-            </button>
-          );
-        })}
-      </div>
+      {/* Company filter */}
+      <SegmentedControl
+        label="Company"
+        size="sm"
+        value={selectedOrg}
+        onChange={handleOrgChange}
+        options={[{ value: "all", label: "All" }, ...orgs.map((org) => ({ value: String(org.id), label: <span className="whitespace-nowrap">{org.name}</span> }))]}
+      />
 
       {/* Period dropdown */}
       <select
         value={selectedPeriod}
         onChange={(e) => handlePeriodChange(e.target.value)}
-        className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer"
+        className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-8 cursor-pointer"
       >
         <option value="this_month">This Month</option>
         <option value="last_month">Last Month</option>

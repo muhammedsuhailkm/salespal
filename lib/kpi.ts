@@ -1,15 +1,14 @@
+import { clientStatusLabel } from "@/types/client";
+
 export const KPI_WEIGHTS = {
   lead: 1,
   contacted: 1,
   follow_up: 2,
-  proposal_sent: 3,
-  negotiation: 4,
-  onboarding_in_progress: 4,
+  enquiry: 4,
   onboarded: 5,
-  active_client: 5,
-  inactive: 0,
+  dormant: 0,
   lost: -1,
-  cancelled: -1,
+  blacklisted: -1,
 } as const;
 
 export type KpiStatus = keyof typeof KPI_WEIGHTS;
@@ -56,7 +55,7 @@ export function getKpiScoreBreakdown(
       const weight = KPI_WEIGHTS[status];
       return {
         status,
-        label: status.replace(/_/g, " "),
+        label: clientStatusLabel(status),
         count,
         weight,
         points: count * weight,

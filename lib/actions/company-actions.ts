@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import bcrypt from "bcryptjs";
 import { getSalesPalSession } from "@/lib/auth";
 import { removeDocumentFile } from "@/lib/company-documents";
+import { assignSalesmanToCompany, revalidateTeamViews, unassignSalesman } from "@/lib/team-assignments";
 
 async function verifyAdmin() {
   const session = await getSalesPalSession();
@@ -52,42 +53,19 @@ export async function removeManagerFromOrg(managerId: number, orgId: number) {
   return { success: true };
 }
 
-export async function assignSalesmanToManager(salesmanId: number, managerId: number) {
+/** Puts a salesman on a manager's team for one company the manager runs. */
+export async function assignSalesmanToManager(salesmanId: number, managerId: number, orgId: number) {
   await verifyAdmin();
-
-  await prisma.managerSalesman.upsert({
-    where: {
-      manager_id_salesman_id: {
-        manager_id: managerId,
-        salesman_id: salesmanId,
-      },
-    },
-    update: {},
-    create: {
-      manager_id: managerId,
-      salesman_id: salesmanId,
-    },
-  });
-
-  revalidateTag("admin-companies", { expire: 0 });
-  revalidatePath("/dashboard/admin/companies");
+  await assignSalesmanToCompany(managerId, salesmanId, orgId);
+  revalidateTeamViews();
   return { success: true };
 }
 
-export async function unassignSalesmanFromManager(salesmanId: number, managerId: number) {
+/** Takes a salesman off a manager's team for one company, or for all of them when orgId is omitted. */
+export async function unassignSalesmanFromManager(salesmanId: number, managerId: number, orgId?: number) {
   await verifyAdmin();
-
-  await prisma.managerSalesman.delete({
-    where: {
-      manager_id_salesman_id: {
-        manager_id: managerId,
-        salesman_id: salesmanId,
-      },
-    },
-  });
-
-  revalidateTag("admin-companies", { expire: 0 });
-  revalidatePath("/dashboard/admin/companies");
+  await unassignSalesman(managerId, salesmanId, orgId);
+  revalidateTeamViews();
   return { success: true };
 }
 

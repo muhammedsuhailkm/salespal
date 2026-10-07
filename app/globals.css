@@ -1,35 +1,252 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap');
 @import "../styles/shipshape-tokens.css";
 @import "../styles/shipshape-recipes.css";
 @import "tailwindcss";
 
+/* Class-based dark mode, driven by next-themes (<html class="dark">). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════════════
+   SalesPal design tokens
+   Components use these semantic tokens (bg-card, text-muted-foreground,
+   bg-primary …) — never raw hex values. See UI_GUIDELINES.md.
+   ═══════════════════════════════════════════════════════════════════ */
+
 :root {
+  color-scheme: light;
+
+  /* Surfaces */
   --background: #f8fafc;
   --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --subtle: #f8fafc;
+
+  /* Lines & focus */
+  --border: #e5e7eb;
+  --border-strong: #cbd5e1;
+  --input: #e2e8f0;
+  --ring: #059669;
+
+  /* Accent — the one brand color */
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-foreground: #ffffff;
+  --primary-soft: #ecfdf5;
+  --primary-soft-foreground: #047857;
+
+  /* Semantic status (badges, dots, small text only) */
+  --success: #059669;
+  --success-soft: #ecfdf5;
+  --success-foreground: #047857;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --warning-foreground: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --danger-foreground: #b91c1c;
+  --info: #2563eb;
+  --info-soft: #eff6ff;
+  --info-foreground: #1d4ed8;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #475569;
+  --sidebar-muted: #94a3b8;
+  --sidebar-accent: #ecfdf5;
+  --sidebar-accent-foreground: #047857;
+  --sidebar-hover: #f1f5f9;
+  --sidebar-border: #e5e7eb;
+
+  /* Charts: primary + neutral shades */
+  --chart-1: #059669;
+  --chart-2: #34d399;
+  --chart-3: #94a3b8;
+  --chart-4: #cbd5e1;
+  --chart-5: #475569;
+  --chart-grid: #eef2f6;
+  --chart-axis: #94a3b8;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.04);
+  --shadow-pop: 0 10px 30px -8px rgb(15 23 42 / 0.16), 0 2px 6px rgb(15 23 42 / 0.06);
+
+  /* Welcome banner — the only gradient in the app */
+  --banner-from: #ecfdf5;
+  --banner-to: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --muted: #273449;
+  --muted-foreground: #94a3b8;
+  --subtle: #172033;
+
+  --border: #334155;
+  --border-strong: #475569;
+  --input: #3b4a61;
+  --ring: #10b981;
+
+  /* Accent dimmed slightly to avoid glare on dark surfaces */
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-foreground: #04261b;
+  --primary-soft: rgb(16 185 129 / 0.14);
+  --primary-soft-foreground: #6ee7b7;
+
+  --success: #34d399;
+  --success-soft: rgb(16 185 129 / 0.14);
+  --success-foreground: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-soft: rgb(245 158 11 / 0.14);
+  --warning-foreground: #fcd34d;
+  --danger: #f87171;
+  --danger-soft: rgb(239 68 68 / 0.14);
+  --danger-foreground: #fca5a5;
+  --info: #60a5fa;
+  --info-soft: rgb(59 130 246 / 0.14);
+  --info-foreground: #93c5fd;
+
+  --sidebar: #0b1222;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-muted: #64748b;
+  --sidebar-accent: rgb(16 185 129 / 0.14);
+  --sidebar-accent-foreground: #6ee7b7;
+  --sidebar-hover: #1a2436;
+  --sidebar-border: #1e293b;
+
+  --chart-1: #10b981;
+  --chart-2: #6ee7b7;
+  --chart-3: #64748b;
+  --chart-4: #475569;
+  --chart-5: #cbd5e1;
+  --chart-grid: #263247;
+  --chart-axis: #64748b;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.3);
+
+  --banner-from: rgb(16 185 129 / 0.16);
+  --banner-to: #1e293b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: "Courier New", monospace;
-  --font-display: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  /* Shape: cards 16px, controls 10px */
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+
+  /* Type: next/font exposes --font-inter on <html> */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-* {
-  box-sizing: border-box;
+/* Legacy teal brand accents now resolve to the single emerald accent. */
+@theme {
+  --color-teal-50: #ecfdf5;
+  --color-teal-100: #d1fae5;
+  --color-teal-200: #a7f3d0;
+  --color-teal-300: #6ee7b7;
+  --color-teal-400: #34d399;
+  --color-teal-500: #10b981;
+  --color-teal-600: #059669;
+  --color-teal-700: #047857;
+  --color-teal-800: #065f46;
+  --color-teal-900: #064e3b;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  /* Visible, consistent keyboard focus everywhere */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
-a {
-  text-decoration: none;
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mobile sidebar slide-in animation */
@@ -58,4 +275,115 @@ a {
 
 .slide-up {
   animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Overlay / popover motion used by components/ui (Radix data-state) */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sheet-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes sheet-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 150ms ease-out;
+}
+@utility animate-pop-in {
+  animation: pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility animate-sheet-in-left {
+  animation: sheet-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility animate-sheet-in-right {
+  animation: sheet-in-right 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Motion system ────────────────────────────────────────────────────
+   Motion answers an action or signals loading; nothing loops for decoration.
+   Durations: fast 120ms (press, hover), base 180ms (enter), slow 260ms (sheets). */
+
+/* Content arriving after navigation: a short fade with a 4px rise. */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@utility animate-page-in {
+  animation: page-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Skeleton shimmer: a soft highlight sweeping across the placeholder. */
+@keyframes shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+@utility skeleton {
+  background-color: var(--muted);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--card) 70%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Overlay exit (Modal) */
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+@utility animate-fade-out {
+  animation: fade-out 120ms ease-in both;
+}
+@utility animate-pop-out {
+  animation: pop-out 120ms ease-in both;
+}
+
+/* Route progress bar: grows toward 90% while a page loads, completes on arrival. */
+@keyframes route-progress {
+  0% { transform: scaleX(0); }
+  20% { transform: scaleX(0.35); }
+  60% { transform: scaleX(0.7); }
+  100% { transform: scaleX(0.9); }
+}
+@keyframes route-done {
+  0% { transform: scaleX(0.9); opacity: 1; }
+  60% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+@utility animate-route-progress {
+  animation: route-progress 6s cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+}
+
+/* Tactile press on buttons and clickable controls. */
+@utility press {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

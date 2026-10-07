@@ -9,9 +9,9 @@ export function AccountantCompanyChips({ companies }: { companies: { id: number;
       {companies.map((c) => (
         <span
           key={c.id}
-          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600"
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground/70"
         >
-          <Building size={12} className="text-slate-400" aria-hidden />
+          <Building size={12} className="text-muted-foreground/80" aria-hidden />
           {c.name}
         </span>
       ))}

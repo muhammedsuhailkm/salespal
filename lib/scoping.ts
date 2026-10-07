@@ -23,18 +23,24 @@ export async function getAccountantOrgIds(accountantId: number) {
   return orgs.map((item) => item.org_id);
 }
 
-/** Companies a salesman works for: the companies of the managers they report to. */
+/**
+ * Companies a salesman works for: the ones they were given under each manager (not every company the
+ * manager runs). Read fresh so owner / manager changes apply without a re-login.
+ */
 export async function getSalesmanOrgIds(salesmanId: number) {
-  const orgs = await prisma.managerOrg.findMany({
-    where: { manager: { managerSalesmen: { some: { salesman_id: salesmanId } } } },
-    select: { org_id: true },
-    distinct: ["org_id"],
-  });
+  const orgs = await prisma.managerSalesman.findMany({ where: { salesman_id: salesmanId }, select: { org_id: true }, distinct: ["org_id"] });
   return orgs.map((item) => item.org_id);
 }
 
+/** The manager's team: salesmen working under them for any of their companies. */
 export async function getManagerSalesmanIds(managerId: number) {
-  const salesmen = await prisma.managerSalesman.findMany({ where: { manager_id: managerId }, select: { salesman_id: true } });
+  const salesmen = await prisma.managerSalesman.findMany({ where: { manager_id: managerId }, select: { salesman_id: true }, distinct: ["salesman_id"] });
+  return salesmen.map((item) => item.salesman_id);
+}
+
+/** Salesmen working under the manager for one specific company. */
+export async function getManagerSalesmanIdsForOrg(managerId: number, orgId: number) {
+  const salesmen = await prisma.managerSalesman.findMany({ where: { manager_id: managerId, org_id: orgId }, select: { salesman_id: true } });
   return salesmen.map((item) => item.salesman_id);
 }
 

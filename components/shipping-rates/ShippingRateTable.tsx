@@ -1,5 +1,6 @@
 "use client";
 
+import { buttonVariants } from "@/components/ui/Button";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -231,16 +232,15 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
           SECTION 1: FREIGHT RATE FINDER
           ══════════════════════════════════════════════════ */}
       <section className="ss-card overflow-hidden">
-        {/* Navy header bar */}
-        <div
-          className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{ background: "var(--ds-surface-header)", color: "var(--ds-text-inverse)" }}
-        >
+        {/* Header */}
+        <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
-            <Ship size={20} className="shrink-0 opacity-80" />
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-soft-foreground">
+              <Ship size={18} aria-hidden />
+            </span>
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight">Freight Rate Finder</h2>
-              <p className="text-xs opacity-60 mt-0.5 hidden sm:block">
+              <h2 className="text-[15px] font-semibold text-foreground">Freight rate finder</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
                 Search contract rates across carriers and logistics lanes
               </p>
             </div>
@@ -250,8 +250,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
               <button
                 type="button"
                 onClick={() => alert("Rate import feature coming soon. You will be able to upload bulk rates via Excel/CSV.")}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition cursor-pointer active:scale-95"
-                style={{ background: "rgba(255,255,255,0.1)", color: "var(--ds-text-inverse)", border: "1px solid rgba(255,255,255,0.15)" }}
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
                 title="Import shipping rates from CSV or Excel"
               >
                 <Download size={13} />
@@ -260,8 +259,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
               <button
                 type="button"
                 onClick={() => { setEditingRate(null); setModalOpen(true); }}
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-bold rounded-md transition cursor-pointer active:scale-95"
-                style={{ background: "var(--ds-text-inverse)", color: "var(--ds-surface-header)" }}
+                className={buttonVariants({ size: "sm" })}
               >
                 <Plus size={14} />
                 <span className="hidden sm:inline">Add Freight Rate</span>
@@ -278,7 +276,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
             <div className="lg:col-span-4 space-y-1.5">
               <label className="ss-type-label flex items-center gap-1.5">
                 <MapPin size={12} style={{ color: "var(--ss-teal-600)" }} />
-                FROM
+                From
               </label>
               <div className="relative">
                 <select
@@ -311,7 +309,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
             <div className="lg:col-span-4 space-y-1.5">
               <label className="ss-type-label flex items-center gap-1.5">
                 <Anchor size={12} style={{ color: "var(--ss-blue-600)" }} />
-                TO
+                To
               </label>
               <div className="relative">
                 <select
@@ -333,7 +331,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                 type="button"
                 onClick={handleFindRate}
                 disabled={!finderFrom || !finderTo}
-                className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-md text-sm font-bold transition cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-md text-sm font-semibold transition cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: "var(--ds-color-brand)", color: "var(--ds-text-inverse)" }}
               >
                 <Search size={15} />
@@ -359,8 +357,8 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                     className={cn(
                       "px-3 py-1.5 rounded text-xs font-semibold transition cursor-pointer",
                       finderContainer === c.id
-                        ? "bg-white shadow-sm"
-                        : "hover:bg-white/50",
+                        ? "bg-card shadow-sm"
+                        : "hover:bg-muted",
                     )}
                     style={{ color: finderContainer === c.id ? "var(--ds-text-primary)" : "var(--ds-text-secondary)" }}
                   >
@@ -433,7 +431,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin size={16} style={{ color: "var(--ss-teal-600)" }} className="shrink-0" />
-                          <span className="text-sm sm:text-base font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>
+                          <span className="text-sm sm:text-base font-semibold truncate" style={{ color: "var(--ds-text-primary)" }}>
                             {matchedRate.location}
                           </span>
                         </div>
@@ -443,7 +441,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                         </div>
                         <div className="flex items-center gap-1.5 min-w-0">
                           <Anchor size={16} style={{ color: "var(--ss-blue-600)" }} className="shrink-0" />
-                          <span className="text-sm sm:text-base font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>
+                          <span className="text-sm sm:text-base font-semibold truncate" style={{ color: "var(--ds-text-primary)" }}>
                             {matchedRate.port}
                           </span>
                         </div>
@@ -511,7 +509,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                     <AlertCircle size={18} />
                   </div>
                   <div>
-                    <h4 className="text-[13px] font-bold" style={{ color: "var(--ds-text-primary)" }}>No rate found</h4>
+                    <h4 className="text-[13px] font-semibold" style={{ color: "var(--ds-text-primary)" }}>No rate found</h4>
                     <p className="text-xs mt-0.5" style={{ color: "var(--ds-text-secondary)" }}>
                       No active rate for <b>{finderFrom}</b> → <b>{finderTo}</b> ({finderContainer === "20gp" ? "20FT" : "40FT"})
                     </p>
@@ -520,7 +518,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
                     <button
                       type="button"
                       onClick={() => { setEditingRate(null); setModalOpen(true); }}
-                      className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-bold transition cursor-pointer"
+                      className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
                       style={{ background: "var(--ds-color-brand)", color: "var(--ds-text-inverse)" }}
                     >
                       <Plus size={13} />
@@ -579,13 +577,13 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className="w-full h-9 flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition cursor-pointer"
+              className="w-full h-9 flex items-center justify-center gap-1.5 text-xs font-semibold transition cursor-pointer"
               style={{ color: "var(--ds-text-secondary)" }}
             >
               <Filter size={12} />
               {showFilters ? "Hide Filters" : "Filters"}
               {hasActiveFilters && (
-                <span className="ml-1 h-4 min-w-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center" style={{ background: "var(--ds-color-brand)", color: "var(--ds-text-inverse)" }}>!</span>
+                <span className="ml-1 h-4 min-w-4 px-1 rounded-full text-[9px] font-semibold flex items-center justify-center" style={{ background: "var(--ds-color-brand)", color: "var(--ds-text-inverse)" }}>!</span>
               )}
             </button>
           </div>
@@ -826,7 +824,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
               <Search size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: "var(--ds-text-primary)" }}>
+              <p className="text-sm font-semibold" style={{ color: "var(--ds-text-primary)" }}>
                 {rates.length === 0 ? "No freight rates yet" : "No rates match your filters"}
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--ds-text-secondary)" }}>
@@ -839,7 +837,7 @@ export function ShippingRateTable({ initialRates, editable = false }: ShippingRa
               <button
                 type="button"
                 onClick={resetFilters}
-                className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-bold transition cursor-pointer"
+                className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
                 style={{ background: "var(--ds-color-brand)", color: "var(--ds-text-inverse)" }}
               >
                 <RotateCcw size={12} />

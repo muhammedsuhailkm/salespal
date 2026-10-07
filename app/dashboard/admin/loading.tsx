@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-page-in">
       {/* Page header skeleton */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
@@ -22,7 +22,7 @@ export default function Loading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-5 border-t-[3px] border-t-slate-200 space-y-3"
+            className="rounded-card border border-border bg-card p-5 border-t-[3px] border-t-border space-y-3"
           >
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-14" />
@@ -34,7 +34,7 @@ export default function Loading() {
       {/* Company hero — 2 columns */}
       <div className="grid gap-4 lg:grid-cols-2">
         {[0, 1].map((i) => (
-          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+          <div key={i} className="rounded-card border border-border bg-card p-5 space-y-4">
             <div className="flex justify-between">
               <Skeleton className="h-5 w-28" />
               <Skeleton className="h-5 w-32 rounded-full" />
@@ -51,7 +51,7 @@ export default function Loading() {
       {/* Middle & Bottom combined grid — 5 cards */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {/* Leaderboard skeleton */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 h-[400px] space-y-4 order-1 lg:order-none">
+        <div className="rounded-card border border-border bg-card p-5 h-[400px] space-y-4 order-1 lg:order-none">
           <Skeleton className="h-5 w-36" />
           {Array.from({ length: 4 }).map((_, j) => (
             <div key={j} className="flex items-center gap-3">
@@ -65,7 +65,7 @@ export default function Loading() {
         </div>
 
         {/* Task health skeleton */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 h-[400px] space-y-4 order-2 lg:order-none">
+        <div className="rounded-card border border-border bg-card p-5 h-[400px] space-y-4 order-2 lg:order-none">
           <Skeleton className="h-5 w-24" />
           <div className="grid grid-cols-2 gap-2">
             {[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-10 rounded-lg" />)}
@@ -78,17 +78,17 @@ export default function Loading() {
         </div>
 
         {/* Monthly Trend skeleton */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 h-[400px] order-3 lg:order-none">
+        <div className="rounded-card border border-border bg-card p-5 h-[400px] order-3 lg:order-none">
           <Skeleton className="h-4 w-44 mb-4" />
           <Skeleton className="h-[220px] rounded-xl" />
         </div>
 
         {/* Lost clients skeleton */}
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden h-[340px] order-5 lg:order-none lg:col-span-2">
-          <div className="px-5 py-4 border-b border-slate-100">
+        <div className="rounded-card border border-border bg-card overflow-hidden h-[340px] order-5 lg:order-none lg:col-span-2">
+          <div className="px-5 py-4 border-b border-border">
             <Skeleton className="h-4 w-28" />
           </div>
-          <div className="divide-y divide-slate-100 p-5 space-y-3">
+          <div className="divide-y divide-border p-5 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex gap-4">
                 <Skeleton className="h-4 w-24" />
@@ -101,7 +101,7 @@ export default function Loading() {
         </div>
 
         {/* Live Activity skeleton */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 h-[340px] space-y-4 order-4 lg:order-none">
+        <div className="rounded-card border border-border bg-card p-5 h-[340px] space-y-4 order-4 lg:order-none">
           <Skeleton className="h-5 w-28" />
           {Array.from({ length: 4 }).map((_, j) => (
             <div key={j} className="flex items-center gap-3">

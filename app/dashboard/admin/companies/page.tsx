@@ -54,8 +54,8 @@ function CompaniesSkeleton() {
       {/* Two Column Grid */}
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
         {[0, 1].map((i) => (
-          <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
-            <div className="space-y-3 pb-4 border-b border-slate-100">
+          <div key={i} className="rounded-card border border-border bg-card p-6 space-y-6">
+            <div className="space-y-3 pb-4 border-b border-border">
               <Skeleton className="h-6 w-36" />
               <div className="grid grid-cols-3 gap-4">
                 {[0, 1, 2].map((j) => (
@@ -65,7 +65,7 @@ function CompaniesSkeleton() {
             </div>
             <div className="space-y-3">
               <Skeleton className="h-4 w-28" />
-              <div className="rounded-xl border border-slate-100 p-4 space-y-3">
+              <div className="rounded-xl border border-border p-4 space-y-3">
                 <Skeleton className="h-10 w-full rounded-lg" />
                 <Skeleton className="h-12 w-full rounded-lg" />
               </div>
@@ -85,7 +85,7 @@ export default async function CompaniesPage() {
 
   if (session.user.role_id !== 1) {
     return (
-      <div className="p-6 text-center text-rose-700 font-semibold bg-rose-50 rounded-xl border border-rose-100">
+      <div className="p-6 text-center text-danger-foreground font-semibold bg-danger-soft rounded-xl border border-danger/30">
         Unauthorized access
       </div>
     );

@@ -32,7 +32,7 @@ function KpiCardsSkeleton() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 animate-pulse">
+        <div key={i} className="rounded-card border border-border bg-card p-5 animate-pulse">
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-4 w-4 rounded-full" />
@@ -50,7 +50,7 @@ function KpiCardsSkeleton() {
 
 function KpiScoreSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+    <div className="rounded-card border border-border bg-card p-6 shadow-card animate-pulse">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="mt-2 h-3 w-72 max-w-full" />
       <div className="mt-6 grid items-center gap-10 md:grid-cols-2">
@@ -79,7 +79,7 @@ function KpiScoreSkeleton() {
 
 function ChartSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+    <div className="rounded-card border border-border bg-card p-6 shadow-card animate-pulse">
       <Skeleton className="h-4 w-40 mb-5" />
       <Skeleton className="h-[240px] w-full rounded-xl" />
     </div>
@@ -88,9 +88,9 @@ function ChartSkeleton() {
 
 function TasksSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+    <div className="rounded-card border border-border bg-card p-6 shadow-card animate-pulse">
       <Skeleton className="h-4 w-32 mb-5" />
-      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+      <div className="divide-y divide-border rounded-xl border border-border">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="flex items-center justify-between gap-4 p-4">
             <div className="flex-1 space-y-2">
@@ -108,18 +108,18 @@ function TasksSkeleton() {
 /* ── KPI Score Ring + Breakdown ── */
 
 function breakdownTone(status: string, weight: number) {
-  if (status === "onboarded" || status === "active_client") {
-    return { dot: "bg-emerald-500", bar: "bg-emerald-500" };
+  if (status === "onboarded") {
+    return { dot: "bg-success", bar: "bg-success" };
   }
-  if (weight < 0) return { dot: "bg-rose-500", bar: "bg-rose-500" };
-  if (status === "inactive") return { dot: "bg-slate-400", bar: "bg-slate-400" };
-  return { dot: "bg-teal-500", bar: "bg-teal-500" };
+  if (weight < 0) return { dot: "bg-danger", bar: "bg-danger" };
+  if (status === "dormant") return { dot: "bg-muted-foreground", bar: "bg-muted-foreground" };
+  return { dot: "bg-primary", bar: "bg-primary" };
 }
 
 function donutTone(status: string, weight: number) {
-  if (status === "onboarded" || status === "active_client") return "green.6";
+  if (status === "onboarded") return "green.6";
   if (weight < 0) return "pink.6";
-  if (status === "inactive") return "gray.5";
+  if (status === "dormant") return "gray.5";
   return "teal.6";
 }
 
@@ -132,7 +132,7 @@ function KpiScoreSection({
 }) {
   const { score, maxScore, percent, totalClients, remaining } = progress;
 
-  // A donut can only plot non-negative shares — points lost to "lost"/"cancelled"
+  // A donut can only plot non-negative shares — points lost to "lost"/"blacklisted"
   // clients still show up (as negative numbers) in the list below.
   const donutData = breakdown
     .filter((item) => item.points > 0)
@@ -157,23 +157,23 @@ function KpiScoreSection({
               strokeWidth={0}
             />
           ) : (
-            <div className="h-[200px] w-[200px] rounded-full border-[22px] border-slate-100" />
+            <div className="h-[200px] w-[200px] rounded-full border-[22px] border-border" />
           )}
           <div
             className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
             aria-label={`KPI score ${score} out of ${maxScore} points`}
           >
-            <span className="text-[40px] font-semibold leading-none text-slate-900 tabular-nums">
+            <span className="text-[40px] font-semibold leading-none text-foreground tabular-nums">
               {percent}
-              <span className="text-2xl font-semibold text-slate-400">%</span>
+              <span className="text-2xl font-semibold text-muted-foreground/80">%</span>
             </span>
-            <span className="mt-2 text-xs font-medium text-slate-500">
+            <span className="mt-2 text-xs font-medium text-muted-foreground">
               {score} of {maxScore} pts
             </span>
           </div>
         </div>
 
-        <p className="max-w-[200px] text-center text-xs text-slate-500">
+        <p className="max-w-[200px] text-center text-xs text-muted-foreground">
           {totalClients === 0
             ? "No clients assigned yet"
             : maxScore > 0 && remaining > 0
@@ -185,7 +185,7 @@ function KpiScoreSection({
       </div>
 
       <div className="space-y-4">
-        <p className="text-xs font-medium text-slate-400">Where your points come from</p>
+        <p className="text-xs font-medium text-muted-foreground/80">Where your points come from</p>
         {breakdown.length > 0 ? (
           <div className="space-y-3.5">
             {breakdown.map((item) => {
@@ -197,18 +197,18 @@ function KpiScoreSection({
               return (
                 <div key={item.status}>
                   <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
-                    <span className="flex items-center gap-2 capitalize text-slate-700">
+                    <span className="flex items-center gap-2 capitalize text-foreground/85">
                       <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} />
                       {item.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-slate-500">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
                       {item.count} × {item.weight} ={" "}
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-foreground">
                         {item.points} pt{item.points === 1 ? "" : "s"}
                       </span>
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
                       className={cn("h-full rounded-full transition-all duration-500", tone.bar)}
                       style={{ width: `${barPct}%` }}
@@ -219,7 +219,7 @@ function KpiScoreSection({
             })}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">No client activity yet.</p>
+          <p className="text-sm text-muted-foreground">No client activity yet.</p>
         )}
       </div>
     </div>
@@ -240,25 +240,25 @@ const STATUS_CARD_CONFIG: {
     label: "Onboarded",
     key: "onboarded",
     icon: UserCheck,
-    theme: { bg: "bg-teal-600" },
+    theme: { bg: "bg-primary" },
   },
   {
     label: "Follow up",
     key: "follow_up",
     icon: Phone,
-    theme: { bg: "bg-violet-600" },
+    theme: { bg: "bg-primary" },
   },
   {
     label: "Leads",
     key: "lead",
     icon: Sparkles,
-    theme: { bg: "bg-blue-600" },
+    theme: { bg: "bg-info" },
   },
   {
     label: "Lost",
     key: "lost",
     icon: XCircle,
-    theme: { bg: "bg-slate-800" },
+    theme: { bg: "bg-primary" },
   },
 ];
 
@@ -423,8 +423,7 @@ export default async function SalesmanDashboardPage() {
   /* Header data is small — fetch it synchronously for immediate display */
   const user = await getCachedSalesmanInfo(userId);
   const salesmanName = user?.name ?? "Salesman";
-  const orgName =
-    user?.salesmanManager?.[0]?.manager?.managerOrgs?.[0]?.org?.name ?? "";
+  const orgName = [...new Set(user?.salesmanManager?.map((l) => l.managerOrg.org.name) ?? [])].join(", ");
   const subtitle = orgName ? `${salesmanName} • ${orgName}` : salesmanName;
 
   return (

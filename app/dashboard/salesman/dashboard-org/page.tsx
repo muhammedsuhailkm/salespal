@@ -54,7 +54,7 @@ async function CompanySection() {
 
 function CompanySkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm animate-pulse space-y-4">
+    <div className="rounded-card border border-border bg-card p-5 shadow-card animate-pulse space-y-4">
       <div className="flex items-start gap-3">
         <Skeleton className="h-10 w-10 rounded-xl" />
         <div className="space-y-2">

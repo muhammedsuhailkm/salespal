@@ -8,6 +8,7 @@ import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ClientTable } from "@/components/clients/ClientTable";
+import { PerformanceReportButton } from "@/components/reports/PerformanceReportButton";
 
 export default async function SalesmanDrilldownPage({
   params,
@@ -31,7 +32,11 @@ export default async function SalesmanDrilldownPage({
 
   return (
     <>
-      <PageHeader title={salesman.name} subtitle="Salesman client status and KPI drilldown." />
+      <PageHeader
+        title={salesman.name}
+        subtitle="Salesman client status and KPI drilldown."
+        action={<PerformanceReportButton salesmanId={id} salesmanName={salesman.name} />}
+      />
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <KpiCard label="KPI score" value={calculateKpiScore(counts)} />
         <KpiCard label="Clients" value={totalClients} />

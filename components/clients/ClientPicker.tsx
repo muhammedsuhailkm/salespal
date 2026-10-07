@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Check, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { buttonVariants } from "@/components/ui/Button";
 type Option = { id: number; name: string };
 
 /**
@@ -71,9 +72,9 @@ export function ClientPicker({
 
   if (value) {
     return (
-      <div className={cn("flex h-10 w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 text-sm", inputClassName)}>
-        <span className="truncate font-medium text-slate-900">{value.name}</span>
-        <button type="button" onClick={() => onChange(null)} aria-label={`Clear ${value.name}`} className="cursor-pointer rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+      <div className={cn("flex h-10 w-full items-center justify-between rounded-md border border-border-strong bg-card px-3 text-sm", inputClassName)}>
+        <span className="truncate font-medium text-foreground">{value.name}</span>
+        <button type="button" onClick={() => onChange(null)} aria-label={`Clear ${value.name}`} className={buttonVariants({ variant: "ghost", size: "icon-sm" })}>
           <X size={14} />
         </button>
         {/* keeps native "required" validation working */}
@@ -84,7 +85,7 @@ export function ClientPicker({
 
   return (
     <div ref={boxRef} className="relative">
-      <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+      <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80" aria-hidden />
       <input
         id={inputId}
         type="text"
@@ -116,13 +117,13 @@ export function ClientPicker({
           }
         }}
         className={cn(
-          "h-10 w-full rounded-md border border-slate-300 bg-white pl-8 pr-8 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200",
+          "h-10 w-full rounded-md border border-border-strong bg-card pl-8 pr-8 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20",
           inputClassName
         )}
       />
-      {loading && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" aria-hidden />}
+      {loading && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground/80" aria-hidden />}
       {open && (
-        <ul id={listId} role="listbox" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+        <ul id={listId} role="listbox" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-border bg-card py-1 text-sm shadow-lg">
           {options.map((option, i) => (
             <li
               key={option.id}
@@ -131,13 +132,13 @@ export function ClientPicker({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => choose(option)}
               onMouseEnter={() => setActive(i)}
-              className={cn("flex cursor-pointer items-center justify-between px-3 py-2", i === active ? "bg-slate-100" : "")}
+              className={cn("flex cursor-pointer items-center justify-between px-3 py-2", i === active ? "bg-muted" : "")}
             >
               <span className="truncate">{option.name}</span>
-              {i === active && <Check size={13} className="text-slate-400" aria-hidden />}
+              {i === active && <Check size={13} className="text-muted-foreground/80" aria-hidden />}
             </li>
           ))}
-          {!loading && options.length === 0 && <li className="px-3 py-2 text-xs text-slate-400">No matching clients</li>}
+          {!loading && options.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground/80">No matching clients</li>}
         </ul>
       )}
     </div>

@@ -2,96 +2,43 @@
 
 import { useState } from "react";
 import { Pagination } from "@/components/ui/Pagination";
-import { ClientPicker } from "@/components/clients/ClientPicker";
 import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
 import type { EnquiryPage } from "@/lib/enquiries";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Ban, BellRing, ClipboardList, Loader2, MessageSquareText, Plus, Repeat, X } from "lucide-react";
-import { CancelEnquiryModal, FollowUpModal } from "@/components/enquiries/EnquiryFollowUpModals";
+import Link from "next/link";
+import { orderHref, orderNo, type AppRole } from "@/lib/record-links";
+import { ArrowRight, BellRing, ChevronRight, ClipboardList, MessageSquareText, Pencil, Plus } from "lucide-react";
+import { EnquiryDetailSheet } from "@/components/enquiries/EnquiryDetailSheet";
+import { EnquiryPdfButton } from "@/components/enquiries/EnquiryPdfButton";
+import { packageLinesPayload } from "@/components/enquiries/CargoDimensionsField";
+import { EnquiryForm, emptyEnquiryForm, enquiryFormFrom } from "@/components/enquiries/EnquiryForm";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Button, buttonVariants } from "@/components/ui/Button";
+import { SimpleTooltip } from "@/components/ui/tooltip";
+import { FollowUpModal } from "@/components/enquiries/EnquiryFollowUpModals";
+import { EnquiryStageActions, primaryAction } from "@/components/enquiries/EnquiryStageActions";
 import { Modal } from "@/components/ui/Modal";
-import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { cn, formatAmount, formatDate, titleCase } from "@/lib/utils";
+import { cn, formatAmount, formatDate } from "@/lib/utils";
+import { clientStatusLabel } from "@/types/client";
 import {
-  enquiryModes,
-  enquiryPaymentModes,
   jobRefNames,
-  jobRefs,
   type JobRef,
-  incotermNames,
-  incoterms,
-  type Incoterm,
-  type EnquiryListItem,
   type EnquiryStatus,
+  enquiryStatuses,
+  enquiryStatusLabels,
+  isActiveEnquiry,
+  type EnquiryListItem,
+  shipmentSpec,
 } from "@/types/enquiry";
 
-const statusStyles: Record<EnquiryStatus, string> = {
-  open: "bg-amber-50 text-amber-800 ring-amber-200",
-  order_created: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  cancelled: "bg-rose-50 text-rose-700 ring-rose-200",
-};
-
-function StatusBadge({ status }: { status: EnquiryStatus }) {
-  return (
-    <span className={cn("inline-flex whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ring-1", statusStyles[status])}>
-      {titleCase(status)}
-    </span>
-  );
-}
-
-const fieldClass =
-  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200";
-
-function SelectField({
-  id,
-  label,
-  value,
-  onChange,
-  children,
-  required,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-  required?: boolean;
-}) {
-  return (
-    <label htmlFor={id} className="block text-sm font-medium text-slate-700">
-      <span className="mb-1 block">{label}</span>
-      <select id={id} required={required} value={value} onChange={(e) => onChange(e.target.value)} className={cn(fieldClass, "cursor-pointer")}>
-        {children}
-      </select>
-    </label>
-  );
-}
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-const emptyForm = () => ({
-  enquiry_date: today(),
-  mode: "sea",
-  from: "",
-  to: "",
-  job_ref: "",
-  incoterm: "",
-  payment_mode: "cash",
-  credit_days: "",
-  clearance: false,
-  provisional_cost: "",
-  provisional_profit: "",
-  notes: "",
-});
+/** Anything short of Confirmed can still be corrected. */
+const canEditEnquiry = (e: EnquiryListItem) => e.status !== "confirmed";
 
 const FILTERS: { value: EnquiryStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "open", label: "Open" },
-  { value: "order_created", label: "Order created" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+  ...enquiryStatuses.map((value) => ({ value, label: enquiryStatusLabels[value] })),
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -100,13 +47,14 @@ const daysOpen = (enquiryDate: string) => Math.max(0, Math.floor((Date.now() - n
 /** Server-paginated enquiries table. Status tab, search and page are URL params. */
 export function EnquiriesClient({
   data,
+  role,
   canCreate,
-  canConvert,
   canFollowUp = false,
 }: {
   data: EnquiryPage;
+  /** Decides where order links go (see lib/record-links.ts). */
+  role: AppRole;
   canCreate: boolean;
-  canConvert: boolean;
   /** Salesmen / managers: log follow-up comments and cancel open enquiries. */
   canFollowUp?: boolean;
 }) {
@@ -118,11 +66,11 @@ export function EnquiriesClient({
   const enquiries = data.rows;
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  // Set while the form edits an existing enquiry instead of creating one.
+  const [editing, setEditing] = useState<EnquiryListItem | null>(null);
+  const [form, setForm] = useState(emptyEnquiryForm);
   const [client, setClient] = useState<{ id: number; name: string } | null>(null);
 
-  const [convertFor, setConvertFor] = useState<EnquiryListItem | null>(null);
-  const [conv, setConv] = useState({ job_no: "", actual_cost: "", actual_profit: "", advance_amount: "", invoice_date: "", credit_days: "", due_date: "" });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +83,16 @@ export function EnquiriesClient({
     setFollowUpId(null);
     if (get("followUp")) set({ followUp: null, page: get("page") || null });
   };
-  const [cancelFor, setCancelFor] = useState<EnquiryListItem | null>(null);
+  // Looked up by id so the panel shows fresh data after router.refresh().
+  // ?view=<id> (link from an order or client page) opens that enquiry even if it is on another page.
+  const [detailId, setDetailId] = useState<number | null>(() => Number(get("view")) || null);
+  const detailFor =
+    detailId === null ? null : enquiries.find((e) => e.id === detailId) ?? (data.focus?.id === detailId ? data.focus : null);
+  const closeDetail = () => {
+    setDetailId(null);
+    if (get("view")) set({ view: null, page: get("page") || null });
+  };
+  const orderLink = (id: number) => orderHref(role, id);
   const followUpsDue = data.followUpsDue;
 
   const visible = enquiries;
@@ -145,11 +102,11 @@ export function EnquiriesClient({
     setTimeout(() => setToast(undefined), 3000);
   }
 
-  async function post(url: string, body: unknown) {
+  async function post(url: string, body: unknown, method = "POST") {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Request failed");
       return data;
@@ -161,8 +118,29 @@ export function EnquiriesClient({
     }
   }
 
+  function openEdit(enquiry: EnquiryListItem) {
+    setError(null);
+    setDetailId(null);
+    setEditing(enquiry);
+    setForm(enquiryFormFrom(enquiry));
+    setClient({ id: enquiry.client_id, name: enquiry.client_name });
+    setCreateOpen(true);
+  }
+
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (editing) {
+      const data = await post(
+        `/api/enquiries/${editing.id}`,
+        { ...form, packages: packageLinesPayload(form.packages), credit_days: form.payment_mode === "credit" ? Number(form.credit_days) : null },
+        "PATCH",
+      );
+      if (!data) return;
+      setCreateOpen(false);
+      flash(data.changed.length ? `${editing.ref} updated` : "No changes to save");
+      router.refresh();
+      return;
+    }
     if (!client) {
       setError("Select a client");
       return;
@@ -170,59 +148,24 @@ export function EnquiriesClient({
     const data = await post("/api/enquiries", {
       ...form,
       client_id: client.id,
+      packages: packageLinesPayload(form.packages),
       credit_days: form.payment_mode === "credit" ? Number(form.credit_days) : null,
-      provisional_cost: Number(form.provisional_cost),
-      provisional_profit: Number(form.provisional_profit),
+      // Both empty → "Inquiry received" (quote later); both filled → "Quoted".
+      provisional_cost: form.provisional_cost === "" ? null : Number(form.provisional_cost),
+      provisional_profit: form.provisional_profit === "" ? null : Number(form.provisional_profit),
     });
     if (!data) return;
     setCreateOpen(false);
-    flash(data.client_onboarded ? "Enquiry created · client marked as Onboarded" : "Enquiry created");
+    flash(data.client_status ? `Enquiry created · client moved to ${clientStatusLabel(data.client_status)}` : "Enquiry created");
     router.refresh();
   }
 
-  function openConvert(enquiry: EnquiryListItem) {
-    setError(null);
-    setConv({
-      job_no: "",
-      actual_cost: String(enquiry.provisional_cost),
-      actual_profit: String(enquiry.provisional_profit),
-      advance_amount: "",
-      invoice_date: today(),
-      credit_days: enquiry.credit_days !== null ? String(enquiry.credit_days) : "",
-      due_date: "",
-    });
-    setConvertFor(enquiry);
-  }
-
-  async function submitConvert(e: React.FormEvent) {
-    e.preventDefault();
-    if (!convertFor) return;
-    const data = await post(`/api/enquiries/${convertFor.id}/convert`, {
-      job_no: conv.job_no,
-      actual_cost: Number(conv.actual_cost),
-      actual_profit: Number(conv.actual_profit),
-      advance_amount: conv.advance_amount === "" ? undefined : Number(conv.advance_amount),
-      invoice_date: conv.invoice_date,
-      ...(isCredit ? { credit_days: Number(conv.credit_days) } : { due_date: conv.due_date || undefined }),
-    });
-    if (!data) return;
-    setConvertFor(null);
-    flash(`Order created with job no ${data.order.job_no}`);
-    router.refresh();
-  }
-
-  const orderAmount = (Number(conv.actual_cost) || 0) + (Number(conv.actual_profit) || 0);
-  const isCredit = convertFor?.payment_mode === "credit";
-  const creditDueDate =
-    isCredit && conv.invoice_date && conv.credit_days !== "" && Number.isInteger(Number(conv.credit_days))
-      ? new Date(new Date(`${conv.invoice_date}T00:00:00Z`).getTime() + Number(conv.credit_days) * 86400000).toISOString().slice(0, 10)
-      : null;
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Filter by status">
+      <div className="flex flex-wrap items-center gap-3 rounded-card border border-border/80 bg-card p-4 shadow-card">
+        <div className="flex flex-wrap gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Filter by status">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -231,11 +174,11 @@ export function EnquiriesClient({
               onClick={() => set({ status: f.value })}
               className={cn(
                 "cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-                filter === f.value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                filter === f.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {f.label}
-              <span className="ml-1 text-slate-400">
+              <span className="ml-1 text-muted-foreground/80">
                 {data.counts[f.value].toLocaleString()}
               </span>
             </button>
@@ -247,17 +190,19 @@ export function EnquiriesClient({
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search ref, client or job no..."
           aria-label="Search enquiries"
-          className="h-9 min-w-[200px] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition focus:border-slate-400 focus:bg-white"
+          className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-9 min-w-[200px] flex-1"
         />
+        <EnquiryPdfButton enquiry={null} label="Blank form" className="h-9 rounded-xl" />
         {canCreate && (
           <button
             onClick={() => {
               setError(null);
-              setForm(emptyForm());
+              setEditing(null);
+              setForm(emptyEnquiryForm());
               setClient(null);
               setCreateOpen(true);
             }}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            className={buttonVariants({ size: "sm" })}
           >
             <Plus size={14} />
             <span>New enquiry</span>
@@ -266,13 +211,13 @@ export function EnquiriesClient({
       </div>
 
       {canFollowUp && followUpsDue > 0 && (
-        <div role="status" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-xs font-medium text-warning-foreground">
           <BellRing size={14} className="shrink-0" aria-hidden />
           {followUpsDue} enquir{followUpsDue === 1 ? "y has" : "ies have"} been open for over 30 days. Log a follow-up or cancel with a reason.
         </div>
       )}
 
-      {/* Table */}
+      {/* Table (lg+) / cards (phones & tablets). Row click opens every field in the detail panel. */}
       {visible.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
@@ -281,297 +226,186 @@ export function EnquiriesClient({
         />
       ) : (
         <div className={cn("space-y-1 transition-opacity", isPending && "opacity-60")} aria-busy={isPending}>
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[1180px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-100 text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Ref / Date</th>
-                <th className="px-4 py-3">Client</th>
-                <th className="px-4 py-3">Mode / Route</th>
-                <th className="px-4 py-3">Job Ref</th>
-                <th className="px-4 py-3">Incoterm</th>
-                <th className="px-4 py-3">Payment</th>
-                <th className="px-4 py-3">Clearance</th>
-                <th className="px-4 py-3 text-right">Cost</th>
-                <th className="px-4 py-3 text-right">Profit</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Job no</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visible.map((e) => {
-                const converted = e.actual_cost !== null;
-                return (
-                  <tr key={e.id} className="transition hover:bg-slate-50/60">
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="block font-bold text-slate-900">{e.ref}</span>
-                      <span className="block text-[11px] text-slate-500">{formatDate(e.enquiry_date)} · {e.created_by}</span>
-                      {e.status === "open" && (
-                        <span className={cn("block text-[11px]", e.follow_up_due ? "font-semibold text-amber-700" : "text-slate-400")}>
-                          Open {daysOpen(e.enquiry_date)} days{e.follow_up_due ? " · follow-up due" : ""}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-slate-800">{e.client_name}</td>
-                    <td className="px-4 py-3">
-                      <span className="block text-xs font-bold uppercase text-slate-500">{e.mode}</span>
-                      <span className="flex items-center gap-1 text-slate-800">
-                        {e.from} <ArrowRight size={12} className="text-slate-400" /> {e.to}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {e.job_ref ? (
-                        <span className="block whitespace-nowrap">
-                          <span className="font-mono text-xs font-bold text-slate-800">{e.job_ref}</span>
-                          <span className="block text-[11px] text-slate-500">{jobRefNames[e.job_ref as JobRef] ?? ""}</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {e.incoterm ? (
-                        <span
-                          title={incotermNames[e.incoterm as Incoterm] ?? e.incoterm}
-                          className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700 ring-1 ring-slate-200"
+          <div className="hidden overflow-hidden rounded-card border border-border bg-card shadow-card lg:block">
+            <table className="w-full table-fixed text-left text-sm">
+              <thead className="border-b border-border bg-subtle text-xs font-medium text-muted-foreground">
+                <tr>
+                  <th scope="col" className="w-[22%] px-4 py-3 font-medium">Enquiry</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Client</th>
+                  <th scope="col" className="w-[22%] px-4 py-3 font-medium">Route</th>
+                  <th scope="col" className="hidden w-[13%] px-4 py-3 text-right font-medium xl:table-cell">Cost / Profit</th>
+                  <th scope="col" className="w-[136px] px-4 py-3 font-medium">Status</th>
+                  <th scope="col" className="w-[184px] px-4 py-3 text-right font-medium"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {visible.map((e) => {
+                  const converted = e.actual_cost !== null;
+                  return (
+                    <tr
+                      key={e.id}
+                      onClick={() => setDetailId(e.id)}
+                      className="group cursor-pointer transition-colors hover:bg-subtle"
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setDetailId(e.id);
+                          }}
+                          aria-label={`View details for ${e.ref}`}
+                          className="cursor-pointer rounded font-mono text-[13px] font-semibold text-foreground group-hover:text-primary"
                         >
-                          {e.incoterm}
+                          {e.ref}
+                        </button>
+                        <span className="block truncate text-xs text-muted-foreground">{formatDate(e.enquiry_date)} · {e.created_by}</span>
+                        {isActiveEnquiry(e.status) && (
+                          <span className={cn("block text-xs", e.follow_up_due ? "font-medium text-warning-foreground" : "text-muted-foreground")}>
+                            Active {daysOpen(e.enquiry_date)}d{e.follow_up_due ? " · follow-up due" : ""}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <span className="line-clamp-2 font-medium text-foreground">{e.client_name}</span>
+                        {e.job_ref && <span className="block truncate text-xs text-muted-foreground">{e.job_ref} · {jobRefNames[e.job_ref as JobRef] ?? ""}</span>}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          {e.mode}
+                          {e.is_dg && <DgBadge unNumber={e.un_number} />}
                         </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                      {titleCase(e.payment_mode)}
-                      {e.payment_mode === "credit" && e.credit_days ? (
-                        <span className="block text-[11px] text-slate-500">{e.credit_days} days</span>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={cn("text-xs font-semibold", e.clearance ? "text-emerald-700" : "text-slate-400")}>
-                        {e.clearance ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <span className="block font-semibold text-slate-900">{formatAmount(converted ? e.actual_cost! : e.provisional_cost)}</span>
-                      <span className="block text-[10px] font-medium uppercase text-slate-400">
-                        {converted ? `Prov. ${formatAmount(e.provisional_cost)}` : "Provisional"}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <span className="block font-semibold text-slate-900">{formatAmount(converted ? e.actual_profit! : e.provisional_profit)}</span>
-                      <span className="block text-[10px] font-medium uppercase text-slate-400">
-                        {converted ? `Prov. ${formatAmount(e.provisional_profit)}` : "Provisional"}
-                      </span>
-                    </td>
-                    <td className="max-w-[200px] px-4 py-3">
-                      <StatusBadge status={e.status} />
-                      {e.status === "cancelled" && e.cancel_reason && (
-                        <span className="mt-1 block truncate text-[11px] text-slate-500" title={e.cancel_reason}>
-                          {e.cancel_reason}
+                        <span className="flex min-w-0 items-center gap-1 text-foreground">
+                          <span className="truncate">{e.from}</span>
+                          <ArrowRight size={12} className="shrink-0 text-muted-foreground" aria-label="to" />
+                          <span className="truncate">{e.to}</span>
                         </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-slate-700">{e.order?.job_no ?? "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {canConvert && e.status === "open" && (
-                          <button
-                            onClick={() => openConvert(e)}
-                            className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
-                          >
-                            <Repeat size={12} />
-                            Convert to order
-                          </button>
+                        {shipmentSpec(e) && <span className="block truncate text-xs tabular-nums text-muted-foreground">{shipmentSpec(e)}</span>}
+                      </td>
+                      <td className="hidden px-4 py-3 text-right align-top tabular-nums xl:table-cell">
+                        {e.provisional_cost === null ? (
+                          <span className="text-xs text-muted-foreground">Not quoted</span>
+                        ) : (
+                          <>
+                            <span className="block font-medium text-foreground">{formatAmount(converted ? e.actual_cost! : e.provisional_cost)}</span>
+                            <span className="block text-xs text-muted-foreground">{formatAmount(converted ? e.actual_profit! : e.provisional_profit ?? 0)}</span>
+                            {!converted && <span className="block text-xs text-muted-foreground/80">Quoted</span>}
+                          </>
                         )}
-                        {((canFollowUp && e.status === "open") || e.follow_ups.length > 0 || e.status === "cancelled") && (
-                          <button
-                            onClick={() => setFollowUpId(e.id)}
-                            className={cn(
-                              "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition",
-                              canFollowUp && e.follow_up_due
-                                ? "bg-amber-500 text-white hover:bg-amber-600"
-                                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                            )}
-                          >
-                            <MessageSquareText size={12} />
-                            {canFollowUp && e.status === "open" ? "Follow up" : "Details"}
-                            {e.follow_ups.length > 0 && <span className="opacity-70">{e.follow_ups.length}</span>}
-                          </button>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <StatusBadge status={e.status} />
+                        {e.order && (
+                          <OrderChip id={e.order.id} jobNo={e.order.job_no} href={orderLink(e.order.id)} />
                         )}
-                        {canFollowUp && e.status === "open" && (
-                          <button
-                            onClick={() => setCancelFor(e)}
-                            aria-label={`Cancel ${e.ref}`}
-                            title="Cancel enquiry"
-                            className="inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-400 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                          >
-                            <Ban size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isPending} noun="enquiries" onPage={(p) => set({ page: p })} />
+                      </td>
+                      <td className="px-4 py-3 text-right align-top" onClick={(ev) => ev.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {canFollowUp && primaryAction(e.status) && !e.follow_up_due && (
+                            <EnquiryStageActions enquiry={e} only={[primaryAction(e.status)!]} onDone={flash} />
+                          )}
+                          {canFollowUp && isActiveEnquiry(e.status) && e.follow_up_due && (
+                            <Button
+                              size="sm"
+                              variant={e.follow_up_due ? "primary" : "secondary"}
+                              onClick={() => setFollowUpId(e.id)}
+                              className={cn(e.follow_up_due && "bg-warning text-white hover:bg-warning/90 dark:text-foreground")}
+                            >
+                              <MessageSquareText /> Follow up
+                              {e.follow_ups.length > 0 && <span className="opacity-70">{e.follow_ups.length}</span>}
+                            </Button>
+                          )}
+                          {canFollowUp && canEditEnquiry(e) && (
+                            <SimpleTooltip label="Edit enquiry">
+                              <Button size="icon-sm" variant="ghost" onClick={() => openEdit(e)} aria-label={`Edit ${e.ref}`}>
+                                <Pencil />
+                              </Button>
+                            </SimpleTooltip>
+                          )}
+                          <ChevronRight size={16} className="shrink-0 text-muted-foreground/60 group-hover:text-muted-foreground" aria-hidden />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Cards below lg */}
+          <ul className="grid gap-2.5 sm:grid-cols-2 lg:hidden">
+            {visible.map((e) => (
+              <li key={e.id}>
+                <button
+                  type="button"
+                  onClick={() => setDetailId(e.id)}
+                  className="w-full cursor-pointer rounded-card border border-border bg-card p-4 text-left shadow-card transition-colors active:bg-subtle"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[13px] font-semibold text-foreground">{e.ref}</p>
+                      <p className="truncate text-sm font-medium text-foreground">{e.client_name}</p>
+                    </div>
+                    <StatusBadge status={e.status} />
+                  </div>
+                  <p className="mt-2 flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+                    <span className="text-[11px] font-semibold uppercase">{e.mode}</span>
+                    {e.is_dg && <DgBadge unNumber={e.un_number} />}
+                    <span aria-hidden>·</span>
+                    <span className="truncate">{e.from}</span>
+                    <ArrowRight size={12} className="shrink-0" aria-label="to" />
+                    <span className="truncate">{e.to}</span>
+                  </p>
+                  {shipmentSpec(e) && <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{shipmentSpec(e)}</p>}
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{formatDate(e.enquiry_date)}</span>
+                    {isActiveEnquiry(e.status) && (
+                      <span className={cn(e.follow_up_due && "font-medium text-warning-foreground")}>
+                        Active {daysOpen(e.enquiry_date)}d{e.follow_up_due ? " · follow-up due" : ""}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} pending={isPending} noun="enquiries" onPage={(p) => set({ page: p })} />
         </div>
       )}
 
-      {/* Create enquiry */}
-      <Modal open={createOpen}>
-        <form onSubmit={submitCreate} className="space-y-4">
-          <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">New enquiry</h3>
-              <p className="text-xs text-slate-500">Cost and profit here are provisional. Actual figures are set when the accountant converts it to an order.</p>
-            </div>
-            <button type="button" onClick={() => setCreateOpen(false)} aria-label="Close" className="cursor-pointer rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
+      <EnquiryDetailSheet
+        enquiry={detailFor}
+        daysOpen={daysOpen}
+        canFollowUp={canFollowUp}
+        onClose={closeDetail}
+        orderLink={orderLink}
+        onEdit={canFollowUp ? openEdit : undefined}
+        onFollowUp={(e) => {
+          setDetailId(null);
+          setFollowUpId(e.id);
+        }}
+        onDone={(message) => {
+          flash(message);
+          router.refresh();
+        }}
+      />
 
-          {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</p>}
-
-          <div className="block text-sm font-medium text-slate-700">
-            <label htmlFor="enq-client" className="mb-1 block">Client</label>
-            <ClientPicker id="enq-client" required value={client} onChange={setClient} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Enquiry date" type="date" required value={form.enquiry_date} onChange={(e) => setForm({ ...form, enquiry_date: e.target.value })} />
-            <SelectField id="enq-mode" label="Mode of transport" value={form.mode} onChange={(v) => setForm({ ...form, mode: v })}>
-              {enquiryModes.map((m) => (
-                <option key={m} value={m}>{titleCase(m)}</option>
-              ))}
-            </SelectField>
-            <Input label="From" required value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} placeholder="Origin" />
-            <Input label="To" required value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="Destination" />
-            <SelectField id="enq-job-ref" label="Job Ref" required value={form.job_ref} onChange={(v) => setForm({ ...form, job_ref: v })}>
-              <option value="">Select job ref...</option>
-              {jobRefs.map((code) => (
-                <option key={code} value={code}>{code} — {jobRefNames[code]}</option>
-              ))}
-            </SelectField>
-            <SelectField id="enq-incoterm" label="Incoterm" required value={form.incoterm} onChange={(v) => setForm({ ...form, incoterm: v })}>
-              <option value="">Select incoterm...</option>
-              {incoterms.map((t) => (
-                <option key={t} value={t}>{t} — {incotermNames[t]}</option>
-              ))}
-            </SelectField>
-            <SelectField id="enq-payment" label="Payment mode" value={form.payment_mode} onChange={(v) => setForm({ ...form, payment_mode: v })}>
-              {enquiryPaymentModes.map((p) => (
-                <option key={p} value={p}>{titleCase(p)}</option>
-              ))}
-            </SelectField>
-            {form.payment_mode === "credit" && (
-              <Input label="Credit days" type="number" min="1" step="1" required value={form.credit_days} onChange={(e) => setForm({ ...form, credit_days: e.target.value })} placeholder="e.g. 30" />
-            )}
-          </div>
-
-          {/* Clearance toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
-            <div>
-              <span id="enq-clearance-label" className="block text-sm font-medium text-slate-700">Clearance</span>
-              <span className="text-xs text-slate-500">Include customs clearance</span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={form.clearance}
-              aria-labelledby="enq-clearance-label"
-              onClick={() => setForm({ ...form, clearance: !form.clearance })}
-              className={cn("relative h-6 w-11 cursor-pointer rounded-full transition", form.clearance ? "bg-emerald-500" : "bg-slate-300")}
-            >
-              <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", form.clearance ? "left-[22px]" : "left-0.5")} />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Provisional cost" type="number" min="0" step="0.01" required value={form.provisional_cost} onChange={(e) => setForm({ ...form, provisional_cost: e.target.value })} />
-            <Input label="Provisional profit" type="number" step="0.01" required value={form.provisional_profit} onChange={(e) => setForm({ ...form, provisional_profit: e.target.value })} />
-          </div>
-
-          <label htmlFor="enq-notes" className="block text-sm font-medium text-slate-700">
-            <span className="mb-1 block">Notes (optional)</span>
-            <textarea id="enq-notes" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full rounded-md border border-slate-300 bg-white p-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200" />
-          </label>
-
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-            <button type="button" onClick={() => setCreateOpen(false)} className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-              {saving && <Loader2 size={12} className="animate-spin" />}
-              Save enquiry
-            </button>
-          </div>
-        </form>
+      {/* Create / edit enquiry */}
+      <Modal onClose={() => setCreateOpen(false)} open={createOpen} size="xl" className="p-0">
+        <EnquiryForm
+          form={form}
+          setForm={setForm}
+          editing={editing}
+          client={client}
+          setClient={setClient}
+          error={error}
+          saving={saving}
+          onSubmit={submitCreate}
+          onCancel={() => setCreateOpen(false)}
+        />
       </Modal>
 
-      {/* Convert to order */}
-      <Modal open={!!convertFor}>
-        <form onSubmit={submitConvert} className="space-y-4">
-          <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Convert {convertFor?.ref} to order</h3>
-              <p className="text-xs text-slate-500">
-                {convertFor?.client_name} · {convertFor?.from} → {convertFor?.to}. A draft order is created and follows the normal approval flow.
-              </p>
-            </div>
-            <button type="button" onClick={() => setConvertFor(null)} aria-label="Close" className="cursor-pointer rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-              <X size={16} />
-            </button>
-          </div>
-
-          {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{error}</p>}
-
-          <Input label="Job no" required value={conv.job_no} onChange={(e) => setConv({ ...conv, job_no: e.target.value })} placeholder="e.g. JOB-2026-001" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Actual cost" type="number" min="0" step="0.01" required value={conv.actual_cost} onChange={(e) => setConv({ ...conv, actual_cost: e.target.value })} />
-            <Input label="Actual profit" type="number" step="0.01" required value={conv.actual_profit} onChange={(e) => setConv({ ...conv, actual_profit: e.target.value })} />
-          </div>
-          <Input label="Advance received (optional)" type="number" min="0" step="0.01" value={conv.advance_amount} onChange={(e) => setConv({ ...conv, advance_amount: e.target.value })} />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Invoice date" type="date" required value={conv.invoice_date} onChange={(e) => setConv({ ...conv, invoice_date: e.target.value })} />
-            {isCredit ? (
-              <Input label="Credit days" type="number" min="0" step="1" required value={conv.credit_days} onChange={(e) => setConv({ ...conv, credit_days: e.target.value })} />
-            ) : (
-              <Input label="Due date (optional)" type="date" min={conv.invoice_date || undefined} value={conv.due_date} onChange={(e) => setConv({ ...conv, due_date: e.target.value })} />
-            )}
-          </div>
-          {isCredit && (
-            <p className="-mt-2 text-xs text-slate-500">
-              Credit enquiry ({convertFor?.credit_days ?? "—"} days agreed).{" "}
-              {creditDueDate ? (
-                <>Payment due on <span className="font-semibold text-slate-800">{formatDate(creditDueDate)}</span>.</>
-              ) : (
-                "Enter credit days to set the due date."
-              )}
-            </p>
-          )}
-
-          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-sm">
-            <span className="text-slate-600">Order amount (cost + profit)</span>
-            <span className="font-bold text-slate-900">{formatAmount(orderAmount)}</span>
-          </div>
-
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-            <button type="button" onClick={() => setConvertFor(null)} className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50">
-              {saving && <Loader2 size={12} className="animate-spin" />}
-              Create order
-            </button>
-          </div>
-        </form>
-      </Modal>
 
       <FollowUpModal
         enquiry={followUpFor}
@@ -583,17 +417,35 @@ export function EnquiriesClient({
           router.refresh();
         }}
       />
-      <CancelEnquiryModal
-        enquiry={cancelFor}
-        onClose={() => setCancelFor(null)}
-        onCancelled={() => {
-          setCancelFor(null);
-          flash("Enquiry cancelled");
-          router.refresh();
-        }}
-      />
 
       <Toast message={toast} />
     </div>
+  );
+}
+
+/** "Order #00012 · JOB-1" under the status; a link when the role has somewhere to go. */
+function OrderChip({ id, jobNo, href }: { id: number; jobNo: string | null; href: string | null }) {
+  const text = `${orderNo(id)}${jobNo ? ` · ${jobNo}` : ""}`;
+  return href ? (
+    <Link
+      href={href}
+      onClick={(ev) => ev.stopPropagation()}
+      className="mt-1 block truncate font-mono text-xs text-primary hover:underline"
+      title="Open order"
+    >
+      {text}
+    </Link>
+  ) : (
+    <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">{text}</span>
+  );
+}
+
+/** Dangerous-goods marker; the UN number(s) are in the tooltip and for screen readers. */
+function DgBadge({ unNumber }: { unNumber: string | null }) {
+  const text = `Dangerous goods${unNumber ? ` · ${unNumber}` : ""}`;
+  return (
+    <span title={text} className="shrink-0 rounded bg-warning-soft px-1 py-px text-[10px] font-semibold tracking-wide text-warning-foreground">
+      DG<span className="sr-only"> — {text}</span>
+    </span>
   );
 }

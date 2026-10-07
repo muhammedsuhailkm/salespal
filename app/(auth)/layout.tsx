@@ -1,7 +1,12 @@
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-[380px] rounded-3xl border border-slate-100 bg-white p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
+    <main className="relative flex min-h-dvh items-center justify-center bg-background px-4 py-10">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-[380px] rounded-card border border-border bg-card p-6 shadow-card sm:p-8">
         {children}
       </div>
     </main>

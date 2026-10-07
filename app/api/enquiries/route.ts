@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere, getTokenUserId, isRole } from "@/lib/scoping";
-import { parseDateOnly } from "@/lib/salesman-targets";
+import { BLACKLISTED_ERROR, applyClientStatus, revalidateClientViews, statusAfterEnquiry } from "@/lib/client-status-flow";
+import { CONTACT_FIELD_LABELS, missingContactFields } from "@/lib/client-contact";
 import { getEnquiriesPage, revalidateEnquiryPages } from "@/lib/enquiries";
-import { enquiryModes, enquiryPaymentModes, incoterms, jobRefs, type JobRef } from "@/types/enquiry";
+import { enquiryDetailsData, parseEnquiryDetails } from "@/lib/enquiry-fields";
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ enquiries: rows, total, page, pageSize, counts });
 }
 
-const ONBOARDED_OR_BEYOND = ["onboarded", "active_client"];
 
-/** Salesmen and managers raise enquiries with a provisional cost and profit. */
+/**
+ * Salesmen and managers raise enquiries. Cost and profit are optional: with both the enquiry
+ * starts as "quoted", otherwise as "inquiry_received" (quote it later).
+ */
 export async function POST(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,72 +28,69 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const clientId = Number(body.client_id);
-  const enquiryDate = parseDateOnly(body.enquiry_date);
-  const from = String(body.from ?? "").trim();
-  const to = String(body.to ?? "").trim();
-  const cost = Number(body.provisional_cost);
-  const profit = Number(body.provisional_profit);
-  const creditDays = body.payment_mode === "credit" ? Number(body.credit_days) : null;
+  const blank = (v: unknown) => v === undefined || v === null || v === "";
+  const hasQuote = !blank(body.provisional_cost) || !blank(body.provisional_profit);
+  const cost = hasQuote ? Number(body.provisional_cost) : null;
+  const profit = hasQuote ? Number(body.provisional_profit) : null;
 
   if (!Number.isInteger(clientId)) return NextResponse.json({ error: "Select a client" }, { status: 400 });
-  if (!enquiryDate) return NextResponse.json({ error: "Invalid enquiry date" }, { status: 400 });
-  if (!enquiryModes.includes(body.mode)) return NextResponse.json({ error: "Invalid mode of transport" }, { status: 400 });
-  if (!from || !to) return NextResponse.json({ error: "From and To are required" }, { status: 400 });
-  if (!jobRefs.includes(body.job_ref as JobRef)) return NextResponse.json({ error: "Select a job ref" }, { status: 400 });
-  if (!incoterms.includes(body.incoterm)) return NextResponse.json({ error: "Select an incoterm" }, { status: 400 });
-  if (!enquiryPaymentModes.includes(body.payment_mode)) return NextResponse.json({ error: "Invalid payment mode" }, { status: 400 });
-  if (creditDays !== null && (!Number.isInteger(creditDays) || creditDays <= 0)) {
-    return NextResponse.json({ error: "Credit days must be a whole number above 0" }, { status: 400 });
+  const details = parseEnquiryDetails(body);
+  if ("error" in details) return NextResponse.json({ error: details.error }, { status: 400 });
+  if (hasQuote) {
+    if (blank(body.provisional_cost) || !Number.isFinite(cost) || cost! < 0) return NextResponse.json({ error: "Enter both cost and profit, or leave both empty" }, { status: 400 });
+    if (blank(body.provisional_profit) || !Number.isFinite(profit)) return NextResponse.json({ error: "Enter both cost and profit, or leave both empty" }, { status: 400 });
   }
-  if (!Number.isFinite(cost) || cost < 0) return NextResponse.json({ error: "Invalid cost" }, { status: 400 });
-  if (!Number.isFinite(profit)) return NextResponse.json({ error: "Invalid profit" }, { status: 400 });
 
   const client = await prisma.client.findFirst({
     where: { AND: [{ id: clientId }, await clientScopeWhere(token)] },
-    select: { id: true, status: true, assigned_salesman_id: true },
+    select: { id: true, status: true, assigned_salesman_id: true, contact_person_name: true, contact_no: true, contact_person_designation: true },
   });
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  if (client.status === "blacklisted") return NextResponse.json({ error: BLACKLISTED_ERROR }, { status: 403 });
 
-  // Raising an enquiry onboards the client (unless already onboarded / active).
-  // Mirrors a manual status change: client log + salesman KPI log.
-  const onboard = !ONBOARDED_OR_BEYOND.includes(client.status);
+  // Raising an enquiry moves the client to "enquiry" (or back to "onboarded" if dormant).
+  // Past Lead a client needs contact details, so ask for them first.
+  const nextStatus = statusAfterEnquiry(client.status);
+  const missing = nextStatus ? missingContactFields(client) : [];
+  if (missing.length) {
+    return NextResponse.json(
+      { error: `Add the client's ${missing.map((k) => CONTACT_FIELD_LABELS[k].toLowerCase()).join(", ")} before raising an enquiry`, code: "CONTACT_REQUIRED", missing },
+      { status: 422 }
+    );
+  }
 
   const enquiry = await prisma.$transaction(async (tx) => {
     const created = await tx.enquiry.create({
       data: {
         client_id: clientId,
-        enquiry_date: enquiryDate,
-        mode: body.mode,
-        from,
-        to,
-        job_ref: body.job_ref,
-        incoterm: body.incoterm,
-        payment_mode: body.payment_mode,
-        credit_days: creditDays,
-        clearance: Boolean(body.clearance),
+        ...enquiryDetailsData(details.data),
         provisional_cost: cost,
         provisional_profit: profit,
-        notes: body.notes ? String(body.notes).trim() || null : null,
+        status: hasQuote ? "quoted" : "inquiry_received",
         created_by_id: getTokenUserId(token),
       },
     });
-    if (onboard) {
-      await tx.client.update({ where: { id: client.id }, data: { status: "onboarded" } });
-      await tx.clientLog.create({
-        data: { client_id: client.id, action: "Status changed to onboarded", done_by: getTokenUserId(token) },
+    await tx.enquiryEvent.create({
+      data: {
+        enquiry_id: created.id,
+        action: hasQuote ? "quoted" : "inquiry_received",
+        to_status: hasQuote ? "quoted" : "inquiry_received",
+        cost,
+        profit,
+        created_by_id: getTokenUserId(token),
+      },
+    });
+    if (nextStatus) {
+      // A dormant client coming back isn't a new onboarding, so no KPI entry for it.
+      await applyClientStatus(tx, client, nextStatus, getTokenUserId(token), {
+        kpi: nextStatus === "enquiry",
+        reason: "enquiry raised",
       });
-      await tx.salesmanKpiLog.create({ data: { salesman_id: client.assigned_salesman_id, action: "onboarded" } });
     }
     return created;
   });
 
   revalidateEnquiryPages();
-  if (onboard) {
-    revalidateTag("salesman-dashboard", { expire: 0 });
-    revalidateTag("salesman-clients", { expire: 0 });
-    revalidateTag("admin-clients", { expire: 0 });
-    revalidateTag("manager-dashboard", { expire: 0 });
-    revalidateTag("manager-clients", { expire: 0 });
-  }
-  return NextResponse.json({ enquiry: { id: enquiry.id }, client_onboarded: onboard }, { status: 201 });
+  if (nextStatus) revalidateClientViews();
+  return NextResponse.json({ enquiry: { id: enquiry.id, status: enquiry.status }, client_status: nextStatus }, { status: 201 });
 }

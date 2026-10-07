@@ -2,13 +2,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-page-in">
       <div className="space-y-2">
         <Skeleton className="h-7 w-32" />
         <Skeleton className="h-4 w-64" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="rounded-card border border-border bg-card p-6 shadow-card space-y-4">
         <div className="flex items-center gap-2.5">
           <Skeleton className="h-9 w-9 rounded-xl" />
           <div className="space-y-1.5">

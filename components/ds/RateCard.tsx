@@ -146,7 +146,7 @@ export function RateCard({
           <button
             type="button"
             onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition cursor-pointer hover:bg-slate-50"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition cursor-pointer hover:bg-subtle"
             style={{ color: "var(--ds-text-secondary)" }}
           >
             <Edit3 size={13} />
@@ -157,7 +157,7 @@ export function RateCard({
             type="button"
             onClick={onDelete}
             disabled={isDeleting}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition cursor-pointer hover:bg-red-50 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition cursor-pointer hover:bg-danger-soft disabled:opacity-50"
             style={{ color: "var(--ds-text-secondary)" }}
           >
             {isDeleting ? (

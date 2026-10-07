@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSalesPalSession } from "@/lib/auth";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTeamViews } from "@/lib/team-assignments";
 
 export async function POST(req: Request) {
   const session = await getSalesPalSession();
@@ -74,8 +75,8 @@ export async function DELETE(req: Request) {
       },
     });
 
-    revalidateTag("admin-companies", { expire: 0 });
-    revalidatePath("/dashboard/admin/companies");
+    // Cascades to the salesman links for this company (manager_salesman → manager_org).
+    revalidateTeamViews();
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

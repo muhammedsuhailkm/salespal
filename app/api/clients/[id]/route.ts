@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { clientScopeWhere } from "@/lib/scoping";
 import { normalizeCrNo, parseCrExpiryDate } from "@/lib/client-fields";
+import { canSetStatus, isClientStatus } from "@/lib/client-status-flow";
+import { cleanText, contactRequiredMessage, missingContactFields, statusRequiresContact } from "@/lib/client-contact";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -51,6 +53,28 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (duplicateCr) return NextResponse.json({ error: "CR number already exists" }, { status: 409 });
   }
 
+  if (body.status !== undefined) {
+    if (!isClientStatus(body.status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    if (!canSetStatus(Number(token.role_id), scoped.status, body.status)) {
+      return NextResponse.json({ error: "Only managers can change the black list" }, { status: 403 });
+    }
+  }
+
+  // Contact details can't be blank on a client past Lead (checked against the values after this update)
+  const nextStatus = body.status ?? scoped.status;
+  if (statusRequiresContact(nextStatus)) {
+    const pick = (key: "contact_person_name" | "contact_no" | "contact_person_designation") =>
+      body[key] !== undefined ? cleanText(body[key]) : scoped[key];
+    const missing = missingContactFields({
+      contact_person_name: pick("contact_person_name"),
+      contact_no: pick("contact_no"),
+      contact_person_designation: pick("contact_person_designation"),
+    });
+    if (missing.length) {
+      return NextResponse.json({ error: contactRequiredMessage(missing), code: "CONTACT_REQUIRED", missing }, { status: 422 });
+    }
+  }
+
   // Check duplicate contact details for other clients
   if (body.contact_no || body.mail_id) {
     const duplicate = await prisma.client.findFirst({
@@ -77,11 +101,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
         where: { id: Number(id) },
         data: {
           name: body.name ?? undefined,
-          contact_person_name: body.contact_person_name ?? undefined,
+          contact_person_name: body.contact_person_name !== undefined ? cleanText(body.contact_person_name) : undefined,
+          contact_person_designation:
+            body.contact_person_designation !== undefined ? cleanText(body.contact_person_designation) || null : undefined,
           mail_id: body.mail_id ?? undefined,
           cr_no: body.cr_no !== undefined ? crNo ?? null : undefined,
           cr_expiry_date: crExpiry.value,
-          contact_no: body.contact_no ?? undefined,
+          contact_no: body.contact_no !== undefined ? cleanText(body.contact_no) : undefined,
           status: body.status ?? undefined,
           notes: body.notes !== undefined ? body.notes : undefined,
           location_coordinates: body.location_coordinates !== undefined ? body.location_coordinates : undefined,

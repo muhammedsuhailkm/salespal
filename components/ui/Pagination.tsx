@@ -24,15 +24,15 @@ export function Pagination({
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
   const btn =
-    "inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer";
+    "press inline-flex h-8 cursor-pointer items-center gap-1 rounded-control border border-border bg-card px-2.5 text-xs font-medium text-foreground shadow-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-3 px-1 py-2 text-xs text-slate-500">
+    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-2">
         {pending && <Loader2 size={12} className="animate-spin" aria-hidden />}
         <span>
-          <strong className="font-semibold text-slate-800">{from.toLocaleString()}–{to.toLocaleString()}</strong> of{" "}
-          <strong className="font-semibold text-slate-800">{total.toLocaleString()}</strong> {noun}
+          <strong className="font-semibold text-foreground">{from.toLocaleString()}–{to.toLocaleString()}</strong> of{" "}
+          <strong className="font-semibold text-foreground">{total.toLocaleString()}</strong> {noun}
         </span>
       </span>
       {pages > 1 && (

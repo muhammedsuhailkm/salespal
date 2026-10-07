@@ -6,6 +6,7 @@ import { getManagerTeam } from "@/lib/manager-dashboard";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ShippingRateTable } from "@/components/shipping-rates/ShippingRateTable";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { buttonVariants } from "@/components/ui/Button";
 import {
   ManagerKpiCardsRow,
   SalesmanPerformanceSection,
@@ -42,14 +43,14 @@ function PeriodSelector({ current }: { current: PeriodKey }) {
       <select
         name="period"
         defaultValue={current}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm cursor-pointer hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200"
+        className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
       >
         <option value="this_month">This Month</option>
         <option value="last_month">Last Month</option>
       </select>
       <button
         type="submit"
-        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+        className={buttonVariants({ variant: "secondary", size: "sm" })}
       >
         Apply
       </button>

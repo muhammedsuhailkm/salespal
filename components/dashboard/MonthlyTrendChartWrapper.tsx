@@ -10,7 +10,7 @@ const MonthlyTrendChartLazy = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[260px] w-full rounded-xl bg-slate-100 animate-pulse" />
+      <div className="h-[260px] w-full rounded-xl bg-muted animate-pulse" />
     ),
   }
 );

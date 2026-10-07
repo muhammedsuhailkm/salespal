@@ -19,7 +19,7 @@ export async function TasksSection() {
 
 export function TasksSkeleton() {
   return (
-    <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    <div className="divide-y divide-border rounded-card border border-border bg-card">
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="flex items-center justify-between gap-4 p-4">
           <div className="flex-1 space-y-2">

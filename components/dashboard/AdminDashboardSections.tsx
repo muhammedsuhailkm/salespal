@@ -104,7 +104,7 @@ function DeltaBadge({
 
   if (diff === 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
         <Minus size={10} /> 0%
       </span>
     );
@@ -117,7 +117,7 @@ function DeltaBadge({
     <span
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-        isGood ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700",
+        isGood ? "bg-success-soft text-success-foreground" : "bg-danger-soft text-danger-foreground",
       )}
     >
       {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -179,14 +179,14 @@ export async function KpiCardsRow({
         badgeLabel={`${onboardedDiff > 0 ? "+" : ""}${onboardedPct}%`}
         badgeDirection={onboardedDiff > 0 ? "up" : onboardedDiff < 0 ? "down" : "flat"}
         caption={<>{onboardedClients} total onboarded</>}
-        theme={{ bg: "bg-teal-600" }}
+        theme={{ bg: "bg-primary" }}
       />
       <StatCard
         icon={Users}
         label="Active Pipeline"
         value={activePipeline}
         caption={<>Leads + follow-ups</>}
-        theme={{ bg: "bg-blue-600" }}
+        theme={{ bg: "bg-info" }}
       />
       <StatCard
         icon={BarChart3}
@@ -197,7 +197,7 @@ export async function KpiCardsRow({
             {totalClients} leads &rarr; {onboardedClients} converted
           </>
         }
-        theme={{ bg: "bg-violet-600" }}
+        theme={{ bg: "bg-primary" }}
       />
       <StatCard
         icon={XCircle}
@@ -205,7 +205,7 @@ export async function KpiCardsRow({
         value={lostThisPeriod}
         badgeLabel={`${lostDiff > 0 ? "+" : ""}${lostPct}%`}
         badgeDirection={lostDiff > 0 ? "up" : lostDiff < 0 ? "down" : "flat"}
-        theme={{ bg: "bg-slate-800" }}
+        theme={{ bg: "bg-primary" }}
       />
     </div>
   );
@@ -302,8 +302,8 @@ export async function SalesmanLeaderboardSection({
   return (
     <Card className={cn("rounded-2xl h-[400px] flex flex-col", className)}>
       <div className="flex items-center gap-2 mb-4 shrink-0">
-        <Trophy size={16} className="text-amber-500" />
-        <h3 className="text-sm font-semibold text-slate-900">
+        <Trophy size={16} className="text-warning-foreground" />
+        <h3 className="text-sm font-semibold text-foreground">
           Salesman Leaderboard
         </h3>
       </div>
@@ -314,37 +314,37 @@ export async function SalesmanLeaderboardSection({
               {idx < 3 ? (
                 rankIcons[idx]
               ) : (
-                <span className="text-xs font-semibold text-slate-400">
+                <span className="text-xs font-semibold text-muted-foreground/80">
                   #{idx + 1}
                 </span>
               )}
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-0.5">
-                <p className="text-xs font-semibold text-slate-800 truncate">
+                <p className="text-xs font-semibold text-foreground truncate">
                   {s.name}
                 </p>
-                <span className="text-xs font-bold text-slate-900 tabular-nums">
+                <span className="text-xs font-semibold text-foreground tabular-nums">
                   {s.kpi}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-500",
                       idx === 0
-                        ? "bg-amber-400"
+                        ? "bg-warning"
                         : idx === 1
-                          ? "bg-slate-400"
+                          ? "bg-muted-foreground"
                           : idx === 2
-                            ? "bg-amber-700"
-                            : "bg-slate-300",
+                            ? "bg-warning"
+                            : "bg-border-strong",
                     )}
                     style={{ width: `${Math.max((s.kpi / maxKpi) * 100, 4)}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                <span className="text-[10px] text-muted-foreground/80 font-medium shrink-0">
                   {s.company}
                 </span>
               </div>
@@ -369,24 +369,24 @@ export async function TaskHealthSection({
   const taskTotal = health.taskTotal || 1;
 
   const taskStatusColors: Record<string, string> = {
-    pending: "bg-slate-400",
-    in_process: "bg-cyan-400",
-    achieved: "bg-emerald-400",
-    unsuccessful: "bg-rose-400",
+    pending: "bg-muted-foreground",
+    in_process: "bg-info",
+    achieved: "bg-success",
+    unsuccessful: "bg-danger",
   };
 
   const clientCounts = health.clientCounts;
   const funnelStages = [
-    { label: "Leads", count: clientCounts.lead ?? 0, color: "bg-amber-400" },
+    { label: "Leads", count: clientCounts.lead ?? 0, color: "bg-warning" },
     {
       label: "Follow-ups",
       count: clientCounts.follow_up ?? 0,
-      color: "bg-indigo-400",
+      color: "bg-primary",
     },
     {
       label: "Onboarded",
       count: clientCounts.onboarded ?? 0,
-      color: "bg-emerald-400",
+      color: "bg-success",
     },
   ];
   const funnelMax = funnelStages[0]?.count || 1;
@@ -399,7 +399,7 @@ export async function TaskHealthSection({
     <SectionCard
       title="Task Health"
       icon={ClipboardCheck}
-      iconClassName="text-violet-500"
+      iconClassName="text-primary"
       className={cn("h-[400px] flex flex-col", className)}
       bodyClassName="flex-1 min-h-0"
     >
@@ -409,16 +409,16 @@ export async function TaskHealthSection({
           {Object.entries(taskStatusColors).map(([status, color]) => (
             <div
               key={status}
-              className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-2"
+              className="flex items-center gap-2 rounded-lg bg-subtle px-2.5 py-2"
             >
               <span
                 className={cn("h-2.5 w-2.5 rounded-full shrink-0", color)}
               />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-700 truncate">
+                <p className="text-xs font-semibold text-foreground/85 truncate">
                   {titleCase(status)}
                 </p>
-                <p className="text-sm font-bold text-slate-900">
+                <p className="text-sm font-semibold text-foreground">
                   {taskCounts[status] ?? 0}
                 </p>
               </div>
@@ -427,7 +427,7 @@ export async function TaskHealthSection({
         </div>
 
         {/* Stacked bar */}
-        <div className="flex h-3 rounded-full overflow-hidden bg-slate-100 mb-6">
+        <div className="flex h-3 rounded-full overflow-hidden bg-muted mb-6">
           {Object.entries(taskStatusColors).map(([status, color]) => (
             <div
               key={status}
@@ -442,11 +442,11 @@ export async function TaskHealthSection({
 
         {/* Conversion Funnel */}
         <div className="flex items-center gap-2 mb-3">
-          <Zap size={14} className="text-amber-500" />
-          <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+          <Zap size={14} className="text-warning-foreground" />
+          <h4 className="text-xs font-semibold text-foreground">
             Conversion Funnel
           </h4>
-          <span className="ml-auto text-xs font-bold text-emerald-600">
+          <span className="ml-auto text-xs font-semibold text-success-foreground">
             {overallConversion}%
           </span>
         </div>
@@ -454,14 +454,14 @@ export async function TaskHealthSection({
           {funnelStages.map((stage, idx) => (
             <div key={stage.label}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium text-slate-600">
+                <span className="text-[11px] font-medium text-foreground/70">
                   {stage.label}
                 </span>
-                <span className="text-[11px] font-bold text-slate-800">
+                <span className="text-[11px] font-semibold text-foreground">
                   {stage.count}
                 </span>
               </div>
-              <div className="h-5 rounded-md overflow-hidden bg-slate-100">
+              <div className="h-5 rounded-md overflow-hidden bg-muted">
                 <div
                   className={cn(
                     "h-full rounded-md transition-all duration-500 flex items-center justify-end pr-1.5",
@@ -496,11 +496,11 @@ export async function LiveActivitySection({
     <SectionCard
       title="Live Activity"
       icon={Clock}
-      iconClassName="text-blue-500"
+      iconClassName="text-info-foreground"
       className={cn("h-[340px] flex flex-col", className)}
       bodyClassName="flex-1 min-h-0"
     >
-      <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto h-full pr-1">
+      <div className="space-y-0 divide-y divide-border overflow-y-auto h-full pr-1">
         {activityFeed.map((log) => {
           const timeAgo = getTimeAgo(log.created_at);
           return (
@@ -508,12 +508,12 @@ export async function LiveActivitySection({
               key={log.id}
               className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0"
             >
-              <div className="mt-0.5 h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+              <div className="mt-0.5 h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
                 {log.author.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  <span className="font-semibold text-slate-900">
+                <p className="text-xs text-foreground/85 leading-relaxed">
+                  <span className="font-semibold text-foreground">
                     {log.author.name}
                   </span>{" "}
                   {log.action}
@@ -521,19 +521,19 @@ export async function LiveActivitySection({
                     <>
                       {" "}
                       for{" "}
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-foreground">
                         {log.client.name}
                       </span>
                     </>
                   )}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{timeAgo}</p>
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">{timeAgo}</p>
               </div>
             </div>
           );
         })}
         {activityFeed.length === 0 && (
-          <p className="text-xs text-slate-400 text-center py-6">
+          <p className="text-xs text-muted-foreground/80 text-center py-6">
             No recent activity
           </p>
         )}
@@ -563,11 +563,11 @@ export async function LostClientsSection({
         className,
       )}
     >
-      <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+      <div className="px-5 py-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-rose-500" />
-          <h3 className="text-sm font-semibold text-slate-900">Lost Clients</h3>
-          <span className="ml-auto text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+          <AlertTriangle size={16} className="text-danger-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Lost Clients</h3>
+          <span className="ml-auto text-xs font-semibold text-danger-foreground bg-danger-soft px-2 py-0.5 rounded-full">
             {lost.total}
           </span>
         </div>
@@ -575,7 +575,7 @@ export async function LostClientsSection({
       <div className="overflow-auto flex-1">
         {filteredLost.length > 0 ? (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 tracking-wider sticky top-0 z-10 bg-white">
+            <thead className="bg-subtle text-xs text-muted-foreground sticky top-0 z-10 bg-card">
               <tr>
                 <th className="px-5 py-2.5 font-semibold">Client</th>
                 <th className="px-5 py-2.5 font-semibold">Company</th>
@@ -583,22 +583,22 @@ export async function LostClientsSection({
                 <th className="px-5 py-2.5 font-semibold">Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {filteredLost.map((log) => (
                 <tr
                   key={log.id}
-                  className="hover:bg-slate-50/50 transition-colors"
+                  className="hover:bg-subtle/50 transition-colors"
                 >
-                  <td className="px-5 py-3 font-medium text-slate-800">
+                  <td className="px-5 py-3 font-medium text-foreground">
                     {log.client.name}
                   </td>
-                  <td className="px-5 py-3 text-slate-600">
+                  <td className="px-5 py-3 text-foreground/70">
                     {log.client.organization.name}
                   </td>
-                  <td className="px-5 py-3 text-slate-600">
+                  <td className="px-5 py-3 text-foreground/70">
                     {log.author.name}
                   </td>
-                  <td className="px-5 py-3 text-slate-500 text-xs">
+                  <td className="px-5 py-3 text-muted-foreground text-xs">
                     {formatDate(log.created_at)}
                   </td>
                 </tr>
@@ -606,7 +606,7 @@ export async function LostClientsSection({
             </tbody>
           </table>
         ) : (
-          <p className="text-xs text-slate-400 text-center py-10">
+          <p className="text-xs text-muted-foreground/80 text-center py-10">
             No lost clients this period 🎉
           </p>
         )}
@@ -660,7 +660,7 @@ export async function MonthlyTrendSection({
     <SectionCard
       title="Monthly Onboarding Trend"
       icon={BarChart3}
-      iconClassName="text-teal-500"
+      iconClassName="text-primary"
       className={cn("h-[400px] flex flex-col", className)}
       bodyClassName="flex-1 min-h-0"
     >
@@ -683,7 +683,7 @@ export function KpiSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 animate-pulse">
+        <div key={i} className="rounded-card border border-border bg-card p-5 animate-pulse">
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-4 w-4 rounded-full" />
@@ -700,11 +700,11 @@ export function KpiSkeleton() {
 }
 
 export function HeroSkeleton() {
-  const dark = "animate-pulse rounded-lg bg-slate-800";
+  const dark = "animate-pulse rounded-lg bg-primary";
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {[0, 1].map((i) => (
-        <div key={i} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-6 pt-7">
+        <div key={i} className="space-y-4 rounded-2xl border border-foreground bg-primary p-6 pt-7">
           <div className="flex justify-between">
             <div className={cn(dark, "h-6 w-28")} />
             <div className={cn(dark, "h-6 w-28 rounded-full")} />
@@ -728,7 +728,7 @@ export function MiddleSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3"
+          className="rounded-card border border-border bg-card p-5 space-y-3"
         >
           <Skeleton className="h-4 w-36" />
           {Array.from({ length: 5 }).map((_, j) => (
@@ -749,11 +749,11 @@ export function MiddleSkeleton() {
 export function BottomSkeleton() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
+      <div className="rounded-card border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
           <Skeleton className="h-4 w-28" />
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="px-5 py-3 flex gap-4">
               <Skeleton className="h-4 w-24" />
@@ -764,7 +764,7 @@ export function BottomSkeleton() {
           ))}
         </div>
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="rounded-card border border-border bg-card p-5">
         <Skeleton className="h-4 w-44 mb-4" />
         <Skeleton className="h-[260px] rounded-xl" />
       </div>

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     where: { AND: [{ id: Number(id) }, await orderScopeWhere(token)] },
     include: { client: { select: { name: true } }, createdBy: { select: { name: true } }, ...orderPaymentsInclude },
   });
-  if (!raw || raw.status === "cancelled") return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (!raw || raw.status === "cancelled" || raw.status === "revision_requested") return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   const order = serializeOrder(raw);
   if (order.balance <= 0) return NextResponse.json({ error: "This order is fully paid" }, { status: 409 });
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       due_date: new Date(),
       notification: true,
       status: "pending",
+      category: "payment_follow_up",
     },
   });
 

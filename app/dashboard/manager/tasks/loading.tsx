@@ -2,13 +2,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-page-in">
       <div className="space-y-2">
         <Skeleton className="h-7 w-32" />
         <Skeleton className="h-4 w-80" />
       </div>
 
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+      <div className="bg-card p-5 rounded-card border border-border/80 shadow-card space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="space-y-2">
             <Skeleton className="h-4 w-32" />
@@ -24,13 +24,13 @@ export default function Loading() {
       </div>
 
       <div className="w-full space-y-4">
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl w-fit">
           <Skeleton className="h-7 w-20 rounded-lg" />
           <Skeleton className="h-7 w-16 rounded-lg" />
           <Skeleton className="h-7 w-24 rounded-lg" />
         </div>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-card border border-border bg-card p-4 shadow-card">
             <div className="flex-1 space-y-3 min-w-0">
               <div className="flex items-center flex-wrap gap-2">
                 <Skeleton className="h-5 w-24 rounded-full" />

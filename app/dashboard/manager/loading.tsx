@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-page-in">
       {/* Page header skeleton */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
@@ -17,7 +17,7 @@ export default function Loading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-slate-200 bg-white p-5 border-t-[3px] border-t-slate-200 space-y-3"
+            className="rounded-card border border-border bg-card p-5 border-t-[3px] border-t-border space-y-3"
           >
             <div className="flex items-center justify-between">
               <Skeleton className="h-9 w-9 rounded-xl" />
@@ -37,7 +37,7 @@ export default function Loading() {
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Spotlight card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+          <div className="rounded-card border border-border bg-card p-5 space-y-4">
             <Skeleton className="h-5 w-28 rounded-full" />
             <div className="flex items-center gap-4">
               <Skeleton className="h-[54px] w-[54px] rounded-full shrink-0" />
@@ -58,7 +58,7 @@ export default function Loading() {
             <Skeleton className="h-12 rounded-xl" />
           </div>
           {/* Leaderboard */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+          <div className="rounded-card border border-border bg-card p-5 space-y-4">
             <Skeleton className="h-5 w-36" />
             {Array.from({ length: 5 }).map((_, j) => (
               <div key={j} className="flex items-center gap-3">
@@ -75,7 +75,7 @@ export default function Loading() {
 
       {/* Funnel + Tasks — 2 columns */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div className="rounded-card border border-border bg-card p-5 space-y-4">
           <Skeleton className="h-5 w-40" />
           {Array.from({ length: 3 }).map((_, j) => (
             <div key={j} className="space-y-1.5">
@@ -85,7 +85,7 @@ export default function Loading() {
           ))}
           <Skeleton className="h-10 w-16 mx-auto" />
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div className="rounded-card border border-border bg-card p-5 space-y-4">
           <Skeleton className="h-5 w-28" />
           {Array.from({ length: 5 }).map((_, j) => (
             <div key={j} className="flex items-center gap-3">
@@ -101,7 +101,7 @@ export default function Loading() {
       </div>
 
       {/* Activity Feed — full width */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="rounded-card border border-border bg-card p-5 space-y-4">
         <Skeleton className="h-5 w-28" />
         {Array.from({ length: 5 }).map((_, j) => (
           <div key={j} className="flex items-start gap-3">

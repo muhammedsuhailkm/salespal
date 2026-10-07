@@ -46,45 +46,45 @@ export async function KpiCardsSection() {
         value={calculateKpiScore(counts)}
         hint="Total points earned"
         icon={<Target size={20} />}
-        iconBgClass="bg-blue-50/70"
-        iconColorClass="text-blue-600"
+        iconBgClass="bg-info-soft/70"
+        iconColorClass="text-info-foreground"
       />
       <KpiCard
         label="My Clients"
         value={totalClients}
         hint={`${onboardedThisMonth} onboarded this month`}
         icon={<Briefcase size={20} />}
-        iconBgClass="bg-teal-50/70"
-        iconColorClass="text-teal-600"
+        iconBgClass="bg-primary-soft/70"
+        iconColorClass="text-primary"
       />
       <KpiCard
         label="Conversion Rate"
         value={`${conversionRate}%`}
         hint={`${totalClients} leads, ${onboardedClients} converted`}
         icon={<TrendingUp size={20} />}
-        iconBgClass="bg-amber-50/70"
-        iconColorClass="text-amber-600"
+        iconBgClass="bg-warning-soft/70"
+        iconColorClass="text-warning-foreground"
       />
       <KpiCard
         label="Pending Tasks"
         value={pendingTasksCount}
         icon={<ListTodo size={20} />}
-        iconBgClass="bg-purple-50/70"
-        iconColorClass="text-purple-600"
+        iconBgClass="bg-primary-soft/70"
+        iconColorClass="text-primary"
       />
       <KpiCard
         label="Today's Follow-ups"
         value={counts.follow_up ?? 0}
         icon={<Phone size={20} />}
-        iconBgClass="bg-red-50/70"
-        iconColorClass="text-red-500"
+        iconBgClass="bg-danger-soft/70"
+        iconColorClass="text-danger-foreground"
       />
       <KpiCard
         label="Upcoming Meetings"
         value={0}
         icon={<Calendar size={20} />}
-        iconBgClass="bg-sky-50/70"
-        iconColorClass="text-sky-600"
+        iconBgClass="bg-info-soft/70"
+        iconColorClass="text-info-foreground"
       />
     </div>
   );
@@ -94,7 +94,7 @@ export function KpiCardsSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-start justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div key={i} className="flex items-start justify-between rounded-card border border-border bg-card p-5 shadow-card">
           <div className="flex-1 min-w-0">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="mt-3.5 h-6 w-12" />

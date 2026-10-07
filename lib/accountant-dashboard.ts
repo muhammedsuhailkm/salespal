@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { enquiryRef } from "@/types/enquiry";
+import { literal } from "@/lib/list-params";
 
 /** Credit orders raised without an enquiry have no agreed credit days. */
 export const DEFAULT_CREDIT_DAYS = 30;
@@ -23,16 +23,17 @@ export type ReceivableOrder = {
   days_overdue: number; // 0 when not yet due
 };
 
-export type NewEnquiry = {
+/** Order created by confirming an enquiry, waiting for accounts to add job no / actuals / dates. */
+export type AwaitingOrder = {
   id: number;
   ref: string;
   client_name: string;
-  enquiry_date: string;
+  created_on: string;
   mode: string;
   from: string;
   to: string;
   created_by: string;
-  provisional_value: number;
+  amount: number;
 };
 
 /** Companies the owner assigned this accountant to. */
@@ -61,7 +62,7 @@ function receivablesCte(orgIds: number[]) {
       JOIN clients c ON c.id = o.client_id
       JOIN users u ON u.id = o.created_by_id
       LEFT JOIN enquiries e ON e.id = o.enquiry_id
-      WHERE o.status <> 'cancelled' AND o.amount - o.paid_total > 0.005 AND c.org_id IN (${Prisma.join(orgIds)})
+      WHERE o.status NOT IN ('cancelled', 'revision_requested') AND o.amount - o.paid_total > 0.005 AND c.org_id IN (${Prisma.join(orgIds)})
     )`;
 }
 
@@ -82,6 +83,9 @@ const toReceivable = (r: ReceivableSqlRow): ReceivableOrder => ({
   days_overdue: Number(r.days_overdue),
 });
 
+/** Orders in transit with no job no yet: the accountant's to-do list. */
+const AWAITING_DETAILS = (inOrgs: Prisma.OrderWhereInput): Prisma.OrderWhereInput => ({ status: "transit", job_no: null, ...inOrgs });
+
 /** Scoped to the clients of `orgIds` — the companies the accountant is assigned to. */
 export async function getAccountantDashboard(orgIds: number[]) {
   const now = new Date();
@@ -90,7 +94,7 @@ export async function getAccountantDashboard(orgIds: number[]) {
   const inOrgs = { client: { org_id: { in: orgIds } } };
   const cte = receivablesCte(orgIds);
 
-  const [summary, pastDueRows, pendingRows, enquiries, enquiryCount, collectedThisMonth, advancesThisMonth] = await Promise.all([
+  const [summary, pendingRows, awaiting, awaitingCount, collectedThisMonth, advancesThisMonth] = await Promise.all([
     prisma.$queryRaw<{ pending_count: number; outstanding: number; past_due_count: number; past_due: number }[]>(Prisma.sql`
       ${cte}
       SELECT COUNT(*)::int AS pending_count, COALESCE(SUM(balance), 0)::float8 AS outstanding,
@@ -99,41 +103,36 @@ export async function getAccountantDashboard(orgIds: number[]) {
       FROM r`),
     prisma.$queryRaw<ReceivableSqlRow[]>(Prisma.sql`
       ${cte}
-      SELECT *, (${today}::date - due)::int AS days_overdue FROM r WHERE due < ${today}::date
-      ORDER BY days_overdue DESC, id LIMIT ${PANEL_LIMIT}`),
-    prisma.$queryRaw<ReceivableSqlRow[]>(Prisma.sql`
-      ${cte}
       SELECT *, GREATEST(${today}::date - due, 0)::int AS days_overdue FROM r
       ORDER BY due ASC, id LIMIT ${PANEL_LIMIT}`),
-    prisma.enquiry.findMany({
-      where: { status: "open", order: null, ...inOrgs },
+    prisma.order.findMany({
+      where: AWAITING_DETAILS(inOrgs),
       include: { client: { select: { name: true } }, createdBy: { select: { name: true } } },
-      orderBy: [{ enquiry_date: "desc" }, { id: "desc" }],
+      orderBy: [{ created_at: "asc" }, { id: "asc" }],
       take: PANEL_LIMIT,
     }),
-    prisma.enquiry.count({ where: { status: "open", order: null, ...inOrgs } }),
+    prisma.order.count({ where: AWAITING_DETAILS(inOrgs) }),
     prisma.orderPayment.aggregate({ where: { paid_on: { gte: monthStart }, order: inOrgs }, _sum: { amount: true } }),
-    prisma.order.aggregate({ where: { created_at: { gte: monthStart }, status: { not: "cancelled" }, ...inOrgs }, _sum: { advance_amount: true } }),
+    prisma.order.aggregate({ where: { created_at: { gte: monthStart }, status: { notIn: ["cancelled", "revision_requested"] }, ...inOrgs }, _sum: { advance_amount: true } }),
   ]);
 
   const s = summary[0];
-  const newEnquiries: NewEnquiry[] = enquiries.map((e) => ({
-    id: e.id,
-    ref: enquiryRef(e.id),
-    client_name: e.client.name,
-    enquiry_date: e.enquiry_date.toISOString().slice(0, 10),
-    mode: e.mode,
-    from: e.from,
-    to: e.to,
-    created_by: e.createdBy.name,
-    provisional_value: e.provisional_cost.toNumber() + e.provisional_profit.toNumber(),
+  const awaitingDetails: AwaitingOrder[] = awaiting.map((o) => ({
+    id: o.id,
+    ref: `#${String(o.id).padStart(5, "0")}`,
+    client_name: o.client.name,
+    created_on: o.created_at.toISOString().slice(0, 10),
+    mode: o.mode,
+    from: o.from,
+    to: o.to,
+    created_by: o.createdBy.name,
+    amount: o.amount.toNumber(),
   }));
 
   return {
     pending: pendingRows.map(toReceivable),
-    pastDue: pastDueRows.map(toReceivable),
-    newEnquiries,
-    counts: { pending: Number(s.pending_count), pastDue: Number(s.past_due_count), newEnquiries: enquiryCount },
+    awaitingDetails,
+    counts: { pending: Number(s.pending_count), pastDue: Number(s.past_due_count), awaitingDetails: awaitingCount },
     totals: {
       outstanding: Number(s.outstanding),
       pastDue: Number(s.past_due),
@@ -142,3 +141,36 @@ export async function getAccountantDashboard(orgIds: number[]) {
     },
   };
 }
+
+export const PAST_DUE_PAGE_SIZE = 10;
+
+/**
+ * One page of past-due orders (most overdue first), optionally filtered by client, salesman,
+ * job no or order no (e.g. "#00042" or "42"). Same receivables rules as the dashboard totals.
+ */
+export async function getPastDuePage(orgIds: number[], { q, page = 1 }: { q?: string; page?: number }) {
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const term = q?.trim();
+  const orderId = term ? Number(term.replace(/^#/, "")) : NaN;
+  const search = term
+    ? Prisma.sql`AND (client_name ILIKE ${`%${literal(term)}%`} OR salesman ILIKE ${`%${literal(term)}%`} OR job_no ILIKE ${`%${literal(term)}%`}${
+        Number.isInteger(orderId) && orderId > 0 ? Prisma.sql` OR id = ${orderId}` : Prisma.empty
+      })`
+    : Prisma.empty;
+  const cte = receivablesCte(orgIds);
+
+  const [rows, count] = await Promise.all([
+    prisma.$queryRaw<ReceivableSqlRow[]>(Prisma.sql`
+      ${cte}
+      SELECT *, (${today}::date - due)::int AS days_overdue FROM r WHERE due < ${today}::date ${search}
+      ORDER BY days_overdue DESC, id LIMIT ${PAST_DUE_PAGE_SIZE} OFFSET ${(page - 1) * PAST_DUE_PAGE_SIZE}`),
+    prisma.$queryRaw<{ total: number }[]>(Prisma.sql`
+      ${cte}
+      SELECT COUNT(*)::int AS total FROM r WHERE due < ${today}::date ${search}`),
+  ]);
+
+  return { rows: rows.map(toReceivable), total: Number(count[0]?.total ?? 0), page, pageSize: PAST_DUE_PAGE_SIZE };
+}
+
+export type PastDuePage = Awaited<ReturnType<typeof getPastDuePage>>;

@@ -179,18 +179,16 @@
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--ds-text-secondary);
 }
 
 .ss-type-overline {
   font-family: var(--ds-font-sans);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--ds-text-muted);
 }
 
@@ -215,8 +213,7 @@
   font-family: var(--ds-font-sans);
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--ds-text-secondary);
   text-align: left;
   white-space: nowrap;

@@ -5,14 +5,14 @@ type SalesmanRow = { id: number; name: string; assignedClients: { status: string
 
 export function SalesmanPerfTable({ salesmen }: { salesmen: SalesmanRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-card border border-border bg-card">
       <table className="w-full text-left text-sm">
-        <thead className="bg-slate-100 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Salesman</th><th className="px-4 py-3">Clients</th><th className="px-4 py-3">Top status</th><th className="px-4 py-3">KPI</th></tr></thead>
-        <tbody className="divide-y divide-slate-200">
+        <thead className="bg-subtle text-xs text-muted-foreground font-medium"><tr><th className="px-4 py-3">Salesman</th><th className="px-4 py-3">Clients</th><th className="px-4 py-3">Top status</th><th className="px-4 py-3">KPI</th></tr></thead>
+        <tbody className="divide-y divide-border">
           {salesmen.map((salesman) => {
             const counts = groupStatusCounts(salesman.assignedClients);
             const topStatus = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "lead";
-            return <tr key={salesman.id}><td className="px-4 py-3 font-medium text-slate-900">{salesman.name}</td><td className="px-4 py-3">{salesman.assignedClients.length}</td><td className="px-4 py-3"><Badge value={topStatus} /></td><td className="px-4 py-3 font-semibold">{calculateKpiScore(counts)}</td></tr>;
+            return <tr key={salesman.id}><td className="px-4 py-3 font-medium text-foreground">{salesman.name}</td><td className="px-4 py-3">{salesman.assignedClients.length}</td><td className="px-4 py-3"><Badge value={topStatus} /></td><td className="px-4 py-3 font-semibold">{calculateKpiScore(counts)}</td></tr>;
           })}
         </tbody>
       </table>

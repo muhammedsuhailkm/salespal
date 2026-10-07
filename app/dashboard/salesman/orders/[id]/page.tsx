@@ -19,9 +19,9 @@ async function OrderDetailContent({ params }: { params: Promise<{ id: string }> 
 
   if (isNaN(orderId)) {
     return (
-      <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-200">
-        <h3 className="text-sm font-bold text-red-600">Invalid Order ID</h3>
-        <p className="mt-2 text-xs text-slate-500">The order ID provided is not valid.</p>
+      <div className="p-8 text-center bg-card rounded-card shadow-card border border-border">
+        <h3 className="text-sm font-semibold text-danger-foreground">Invalid Order ID</h3>
+        <p className="mt-2 text-xs text-muted-foreground">The order ID provided is not valid.</p>
       </div>
     );
   }
@@ -35,9 +35,9 @@ async function OrderDetailContent({ params }: { params: Promise<{ id: string }> 
   // so the only remaining check is that the order belongs to this salesman.
   if (!order || order.created_by_id !== session.user.id) {
     return (
-      <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-slate-200">
-        <h3 className="text-sm font-bold text-red-600">Order Not Found</h3>
-        <p className="mt-2 text-xs text-slate-500">This order does not exist or you do not have access to it.</p>
+      <div className="p-8 text-center bg-card rounded-card shadow-card border border-border">
+        <h3 className="text-sm font-semibold text-danger-foreground">Order Not Found</h3>
+        <p className="mt-2 text-xs text-muted-foreground">This order does not exist or you do not have access to it.</p>
       </div>
     );
   }

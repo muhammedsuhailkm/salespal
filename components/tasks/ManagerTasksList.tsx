@@ -24,6 +24,7 @@ import { Toast } from "@/components/ui/Toast";
 import { cn, formatDate, titleCase } from "@/lib/utils";
 import { taskStatuses } from "@/types/task";
 
+import { buttonVariants } from "@/components/ui/Button";
 type UnifiedTask = {
   id: number;
   description: string;
@@ -49,10 +50,10 @@ interface ManagerTasksListProps {
 }
 
 const STATUS_SELECT_COLORS: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-700 ring-slate-200",
-  in_process: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  achieved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  unsuccessful: "bg-red-50 text-red-700 ring-red-200",
+  pending: "bg-muted text-foreground/85 ring-border",
+  in_process: "bg-info-soft text-info-foreground ring-info/30",
+  achieved: "bg-success-soft text-success-foreground ring-success/30",
+  unsuccessful: "bg-danger-soft text-danger-foreground ring-danger/30",
 };
 
 export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
@@ -258,13 +259,13 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
   return (
     <div className="space-y-6">
       {/* Search and Filters panel */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+      <div className="bg-card p-5 rounded-card border border-border/80 shadow-card space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
               Task Management
             </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">
               Monitor, assign, and manage tasks for your salesmen.
             </p>
           </div>
@@ -273,7 +274,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               setErrorMsg(null);
               setIsAddOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm active:scale-95"
+            className={buttonVariants({ size: "sm" })}
           >
             <Plus size={14} />
             <span>Assign Task</span>
@@ -283,14 +284,14 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
           {/* Search bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/80" size={14} />
             <input
               type="text"
               placeholder="Search description, salesman, client..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search tasks"
-              className="w-full h-10 pl-9 pr-4 text-xs rounded-xl border border-slate-200 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 bg-slate-50"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full h-10 pl-9 pr-4"
             />
           </div>
 
@@ -300,7 +301,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               value={salesmanFilter}
               onChange={(e) => set({ salesman: e.target.value })}
               aria-label="Filter by salesman"
-              className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:border-slate-400"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full h-10 cursor-pointer"
             >
               <option value="all">All Salesmen</option>
               {salesmen.map((s) => (
@@ -317,7 +318,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               value={statusFilter}
               onChange={(e) => set({ status: e.target.value })}
               aria-label="Filter by status"
-              className="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:border-slate-400"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full h-10 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
@@ -332,7 +333,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
       {/* Task List */}
       <div className="w-full space-y-4">
         {/* Type filter tabs */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl w-fit">
           {([
             { key: "all" as const, label: "All Tasks" },
             { key: "general" as const, label: "General" },
@@ -344,8 +345,8 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               className={cn(
                 "px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer",
                 typeFilter === tab.key
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/60"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                  : "text-muted-foreground hover:text-foreground/85 hover:bg-muted"
               )}
             >
               {tab.label}
@@ -363,48 +364,48 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               <div
                 key={`${task.isClientTask ? "client" : "regular"}-${task.id}`}
                 className={cn(
-                  "relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md",
-                  isOverdue ? "border-l-4 border-l-red-500 border-slate-200" : "border-slate-200"
+                  "relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md",
+                  isOverdue ? "border-l-4 border-l-danger border-border" : "border-border"
                 )}
               >
                 <div className="flex-1 space-y-2.5 min-w-0">
                   <div className="flex items-center flex-wrap gap-2">
                     {/* Task type badge */}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2.5 py-0.5 text-xs font-semibold text-primary">
                       <ListTodo size={10} />
                       <span>{task.isClientTask ? "Client Task" : "General Task"}</span>
                     </span>
 
                     {/* Client name if present */}
                     {task.isClientTask && task.clientName && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success-foreground">
                         <Building size={10} />
                         <span>Client: {task.clientName}</span>
                       </span>
                     )}
 
                     {/* Assigned Salesman */}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-subtle px-2.5 py-0.5 text-xs font-semibold text-foreground/70">
                       <User size={10} />
                       <span>Assigned to: {task.assignedTo?.name || "Unassigned"}</span>
                     </span>
                   </div>
 
                   {/* Task Description */}
-                  <p className="text-sm font-semibold text-slate-800 break-words leading-relaxed">
+                  <p className="text-sm font-semibold text-foreground break-words leading-relaxed">
                     {task.description}
                   </p>
 
                   {/* Task Metadata (Due Date & Overdue label) */}
-                  <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground/80">
                     <span className="flex items-center gap-1">
-                      <Calendar size={11} className={isOverdue ? "text-red-500 animate-pulse" : "text-slate-400"} />
-                      <span className={cn(isOverdue ? "text-red-600 font-bold" : "text-slate-500")}>
+                      <Calendar size={11} className={isOverdue ? "text-danger-foreground animate-pulse" : "text-muted-foreground/80"} />
+                      <span className={cn(isOverdue ? "text-danger-foreground font-semibold" : "text-muted-foreground")}>
                         Due: {formatDate(task.due_date)}
                       </span>
                     </span>
                     {isOverdue && (
-                      <span className="inline-flex items-center gap-0.5 text-red-700 bg-red-50 px-1.5 py-0.5 rounded-full text-[9px] font-bold">
+                      <span className="inline-flex items-center gap-0.5 text-danger-foreground bg-danger-soft px-1.5 py-0.5 rounded-full text-[9px] font-semibold">
                         <AlertCircle size={9} /> Overdue
                       </span>
                     )}
@@ -417,7 +418,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                     {updatingTaskId === task.id && (
                       <Loader2
                         size={14}
-                        className="absolute -left-5 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+                        className="absolute -left-5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground/80"
                       />
                     )}
                     <select
@@ -433,7 +434,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                       disabled={updatingTaskId === task.id}
                       aria-label="Update task status"
                       className={cn(
-                        "cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-7 text-xs font-semibold ring-1 outline-none transition focus:ring-2 focus:ring-indigo-200 disabled:opacity-60",
+                        "cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-7 text-xs font-semibold ring-1 outline-none transition focus:ring-2 focus:ring-ring/20 disabled:opacity-60",
                         STATUS_SELECT_COLORS[task.status] ?? STATUS_SELECT_COLORS.pending
                       )}
                       style={{
@@ -454,7 +455,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                   <button
                     onClick={() => handleDeleteTask(task.id, task.isClientTask, task.clientId)}
                     disabled={deletingTaskId === task.id}
-                    className="text-slate-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50 flex-shrink-0 cursor-pointer"
+                    className="text-muted-foreground/80 hover:text-danger-foreground transition p-1.5 rounded-lg hover:bg-danger-soft flex-shrink-0 cursor-pointer"
                     title="Delete task"
                   >
                     {deletingTaskId === task.id ? (
@@ -468,7 +469,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
             );
           })
         ) : (
-          <div className="text-center p-12 bg-white rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
+          <div className="text-center p-12 bg-card rounded-card border border-dashed border-border text-sm text-muted-foreground">
             No tasks found matching current filters.
           </div>
         )}
@@ -477,22 +478,22 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
       </div>
 
       {/* Assign Task Modal */}
-      <Modal open={isAddOpen}>
+      <Modal onClose={() => setIsAddOpen(false)} open={isAddOpen}>
         <div className="relative">
-          <button
+          <button aria-label="Close"
             onClick={() => setIsAddOpen(false)}
-            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute -top-1.5 -right-1.5")}
           >
             <X size={16} />
           </button>
 
           <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">New Task</h3>
-            <p className="text-xs text-slate-500">Assign a task to a member of your sales team.</p>
+            <h3 className="text-base font-semibold text-foreground">New Task</h3>
+            <p className="text-xs text-muted-foreground">Assign a task to a member of your sales team.</p>
           </div>
 
           {errorMsg && (
-            <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+            <div className="mb-4 p-2.5 bg-danger-soft border border-danger/30 rounded-lg text-xs text-danger-foreground font-medium">
               {errorMsg}
             </div>
           )}
@@ -500,7 +501,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
           <form onSubmit={handleAddSubmit} className="space-y-4">
             {/* Title / Task Header */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="task-title">
+              <label className="text-xs font-semibold text-foreground/85" htmlFor="task-title">
                 Title *
               </label>
               <input
@@ -510,13 +511,13 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                 value={addTaskForm.title}
                 onChange={(e) => setAddTaskForm({ ...addTaskForm, title: e.target.value })}
                 placeholder="e.g. Schedule call with decision maker"
-                className="w-full h-10 rounded-md border border-slate-350 bg-white px-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full h-10"
               />
             </div>
 
             {/* Description Textarea */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="task-desc">
+              <label className="text-xs font-semibold text-foreground/85" htmlFor="task-desc">
                 Description
               </label>
               <textarea
@@ -525,21 +526,21 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                 onChange={(e) => setAddTaskForm({ ...addTaskForm, description: e.target.value })}
                 placeholder="Specify task instructions, agenda, or background details..."
                 rows={3}
-                className="w-full rounded-md border border-slate-350 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full py-2.5"
               />
             </div>
 
             {/* Row: Type and Due Date */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700" htmlFor="task-type">
+                <label className="text-xs font-semibold text-foreground/85" htmlFor="task-type">
                   Type
                 </label>
                 <select
                   id="task-type"
                   value={addTaskForm.type}
                   onChange={(e) => setAddTaskForm({ ...addTaskForm, type: e.target.value })}
-                  className="h-10 px-3 text-xs rounded-md border border-slate-350 bg-white outline-none cursor-pointer focus:border-slate-950"
+                  className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
                 >
                   <option value="Call">Call</option>
                   <option value="Email">Email</option>
@@ -551,7 +552,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700" htmlFor="task-due">
+                <label className="text-xs font-semibold text-foreground/85" htmlFor="task-due">
                   Due Date *
                 </label>
                 <input
@@ -560,7 +561,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                   required
                   value={addTaskForm.due_date}
                   onChange={(e) => setAddTaskForm({ ...addTaskForm, due_date: e.target.value })}
-                  className="w-full h-10 rounded-md border border-slate-350 bg-white px-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+                  className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full h-10"
                 />
               </div>
             </div>
@@ -568,7 +569,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
             {/* Row: Assign To (Salesman) and Client (Optional) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700" htmlFor="task-assignee">
+                <label className="text-xs font-semibold text-foreground/85" htmlFor="task-assignee">
                   Assign To *
                 </label>
                 <select
@@ -576,7 +577,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
                   required
                   value={addTaskForm.assigned_to_id}
                   onChange={(e) => setAddTaskForm({ ...addTaskForm, assigned_to_id: e.target.value })}
-                  className="h-10 px-3 text-xs rounded-md border border-slate-350 bg-white outline-none cursor-pointer focus:border-slate-950"
+                  className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
                 >
                   <option value="">Select salesman...</option>
                   {salesmen.map((s) => (
@@ -588,7 +589,7 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700" htmlFor="task-client">
+                <label className="text-xs font-semibold text-foreground/85" htmlFor="task-client">
                   Client (Optional)
                 </label>
                 <ClientPicker id="task-client" value={pickedClient} onChange={setPickedClient} inputClassName="text-xs" />
@@ -596,33 +597,33 @@ export function ManagerTasksList({ data, salesmen }: ManagerTasksListProps) {
             </div>
 
             {/* Notification alert toggle (Default on) */}
-            <div className="flex items-center gap-2 py-1.5 border-t border-slate-100">
+            <div className="flex items-center gap-2 py-1.5 border-t border-border">
               <input
                 id="task-notif-switch"
                 type="checkbox"
                 checked={addTaskForm.notification}
                 onChange={(e) => setAddTaskForm({ ...addTaskForm, notification: e.target.checked })}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer"
+                className="h-4 w-4 text-primary focus:ring-ring/20 border-border-strong rounded cursor-pointer"
               />
-              <label className="text-xs font-medium text-slate-700 cursor-pointer select-none" htmlFor="task-notif-switch">
+              <label className="text-xs font-medium text-foreground/85 cursor-pointer select-none" htmlFor="task-notif-switch">
                 Send alert notification to salesman (default is On)
               </label>
             </div>
 
             {/* Submit buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-3.5 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2.5 pt-3.5 border-t border-border">
               <button
                 type="button"
                 onClick={() => setIsAddOpen(false)}
                 disabled={isSaving}
-                className="px-4 py-2 text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold border border-border hover:bg-subtle text-foreground/70 rounded-lg transition disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm active:scale-95"
+                className={buttonVariants({ size: "sm" })}
               >
                 {isSaving && <Loader2 size={12} className="animate-spin" />}
                 <span>Create Task</span>

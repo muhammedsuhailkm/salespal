@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { roleHome } from "@/lib/nav-config";
 
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("owner@salespal.test");
@@ -49,24 +51,24 @@ export function LoginForm() {
           <img
             src="/logo_collapsed.png"
             alt="SalesPal Logo"
-            className="h-8 w-8 object-contain rounded border border-slate-100/80 shadow-sm"
+            className="h-8 w-8 object-contain rounded border border-border/80 shadow-sm"
           />
-          <span className="font-bold text-slate-900 text-xl tracking-tight">
-            Sales<span className="text-teal-600">Pal</span>
+          <span className="font-semibold text-foreground text-xl tracking-tight">
+            Sales<span className="text-primary">Pal</span>
           </span>
         </div>
-        <p className="text-slate-500 font-medium text-[13px] text-center">
+        <p className="text-muted-foreground font-medium text-[13px] text-center">
           Sign in to your account to continue
         </p>
       </div>
 
       {/* Email Input */}
       <div className="space-y-1.5">
-        <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider" htmlFor="email">
+        <label className="block text-xs font-semibold text-foreground/85" htmlFor="email">
           Email address
         </label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/80">
             <Mail size={18} className="stroke-[1.75]" />
           </span>
           <input
@@ -75,7 +77,7 @@ export function LoginForm() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-12 w-full pl-11 pr-4 rounded-xl border border-slate-200 bg-white text-sm outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-400/30 placeholder:text-slate-400/70 text-slate-900"
+            className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-12 w-full pl-11 pr-4"
             required
           />
         </div>
@@ -83,11 +85,11 @@ export function LoginForm() {
 
       {/* Password Input */}
       <div className="space-y-1.5">
-        <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider" htmlFor="password">
+        <label className="block text-xs font-semibold text-foreground/85" htmlFor="password">
           Password
         </label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/80">
             <Lock size={18} className="stroke-[1.75]" />
           </span>
           <input
@@ -96,13 +98,13 @@ export function LoginForm() {
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-12 w-full pl-11 pr-11 rounded-xl border border-slate-200 bg-white text-sm outline-none transition focus:border-slate-400 focus:ring-1 focus:ring-slate-400/30 placeholder:text-slate-400/70 text-slate-900"
+            className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-12 w-full pl-11 pr-11"
             required
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none cursor-pointer"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/70 transition-colors focus:outline-none cursor-pointer"
           >
             {showPassword ? <EyeOff size={18} className="stroke-[1.75]" /> : <Eye size={18} className="stroke-[1.75]" />}
           </button>
@@ -111,7 +113,7 @@ export function LoginForm() {
 
       {/* Error Message */}
       {error ? (
-        <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg py-2 px-3">
+        <p className="text-xs font-medium text-danger-foreground bg-danger-soft border border-danger/30 rounded-lg py-2 px-3">
           {error}
         </p>
       ) : null}
@@ -121,7 +123,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-12 bg-slate-950 hover:bg-slate-900 text-white font-semibold text-sm rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400/50 flex items-center justify-center cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+          className={cn(buttonVariants({ size: "lg" }), "w-full")}
         >
           {loading ? (
             <span className="flex items-center gap-2">
@@ -136,15 +138,15 @@ export function LoginForm() {
       </div>
 
       {/* Help / Credentials Footer */}
-      <div className="text-center text-xs space-y-2 pt-3 border-t border-slate-100 mt-4">
-        <p className="text-slate-500">
+      <div className="text-center text-xs space-y-2 pt-3 border-t border-border mt-4">
+        <p className="text-muted-foreground">
           Don't have an account?{" "}
-          <span className="font-semibold text-slate-900 cursor-help" title="System admin setup is required for new accounts.">
+          <span className="font-semibold text-foreground cursor-help" title="System admin setup is required for new accounts.">
             Contact Admin
           </span>
         </p>
-        <p className="text-[11px] text-slate-400/90">
-          Seed users use <code className="font-mono bg-slate-50 px-1 py-0.5 rounded border border-slate-100 text-slate-500">password123</code>
+        <p className="text-[11px] text-muted-foreground/80">
+          Seed users use <code className="font-mono bg-subtle px-1 py-0.5 rounded border border-border text-muted-foreground">password123</code>
         </p>
       </div>
     </form>

@@ -41,6 +41,19 @@ export async function POST(request: NextRequest) {
   });
   if (clients.length !== clientIds.length) return NextResponse.json({ error: "Some clients are outside your organization" }, { status: 403 });
 
+  // The salesman must work for each client's (target) company on this manager's team.
+  const salesmanOrgIds = (
+    await prisma.managerSalesman.findMany({ where: { manager_id: getTokenUserId(token), salesman_id: salesmanId }, select: { org_id: true } })
+  ).map((r) => r.org_id);
+  const outside = new Set(clients.map((client) => org?.id ?? client.org_id).filter((id) => !salesmanOrgIds.includes(id)));
+  if (outside.size) {
+    const names = await prisma.organization.findMany({ where: { id: { in: [...outside] } }, select: { name: true } });
+    return NextResponse.json(
+      { error: `${salesman.name} doesn't work for ${names.map((n) => n.name).join(", ")} on your team. Give them the company on the Team page first.` },
+      { status: 403 }
+    );
+  }
+
   const toMove = clients
     .filter((client) => client.assigned_salesman_id !== salesmanId || (org && client.org_id !== org.id))
     .map((client) => client.id);

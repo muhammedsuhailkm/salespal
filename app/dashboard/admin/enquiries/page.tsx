@@ -11,7 +11,7 @@ export default async function AdminEnquiriesPage({ searchParams }: { searchParam
   return (
     <>
       <PageHeader title="Enquiries" subtitle="All enquiries across the company." />
-      <EnquiriesClient data={data} canCreate={false} canConvert={false} />
+      <EnquiriesClient data={data} role="admin" canCreate={false} />
     </>
   );
 }

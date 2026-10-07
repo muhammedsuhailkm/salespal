@@ -11,7 +11,7 @@ export default async function SalesmanEnquiriesPage({ searchParams }: { searchPa
   return (
     <>
       <PageHeader title="Enquiries" subtitle="Raise enquiries for your clients and track them through to orders." />
-      <EnquiriesClient data={data} canCreate canConvert={false} canFollowUp />
+      <EnquiriesClient data={data} role="salesman" canCreate canFollowUp />
     </>
   );
 }

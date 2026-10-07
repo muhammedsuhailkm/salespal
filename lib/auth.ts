@@ -32,7 +32,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           role_id: user.role_id,
           org_ids: user.managerOrgs.map((item) => item.org_id),
-          manager_ids: user.salesmanManager.map((item) => item.manager_id),
+          manager_ids: [...new Set(user.salesmanManager.map((item) => item.manager_id))],
         };
       },
     }),

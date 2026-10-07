@@ -15,8 +15,9 @@ const CACHE = { revalidate: 30, tags: ["admin-dashboard", "admin-clients"] };
 
 type Counts = Record<string, number>;
 
-const ONBOARDED_NOW = ["onboarded", "active_client", "lost", "inactive"];
-const LOST_NOW = ["lost", "cancelled"];
+// Clients onboarded in the period, counted while they are onboarded / dormant / lost (same rule as before).
+const ONBOARDED_NOW = ["onboarded", "dormant", "lost"];
+const LOST_NOW = ["lost", "blacklisted"];
 
 function range(sinceIso: string, untilIso?: string): Prisma.DateTimeFilter {
   return untilIso ? { gte: new Date(sinceIso), lte: new Date(untilIso) } : { gte: new Date(sinceIso) };
@@ -58,7 +59,7 @@ export const getAdminCompanyScorecards = unstable_cache(
       prisma.organization.findMany({ select: { id: true, name: true } }),
       prisma.user.findMany({
         where: { role_id: 2 },
-        select: { name: true, managerOrgs: { select: { org_id: true } }, managerSalesmen: { select: { salesman_id: true } } },
+        select: { name: true, managerOrgs: { select: { org_id: true } }, managerSalesmen: { select: { salesman_id: true, org_id: true } } },
         orderBy: { id: "asc" },
       }),
     ]);
@@ -83,7 +84,9 @@ export const getAdminCompanyScorecards = unstable_cache(
         const counts = orgCounts.get(oid)!;
         const mgr = managers.find((m) => m.managerOrgs.some((mo) => mo.org_id === oid));
         const teamKpi = mgr
-          ? mgr.managerSalesmen.reduce((sum, ms) => sum + calculateKpiScore(salesmanKpi.get(ms.salesman_id) ?? {}), 0)
+          ? mgr.managerSalesmen
+              .filter((ms) => ms.org_id === oid) // only the salesmen working for this company
+              .reduce((sum, ms) => sum + calculateKpiScore(salesmanKpi.get(ms.salesman_id) ?? {}), 0)
           : 0;
         return {
           oid,
@@ -109,7 +112,7 @@ export const getAdminLeaderboard = unstable_cache(
         select: {
           id: true,
           name: true,
-          salesmanManager: { select: { manager: { select: { managerOrgs: { select: { org: { select: { name: true } } }, take: 1 } } } }, take: 1 },
+          salesmanManager: { select: { managerOrg: { select: { org: { select: { name: true } } } } } },
         },
       }),
       prisma.client.groupBy({ by: ["assigned_salesman_id", "status"], where: orgId ? { org_id: orgId } : {}, _count: { _all: true } }),
@@ -128,7 +131,7 @@ export const getAdminLeaderboard = unstable_cache(
           name: s.name,
           kpi: calculateKpiScore(c),
           clients: Object.values(c).reduce((a, b) => a + b, 0),
-          company: s.salesmanManager[0]?.manager.managerOrgs[0]?.org.name ?? "—",
+          company: [...new Set(s.salesmanManager.map((l) => l.managerOrg.org.name))].join(", ") || "—",
         };
       })
       .sort((a, b) => b.kpi - a.kpi);

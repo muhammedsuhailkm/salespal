@@ -4,8 +4,10 @@ import { getToken } from "next-auth/jwt";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { literal } from "@/lib/list-params";
-import { clientScopeWhere, isRole } from "@/lib/scoping";
+import { clientScopeWhere, getManagerOrgIds, getManagerSalesmanIds, getManagerSalesmanIdsForOrg, getSalesmanOrgIds, getTokenUserId, isRole } from "@/lib/scoping";
 import { normalizeCrNo, parseCrExpiryDate } from "@/lib/client-fields";
+import { canSetStatus, isClientStatus } from "@/lib/client-status-flow";
+import { cleanText, contactRequiredMessage, missingContactFields, statusRequiresContact } from "@/lib/client-contact";
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -24,9 +26,14 @@ export async function GET(request: NextRequest) {
         ],
       }
     : {};
+  // ?team=1 (managers): only their salesmen's clients — the same rule as the manager client page.
+  const team: Prisma.ClientWhereInput =
+    url.searchParams.get("team") && isRole(token, 2) ? { assigned_salesman_id: { in: await getManagerSalesmanIds(getTokenUserId(token)) } } : {};
+  // ?details=1 adds status and salesman for richer result rows (client switcher).
+  const details = !!url.searchParams.get("details");
   const clients = await prisma.client.findMany({
-    where: { AND: [await clientScopeWhere(token), search] },
-    select: { id: true, name: true },
+    where: { AND: [await clientScopeWhere(token), team, search] },
+    select: { id: true, name: true, ...(details ? { status: true, assignedSalesman: { select: { name: true } } } : {}) },
     orderBy: { name: "asc" },
     take: limit,
   });
@@ -50,45 +57,72 @@ export async function POST(request: NextRequest) {
     if (duplicateCr) return NextResponse.json({ error: "CR number already exists" }, { status: 409 });
   }
 
-  const duplicate = await prisma.client.findFirst({ where: { OR: [{ contact_no: body.contact_no }, { mail_id: body.mail_id ?? "" }] } });
-  if (duplicate) return NextResponse.json({ error: "Duplicate client", duplicate }, { status: 409 });
-
-  let orgId = body.org_id ? Number(body.org_id) : null;
-  if (!orgId) {
-    if (token.role_id === 3) {
-      const managerSalesman = await prisma.managerSalesman.findFirst({
-        where: { salesman_id: Number(token.id) },
-        include: { manager: { include: { managerOrgs: true } } }
-      });
-      orgId = managerSalesman?.manager?.managerOrgs?.[0]?.org_id ?? null;
-    } else if (token.role_id === 2) {
-      const managerOrg = await prisma.managerOrg.findFirst({
-        where: { manager_id: Number(token.id) }
-      });
-      orgId = managerOrg?.org_id ?? null;
-    }
+  // Only Name is required for a Lead; contact details become required past Lead.
+  const status = body.status ?? "lead";
+  if (!isClientStatus(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  if (!canSetStatus(Number(token.role_id), "lead", status)) {
+    return NextResponse.json({ error: "Only managers can add a client to the black list" }, { status: 403 });
+  }
+  const contactPersonName = cleanText(body.contact_person_name) ?? "";
+  const contactNo = cleanText(body.contact_no) ?? "";
+  const designation = cleanText(body.contact_person_designation) || null;
+  const mailId = cleanText(body.mail_id) || null;
+  if (!cleanText(body.name)) return NextResponse.json({ error: "Client name is required" }, { status: 400 });
+  const missing = statusRequiresContact(status)
+    ? missingContactFields({ contact_person_name: contactPersonName, contact_no: contactNo, contact_person_designation: designation })
+    : [];
+  if (missing.length) {
+    return NextResponse.json({ error: contactRequiredMessage(missing), code: "CONTACT_REQUIRED", missing }, { status: 422 });
   }
 
+  // Duplicate check only on details that were actually entered
+  const duplicateKeys = [contactNo ? { contact_no: contactNo } : null, mailId ? { mail_id: mailId } : null].filter(
+    (k): k is { contact_no: string } | { mail_id: string } => k !== null
+  );
+  if (duplicateKeys.length) {
+    const duplicate = await prisma.client.findFirst({ where: { OR: duplicateKeys } });
+    if (duplicate) return NextResponse.json({ error: "Duplicate client", duplicate }, { status: 409 });
+  }
+
+  // The company must be one the user works for: a salesman's assigned companies, a manager's companies.
+  // With a single company it's picked automatically; with several the form has to say which.
+  const allowedOrgIds = token.role_id === 3 ? await getSalesmanOrgIds(getTokenUserId(token)) : token.role_id === 2 ? await getManagerOrgIds(getTokenUserId(token)) : [];
+  let orgId = body.org_id ? Number(body.org_id) : null;
+  if (!orgId && allowedOrgIds.length === 1) orgId = allowedOrgIds[0];
   if (!orgId) {
-    return NextResponse.json({ error: "Organization not found for the user" }, { status: 400 });
+    return NextResponse.json(
+      { error: allowedOrgIds.length ? "Select the company this client belongs to" : "You aren't assigned to a company yet", code: "ORG_REQUIRED" },
+      { status: 400 }
+    );
+  }
+  if (!allowedOrgIds.includes(orgId)) {
+    return NextResponse.json({ error: "You don't work for that company" }, { status: 403 });
+  }
+
+  // A manager assigning the client to a salesman: that salesman must work for this company on their team.
+  const assignedSalesmanId = Number(body.assigned_salesman_id ?? token.id);
+  if (token.role_id === 2 && assignedSalesmanId !== getTokenUserId(token)) {
+    if (!(await getManagerSalesmanIdsForOrg(getTokenUserId(token), orgId)).includes(assignedSalesmanId)) {
+      return NextResponse.json({ error: "That salesman doesn't work for this company on your team" }, { status: 403 });
+    }
   }
 
   let client;
   try {
     client = await prisma.client.create({
       data: {
-        name: body.name,
-        contact_person_name: body.contact_person_name,
-        contact_no: body.contact_no,
+        name: cleanText(body.name)!,
+        contact_person_name: contactPersonName,
+        contact_no: contactNo,
         location_coordinates: body.location_coordinates,
-        mail_id: body.mail_id,
+        mail_id: mailId,
         cr_no: crNo ?? null,
         cr_expiry_date: crExpiry.value ?? null,
-        contact_person_designation: body.contact_person_designation,
-        assigned_salesman_id: Number(body.assigned_salesman_id ?? token.id),
+        contact_person_designation: designation,
+        assigned_salesman_id: assignedSalesmanId,
         org_id: orgId,
         notes: body.notes,
-        status: body.status ?? "lead",
+        status,
       },
     });
   } catch (error) {

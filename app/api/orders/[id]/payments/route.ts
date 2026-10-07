@@ -36,7 +36,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (isRole(token, 3) && order.enquiry?.created_by_id !== getTokenUserId(token)) {
     return NextResponse.json({ error: "You can only record payments on orders from your own enquiries" }, { status: 403 });
   }
-  if (order.status === "cancelled") return NextResponse.json({ error: "Cannot record a payment on a cancelled order" }, { status: 409 });
+  if (order.status === "cancelled" || order.status === "revision_requested") {
+    return NextResponse.json({ error: "Cannot record a payment on a cancelled or revised order" }, { status: 409 });
+  }
 
   const paid = order.advance_amount.toNumber() + order.payments.reduce((sum, p) => sum + p.amount.toNumber(), 0);
   const balance = order.amount.toNumber() - paid;

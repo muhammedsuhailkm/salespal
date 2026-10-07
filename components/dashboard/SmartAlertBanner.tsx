@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 export interface AlertItem {
   salesmanName: string;
   companyName: string;
@@ -16,21 +18,21 @@ export function SmartAlertBanner({ alerts }: { alerts: AlertItem[] }) {
   if (dismissed || alerts.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 px-5 py-4 text-white shadow-lg shadow-rose-200/40 animate-in fade-in slide-in-from-top-2 duration-400">
+    <div role="status" className="mb-6 rounded-card border border-danger/25 bg-danger-soft px-5 py-4 animate-page-in">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
-          <AlertTriangle size={18} />
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-control bg-danger text-white dark:text-slate-950">
+          <AlertTriangle size={18} aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold leading-tight">Performance Alert</p>
+          <p className="text-sm font-semibold leading-tight text-foreground">Lost clients are rising</p>
           <div className="mt-1.5 space-y-1">
             {alerts.map((a) => (
-              <p key={a.salesmanName} className="text-xs text-rose-100 leading-relaxed">
-                <span className="font-semibold text-white">{a.salesmanName}</span>{" "}
+              <p key={a.salesmanName} className="text-xs text-foreground/80 leading-relaxed">
+                <span className="font-semibold text-foreground">{a.salesmanName}</span>{" "}
                 ({a.companyName}) lost{" "}
-                <span className="font-semibold text-white">{a.lostThisMonth}</span> client{a.lostThisMonth !== 1 ? "s" : ""} this month
+                <span className="font-semibold text-danger-foreground">{a.lostThisMonth}</span> client{a.lostThisMonth !== 1 ? "s" : ""} this month
                 vs {a.lostLastMonth} last month — a{" "}
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-danger-foreground">
                   {a.lostLastMonth > 0
                     ? `${Math.round(((a.lostThisMonth - a.lostLastMonth) / a.lostLastMonth) * 100)}%`
                     : "new"}{" "}
@@ -43,7 +45,7 @@ export function SmartAlertBanner({ alerts }: { alerts: AlertItem[] }) {
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="shrink-0 rounded-lg p-1.5 text-rose-200 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "shrink-0")}
           aria-label="Dismiss alert"
         >
           <X size={16} />

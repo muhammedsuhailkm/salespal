@@ -1,5 +1,7 @@
 "use client";
 
+import { clientStatusLabels, clientStatuses } from "@/types/client";
+
 import { useState, Fragment } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
@@ -7,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { cn, formatDate, formatPhoneNumber } from "@/lib/utils";
 import { RotateCcw, Search, ChevronDown, Navigation, Building, User, Mail, Calendar, X } from "lucide-react";
 
+import { buttonVariants } from "@/components/ui/Button";
 type Client = {
   id: number;
   name: string;
@@ -38,25 +41,9 @@ type Manager = {
 type ManagerSalesman = {
   manager_id: number;
   salesman_id: number;
+  org_id: number;
 };
 
-const rowColors: Record<string, string> = {
-  lead: "bg-amber-100/40 hover:bg-amber-100/60 text-amber-950",
-  contacted: "bg-sky-100/35 hover:bg-sky-100/55 text-sky-950",
-  follow_up: "bg-indigo-100/35 hover:bg-indigo-100/55 text-indigo-950",
-  proposal_sent: "bg-violet-100/35 hover:bg-violet-100/55 text-violet-950",
-  negotiation: "bg-orange-100/35 hover:bg-orange-100/55 text-orange-950",
-  onboarding_in_progress: "bg-cyan-100/35 hover:bg-cyan-100/55 text-cyan-950",
-  onboarded: "bg-emerald-100/45 hover:bg-emerald-100/65 text-emerald-950",
-  active_client: "bg-green-100/35 hover:bg-green-100/55 text-green-950",
-  inactive: "bg-slate-100/35 hover:bg-slate-100/55 text-slate-950",
-  lost: "bg-rose-100/40 hover:bg-rose-100/60 text-rose-950",
-  cancelled: "bg-red-100/40 hover:bg-red-100/60 text-red-950",
-  pending: "bg-slate-100/35 hover:bg-slate-100/55 text-slate-950",
-  in_process: "bg-cyan-100/35 hover:bg-cyan-100/55 text-cyan-950",
-  achieved: "bg-emerald-100/45 hover:bg-emerald-100/65 text-emerald-950",
-  unsuccessful: "bg-red-100/40 hover:bg-red-100/60 text-red-950",
-};
 
 /** Server-paginated client table: filters and search are URL params applied by the server. */
 export function ClientTable({
@@ -97,10 +84,10 @@ export function ClientTable({
   return (
     <div className="space-y-4">
       {/* Search and Filters Toolbar */}
-      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col gap-4 bg-card p-4 rounded-card border border-border/80 shadow-card">
         {/* Search Bar */}
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground/80">
             <Search size={16} />
           </div>
           <input
@@ -108,12 +95,12 @@ export function ClientTable({
             placeholder="Search by name, contact person, email or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
+            className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 w-full pl-10 pr-10"
           />
           {searchQuery && (
-            <button
+            <button aria-label="Close"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute right-3 top-1/2")}
             >
               <X size={16} />
             </button>
@@ -121,16 +108,16 @@ export function ClientTable({
         </div>
 
         {/* Filters Selectors Row */}
-        <div className="flex flex-wrap items-end gap-4 border-t border-slate-100/70 pt-3.5">
+        <div className="flex flex-wrap items-end gap-4 border-t border-border/70 pt-3.5">
           {/* Company Filter */}
           <div className="flex flex-col gap-1.5 min-w-[150px]">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
               <Building size={11} /> Company
             </label>
             <select
               value={companyFilter}
               onChange={(e) => set({ company: e.target.value })}
-              className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
             >
               <option value="all">All Companies</option>
               {companies.map((c) => (
@@ -144,13 +131,13 @@ export function ClientTable({
           {/* Manager Filter */}
           {managers.length > 0 && (
             <div className="flex flex-col gap-1.5 min-w-[150px]">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                 <User size={11} /> Manager
               </label>
               <select
                 value={managerFilter}
                 onChange={(e) => set({ manager: e.target.value })}
-                className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
               >
                 <option value="all">All Managers</option>
                 {managers.map((m) => (
@@ -164,38 +151,30 @@ export function ClientTable({
 
           {/* Status Filter */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <label className="text-xs font-semibold text-muted-foreground">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(e) => set({ status: e.target.value })}
-              className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
             >
               <option value="all">All Statuses</option>
-              <option value="lead">Lead</option>
-              <option value="contacted">Contacted</option>
-              <option value="follow_up">Follow Up</option>
-              <option value="proposal_sent">Proposal Sent</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="onboarding_in_progress">Onboarding In Progress</option>
-              <option value="onboarded">Onboarded</option>
-              <option value="active_client">Active Client</option>
-              <option value="inactive">Inactive</option>
-              <option value="lost">Lost</option>
-              <option value="cancelled">Cancelled</option>
+              {clientStatuses.map((st) => (
+                <option key={st} value={st}>{clientStatusLabels[st]}</option>
+              ))}
             </select>
           </div>
 
           {/* Date Filter Range */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
               <Calendar size={11} /> Date Added
             </label>
             <select
               value={dateFilterRange}
               onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
-              className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
             >
               <option value="all">All Dates</option>
               <option value="today">Today</option>
@@ -208,15 +187,15 @@ export function ClientTable({
 
           {/* Custom Date Input */}
           {dateFilterRange === "custom" && (
-            <div className="flex flex-col gap-1.5 min-w-[140px] animate-in fade-in duration-200">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="flex flex-col gap-1.5 min-w-[140px] animate-page-in">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Select Calendar Date
               </label>
               <input
                 type="date"
                 value={customDate}
                 onChange={(e) => set({ date: "custom", day: e.target.value })}
-                className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10"
               />
             </div>
           )}
@@ -226,7 +205,7 @@ export function ClientTable({
             <button
               type="button"
               onClick={handleReset}
-              className="h-10 px-3 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-lg flex items-center gap-1.5 transition duration-150 cursor-pointer ml-auto bg-white"
+              className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "ml-auto")}
             >
               <RotateCcw size={14} />
               <span>Reset</span>
@@ -238,9 +217,9 @@ export function ClientTable({
       {/* Table Section */}
       {filteredClients.length > 0 ? (
         <div className={cn("space-y-1 transition-opacity", isPending && "opacity-60")} aria-busy={isPending}>
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-card border border-border bg-card shadow-card">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+            <thead className="bg-subtle text-xs text-muted-foreground font-medium">
               <tr>
                 <th className="w-10 px-2 py-3"></th>
                 <th className="px-4 py-3">Client</th>
@@ -253,13 +232,13 @@ export function ClientTable({
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-border">
               {filteredClients.map((client) => {
                 const isExpanded = expandedClientId === client.id;
                 return (
                   <Fragment key={client.id}>
                     <tr
-                      className={cn("transition group border-b border-slate-100", rowColors[client.status] ?? "bg-white hover:bg-slate-50/60")}
+                      className={cn("transition group border-b border-border", "bg-card hover:bg-subtle/70")}
                     >
                       <td
                         className="w-10 px-2 py-3 text-center cursor-pointer"
@@ -268,8 +247,8 @@ export function ClientTable({
                         <div className={cn(
                           "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-200 mx-auto",
                           isExpanded
-                            ? "bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200"
-                            : "bg-slate-100/85 text-slate-500 hover:bg-slate-200 hover:text-slate-700 ring-1 ring-slate-200/40"
+                            ? "bg-primary-soft text-primary ring-1 ring-primary/30"
+                            : "bg-muted/85 text-muted-foreground hover:bg-muted hover:text-foreground/85 ring-1 ring-border/40"
                         )}>
                           <ChevronDown
                             size={14}
@@ -277,43 +256,43 @@ export function ClientTable({
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-bold text-slate-900">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {client.name}
                         {client.contact_person_name && (
-                          <span className="block text-[10px] text-slate-400 font-medium mt-0.5">
+                          <span className="block text-[10px] text-muted-foreground/80 font-medium mt-0.5">
                             Attn: {client.contact_person_name}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-950">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {formatPhoneNumber(client.contact_no)}
                         {client.mail_id && (
-                          <span className="block text-[10px] text-slate-400 font-medium mt-0.5 truncate max-w-[180px]">
+                          <span className="block text-[10px] text-muted-foreground/80 font-medium mt-0.5 truncate max-w-[180px]">
                             {client.mail_id}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                      <td className="px-4 py-3 text-foreground/85 hidden md:table-cell font-medium">
                         {client.organization?.name ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                      <td className="px-4 py-3 text-foreground/85 hidden md:table-cell font-medium">
                         {client.assignedSalesman?.name ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 hidden sm:table-cell font-medium whitespace-nowrap">
+                      <td className="px-4 py-3 text-foreground/85 hidden sm:table-cell font-medium whitespace-nowrap">
                         {client.cr_no ?? "-"}
                       </td>
                       <td
                         className={cn(
                           "px-4 py-3 whitespace-nowrap hidden sm:table-cell",
                           client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date()
-                            ? "text-red-600 font-semibold"
-                            : "text-slate-500"
+                            ? "text-danger-foreground font-semibold"
+                            : "text-muted-foreground"
                         )}
                       >
                         {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                         {client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date() ? " (expired)" : ""}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                         {formatDate(client.created_at)}
                       </td>
                       <td className="px-4 py-3">
@@ -321,64 +300,67 @@ export function ClientTable({
                       </td>
                     </tr>
                     {isExpanded && (() => {
-                      const relation = managerSalesmen.find((ms) => ms.salesman_id === client.assigned_salesman_id);
+                      // The manager the salesman works under for this client's company.
+                      const relation =
+                        managerSalesmen.find((ms) => ms.salesman_id === client.assigned_salesman_id && ms.org_id === client.org_id) ??
+                        managerSalesmen.find((ms) => ms.salesman_id === client.assigned_salesman_id);
                       const managerName = relation
                         ? (managers.find((m) => m.id === relation.manager_id)?.name ?? "None")
                         : "None";
 
                       return (
-                        <tr className={cn(rowColors[client.status] ?? "bg-slate-50/20")}>
-                          <td colSpan={9} className="px-6 py-4 text-xs text-slate-700 space-y-3.5 border-t border-slate-100/50">
+                        <tr className={cn("bg-card hover:bg-subtle/70")}>
+                          <td colSpan={9} className="px-6 py-4 text-xs text-foreground/85 space-y-3.5 border-t border-border/50">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR No</span>
-                                <span className="text-slate-800 text-xs font-semibold">{client.cr_no ?? "-"}</span>
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">CR No</span>
+                                <span className="text-foreground text-xs font-semibold">{client.cr_no ?? "-"}</span>
                               </div>
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">CR Expiry</span>
-                                <span className="text-slate-800 text-xs font-semibold">
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">CR Expiry</span>
+                                <span className="text-foreground text-xs font-semibold">
                                   {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                                 </span>
                               </div>
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Assigned Company</span>
-                                <span className="text-slate-800 text-xs font-semibold flex items-center gap-1">
-                                  <Building size={13} className="text-slate-400" /> {client.organization?.name ?? "None"}
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">Assigned Company</span>
+                                <span className="text-foreground text-xs font-semibold flex items-center gap-1">
+                                  <Building size={13} className="text-muted-foreground/80" /> {client.organization?.name ?? "None"}
                                 </span>
                               </div>
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Assigned Manager</span>
-                                <span className="text-slate-800 text-xs font-semibold flex items-center gap-1">
-                                  <User size={13} className="text-slate-400" /> {managerName}
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">Assigned Manager</span>
+                                <span className="text-foreground text-xs font-semibold flex items-center gap-1">
+                                  <User size={13} className="text-muted-foreground/80" /> {managerName}
                                 </span>
                               </div>
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Assigned Salesman</span>
-                                <span className="text-slate-800 text-xs font-semibold flex items-center gap-1">
-                                  <User size={13} className="text-slate-400" /> {client.assignedSalesman?.name ?? "None"}
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">Assigned Salesman</span>
+                                <span className="text-foreground text-xs font-semibold flex items-center gap-1">
+                                  <User size={13} className="text-muted-foreground/80" /> {client.assignedSalesman?.name ?? "None"}
                                 </span>
                               </div>
                               <div className="space-y-1">
-                                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Coordinates / Navigation</span>
+                                <span className="font-semibold text-muted-foreground/80 text-xs block">Coordinates / Navigation</span>
                                 {client.location_coordinates ? (
                                   <a
                                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white hover:bg-indigo-700 text-[10px] font-bold rounded-lg transition duration-150 shadow shadow-indigo-200 cursor-pointer border border-indigo-700/20 active:scale-95"
+                                    className={buttonVariants({ variant: "secondary", size: "sm" })}
                                   >
-                                    <Navigation size={11} className="fill-current" />
+                                    <Navigation size={11} />
                                     <span>Open Google Maps</span>
                                   </a>
                                 ) : (
-                                  <span className="text-slate-400">-</span>
+                                  <span className="text-muted-foreground/80">-</span>
                                 )}
                               </div>
                             </div>
                           {client.notes && (
                             <div className="space-y-1">
-                              <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px] block">Client Notes</span>
-                              <p className="text-slate-700 bg-white/70 p-3 rounded-xl border border-slate-200/50 leading-relaxed shadow-sm font-medium">
+                              <span className="font-semibold text-muted-foreground/80 text-xs block">Client Notes</span>
+                              <p className="text-foreground/85 bg-card/70 p-3 rounded-xl border border-border/50 leading-relaxed shadow-sm font-medium">
                                 {client.notes}
                               </p>
                             </div>
@@ -397,17 +379,17 @@ export function ClientTable({
         </div>
       ) : (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200 border-dashed text-center">
-          <p className="text-sm font-medium text-slate-600">
+        <div className="flex flex-col items-center justify-center p-12 bg-card rounded-card border border-border border-dashed text-center">
+          <p className="text-sm font-medium text-foreground/70">
             No clients match your filter/search criteria.
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground/80 mt-1">
             Try resetting the company, status, date filters, or search term to show all clients.
           </p>
           <button
             type="button"
             onClick={handleReset}
-            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition duration-150 cursor-pointer shadow"
+            className={cn(buttonVariants({ size: "sm" }), "mt-4")}
           >
             <RotateCcw size={14} />
             <span>Clear Filters</span>

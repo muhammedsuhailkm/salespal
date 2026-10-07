@@ -1,12 +1,9 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { getSalesPalSession } from "@/lib/auth";
-import { getDraftOrders, getOrdersPage } from "@/lib/orders-list";
+import { getOrdersPage } from "@/lib/orders-list";
 import type { SearchParams } from "@/lib/list-params";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { OrderList } from "@/components/orders/OrderList";
-import { OrderDraftTable } from "@/components/orders/OrderDraftTable";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export default async function SalesmanOrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -15,16 +12,7 @@ export default async function SalesmanOrdersPage({ searchParams }: { searchParam
     <>
       <PageHeader
         title="Orders"
-        subtitle="Track shipment orders you've created and their approval status."
-        action={
-          <Link
-            href="/dashboard/salesman/orders/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
-          >
-            <Plus size={14} />
-            <span>Add Order</span>
-          </Link>
-        }
+        subtitle="Orders created when you confirm an enquiry. Accounts add the job details and close them out."
       />
       <div className="mt-4">
         <Suspense fallback={<OrdersListSkeleton />}>
@@ -38,13 +26,12 @@ export default async function SalesmanOrdersPage({ searchParams }: { searchParam
 async function OrdersListSection({ params }: { params: SearchParams }) {
   const session = await getSalesPalSession();
   const userId = Number(session!.user.id);
-  const [drafts, data] = await Promise.all([getDraftOrders(userId), getOrdersPage({ created_by_id: userId }, params)]);
+  const data = await getOrdersPage({ created_by_id: userId }, params);
 
   return (
     <div className="space-y-8">
-      <OrderDraftTable orders={drafts} />
       <div>
-        <h2 className="text-sm font-bold text-slate-900 mb-3">All Orders</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">All Orders</h2>
         <OrderList data={data} role="salesman" detailBasePath="/dashboard/salesman/orders" />
       </div>
     </div>
@@ -53,15 +40,15 @@ async function OrdersListSection({ params }: { params: SearchParams }) {
 
 function OrdersListSkeleton() {
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-fit">
+    <div className="space-y-4 animate-page-in">
+      <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl w-fit">
         <Skeleton className="h-7 w-20 rounded-lg" />
         <Skeleton className="h-7 w-16 rounded-lg" />
         <Skeleton className="h-7 w-24 rounded-lg" />
       </div>
       <div className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-card border border-border bg-card p-4 shadow-card">
             <div className="flex-1 space-y-2.5 min-w-0">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-3 w-56" />

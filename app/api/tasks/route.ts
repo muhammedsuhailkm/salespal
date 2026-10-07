@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { isRole, taskScopeWhere } from "@/lib/scoping";
+import { taskCategories, type TaskCategory } from "@/types/task";
 
 export async function GET(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -27,7 +28,8 @@ export async function POST(request: NextRequest) {
       description: body.description,
       due_date: new Date(body.due_date),
       notification: Boolean(body.notification),
-      status: body.status ?? "pending"
+      status: body.status ?? "pending",
+      category: taskCategories.includes(body.category) ? (body.category as TaskCategory) : null
     }
   });
   revalidateTag("salesman-dashboard", { expire: 0 });

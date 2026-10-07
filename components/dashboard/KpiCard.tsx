@@ -22,14 +22,14 @@ export function KpiCard({
   return (
     <Card className="flex items-start justify-between rounded-2xl shadow-sm transition-all duration-200">
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+        <p className="text-xs font-semibold text-muted-foreground">
           {label}
         </p>
-        <p className="mt-2 text-2xl font-bold text-slate-900 leading-none">
+        <p className="mt-2 text-2xl font-semibold text-foreground leading-none">
           {value}
         </p>
         {hint ? (
-          <p className="mt-2.5 text-xs text-slate-500 font-medium">
+          <p className="mt-2.5 text-xs text-muted-foreground font-medium">
             {hint}
           </p>
         ) : null}
@@ -37,9 +37,9 @@ export function KpiCard({
       {icon ? (
         <div
           className={cn(
-            "h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-slate-100/50 shadow-inner",
-            iconBgClass ?? "bg-slate-50",
-            iconColorClass ?? "text-slate-500"
+            "h-10 w-10 shrink-0 flex items-center justify-center rounded-xl border border-border/50 shadow-inner",
+            iconBgClass ?? "bg-subtle",
+            iconColorClass ?? "text-muted-foreground"
           )}
         >
           {icon}

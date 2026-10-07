@@ -82,7 +82,7 @@ export function ShippingRateModal({ rate, open, onClose, onSaved }: ShippingRate
   }
 
   return (
-    <Modal open={open}>
+    <Modal onClose={onClose} open={open}>
       <div className="relative" style={{ fontFamily: "var(--ds-font-sans)" }}>
         <button
           type="button"
@@ -102,7 +102,7 @@ export function ShippingRateModal({ rate, open, onClose, onSaved }: ShippingRate
             <Ship size={20} />
           </div>
           <div>
-            <h3 className="text-base font-bold" style={{ color: "var(--ds-text-primary)", letterSpacing: "-0.02em" }}>
+            <h3 className="text-base font-semibold" style={{ color: "var(--ds-text-primary)", letterSpacing: "-0.02em" }}>
               {isEdit ? "Edit Freight Rate" : "Add New Freight Rate"}
             </h3>
             <p className="text-xs" style={{ color: "var(--ds-text-secondary)" }}>
@@ -238,7 +238,7 @@ export function ShippingRateModal({ rate, open, onClose, onSaved }: ShippingRate
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, currency: "USD" })}
-                  className="flex items-center justify-center text-xs font-bold rounded transition cursor-pointer"
+                  className="flex items-center justify-center text-xs font-semibold rounded transition cursor-pointer"
                   style={{
                     background: form.currency === "USD" ? "var(--ds-surface-card)" : "transparent",
                     color: form.currency === "USD" ? "var(--ds-text-primary)" : "var(--ds-text-secondary)",
@@ -250,7 +250,7 @@ export function ShippingRateModal({ rate, open, onClose, onSaved }: ShippingRate
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, currency: "QAR" })}
-                  className="flex items-center justify-center text-xs font-bold rounded transition cursor-pointer"
+                  className="flex items-center justify-center text-xs font-semibold rounded transition cursor-pointer"
                   style={{
                     background: form.currency === "QAR" ? "var(--ds-surface-card)" : "transparent",
                     color: form.currency === "QAR" ? "var(--ds-text-primary)" : "var(--ds-text-secondary)",
@@ -280,7 +280,7 @@ export function ShippingRateModal({ rate, open, onClose, onSaved }: ShippingRate
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-md transition cursor-pointer shadow-sm disabled:opacity-50 active:scale-95"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold rounded-md transition cursor-pointer shadow-sm disabled:opacity-50 active:scale-95"
               style={{
                 background: "var(--ds-color-brand)",
                 color: "var(--ds-text-inverse)",

@@ -22,13 +22,17 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
+import { statusRequiresContact } from "@/lib/client-contact";
+import { ClientSwitcher } from "@/components/clients/ClientSwitcher";
 
+import { buttonVariants } from "@/components/ui/Button";
 // Definition of types
 type Client = {
   id: number;
   name: string;
   contact_person_name: string;
   contact_no: string;
+  contact_person_designation?: string | null;
   cr_no: string | null;
   cr_expiry_date: Date | string | null;
   mail_id: string | null;
@@ -59,19 +63,25 @@ type ClientTask = {
 const taskStatuses = ["pending", "in_process", "achieved", "unsuccessful"] as const;
 
 const STATUS_SELECT_COLORS: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-700 ring-slate-200",
-  in_process: "bg-cyan-50 text-cyan-700 ring-cyan-200",
-  achieved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  unsuccessful: "bg-red-50 text-red-700 ring-red-200",
+  pending: "bg-muted text-foreground/85 ring-border",
+  in_process: "bg-info-soft text-info-foreground ring-info/30",
+  achieved: "bg-success-soft text-success-foreground ring-success/30",
+  unsuccessful: "bg-danger-soft text-danger-foreground ring-danger/30",
 };
 
 interface ClientOverviewProps {
   client: Client;
   initialTasks: ClientTask[];
   backLink?: string;
+  /** Managers: the client search only offers their salesmen's clients. */
+  teamOnly?: boolean;
+  /** Orders / enquiries summary and tables, streamed in by the page. */
+  history?: React.ReactNode;
+  /** Attachments card, rendered under the tasks. */
+  documents?: React.ReactNode;
 }
 
-export function ClientOverview({ client: initialClient, initialTasks, backLink }: ClientOverviewProps) {
+export function ClientOverview({ client: initialClient, initialTasks, backLink, teamOnly = false, history, documents }: ClientOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -94,6 +104,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
   const [editForm, setEditForm] = useState({
     name: client.name,
     contact_person_name: client.contact_person_name,
+    contact_person_designation: client.contact_person_designation || "",
     mail_id: client.mail_id || "",
     contact_no: client.contact_no,
     cr_no: client.cr_no || "",
@@ -178,6 +189,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
         body: JSON.stringify({
           name: editForm.name,
           contact_person_name: editForm.contact_person_name,
+          contact_person_designation: editForm.contact_person_designation || null,
           mail_id: editForm.mail_id || null,
           contact_no: editForm.contact_no,
           cr_no: editForm.cr_no || null,
@@ -196,6 +208,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
         ...prev,
         name: editForm.name,
         contact_person_name: editForm.contact_person_name,
+        contact_person_designation: editForm.contact_person_designation || null,
         mail_id: editForm.mail_id || null,
         contact_no: editForm.contact_no,
         cr_no: editForm.cr_no || null,
@@ -311,19 +324,27 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
       {toastMsg && <Toast message={toastMsg} />}
 
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-semibold text-foreground tracking-tight">
             {client.name}
           </h1>
-          <p className="mt-1.5 text-sm text-slate-500 font-semibold uppercase tracking-wider">
-            {client.organization?.name || "Independent"} • {client.contact_person_name}
+          <p className="mt-1.5 text-sm text-muted-foreground font-semibold">
+            {client.organization?.name || "Independent"}
+            {client.contact_person_name && <> • {client.contact_person_name}</>}
+            {client.contact_person_designation && <span className="normal-case"> ({client.contact_person_designation})</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          <ClientSwitcher
+            current={{ id: client.id, name: client.name, status: client.status }}
+            basePath={backLink || "/dashboard/salesman/clients"}
+            teamOnly={teamOnly}
+          />
+          <div className="flex items-center gap-2">
           <Link
             href={backLink || "/dashboard/salesman/clients"}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer shadow-sm active:scale-95"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
           >
             <ArrowLeft size={14} />
             <span>Back</span>
@@ -334,6 +355,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               setEditForm({
                 name: client.name,
                 contact_person_name: client.contact_person_name,
+                contact_person_designation: client.contact_person_designation || "",
                 mail_id: client.mail_id || "",
                 contact_no: client.contact_no,
                 cr_no: client.cr_no || "",
@@ -345,13 +367,16 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               });
               setIsEditOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700/20 rounded-xl transition cursor-pointer shadow-md hover:shadow-lg active:scale-95"
+            className={buttonVariants({ size: "sm" })}
           >
             <Edit3 size={14} />
             <span>Edit</span>
           </button>
+          </div>
         </div>
       </div>
+
+      {history}
 
       {/* Detail grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -360,40 +385,81 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
         <div className="lg:col-span-2 space-y-6">
           
           {/* Card 1: Client Information */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 mb-5">
+          <div className="rounded-card border border-border bg-card p-6 shadow-card">
+            <h2 className="text-base font-semibold text-foreground mb-5">
               Client Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
                   Status
                 </span>
                 <Badge value={client.status} className="mt-1" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
                   Email
                 </span>
-                <span className="text-sm font-semibold text-slate-800 break-all">
+                <span className="text-sm font-semibold text-foreground break-all">
                   {client.mail_id || "-"}
                 </span>
               </div>
-              <div className="md:col-span-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
                   Mobile
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
-                  {formatPhoneNumber(client.contact_no)}
+                <span className="text-sm font-semibold text-foreground">
+                  {client.contact_no ? formatPhoneNumber(client.contact_no) : "-"}
                 </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
+                  Contact person
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {client.contact_person_name || "-"}
+                  {client.contact_person_designation && <span className="font-normal text-muted-foreground"> · {client.contact_person_designation}</span>}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
+                  CR No
+                </span>
+                <span className="text-sm font-semibold text-foreground">{client.cr_no || "-"}</span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
+                  CR Expiry
+                </span>
+                <span
+                  className={cn(
+                    "text-sm font-semibold",
+                    client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date() ? "text-danger-foreground" : "text-foreground"
+                  )}
+                >
+                  {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
+                  {client.cr_expiry_date && new Date(client.cr_expiry_date) < new Date() && " (expired)"}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
+                  Salesman
+                </span>
+                <span className="text-sm font-semibold text-foreground">{client.assignedSalesman?.name || "-"}</span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1">
+                  Location
+                </span>
+                <span className="text-sm font-semibold text-foreground break-all">{client.location_coordinates || "-"}</span>
               </div>
             </div>
             {client.notes && (
-              <div className="mt-6 border-t border-slate-100 pt-5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <div className="mt-6 border-t border-border pt-5">
+                <span className="text-xs font-semibold text-muted-foreground/80 block mb-1.5">
                   Notes
                 </span>
-                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100 shadow-sm">
+                <p className="text-xs text-foreground/70 leading-relaxed bg-subtle p-3 rounded-lg border border-border shadow-sm">
                   {client.notes}
                 </p>
               </div>
@@ -401,15 +467,15 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
           </div>
 
           {/* Card 2: Client Related Tasks */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-card border border-border bg-card p-6 shadow-card">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-semibold text-foreground">
                 Tasks ({tasks.length})
               </h2>
               <button
                 type="button"
                 onClick={() => setIsAddTaskOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/50 rounded-xl hover:bg-indigo-100 transition cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary bg-primary-soft border border-primary/30 rounded-xl hover:bg-primary-soft transition cursor-pointer active:scale-95"
               >
                 <Plus size={14} />
                 <span>Task</span>
@@ -417,16 +483,16 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
             </div>
 
             {tasks.length > 0 ? (
-              <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto pr-1">
+              <div className="divide-y divide-border max-h-[400px] overflow-y-auto pr-1">
                 {tasks.map((task) => (
                   <div key={task.id} className="py-3 flex items-center justify-between gap-4 group">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <ListTodo className="text-slate-400 mt-0.5 flex-shrink-0" size={16} />
+                      <ListTodo className="text-muted-foreground/80 mt-0.5 flex-shrink-0" size={16} />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 break-words">
+                        <p className="text-sm font-semibold text-foreground break-words">
                           {task.description}
                         </p>
-                        <div className="flex items-center gap-3 mt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        <div className="flex items-center gap-3 mt-1 text-xs font-semibold text-muted-foreground/80">
                           <span className="flex items-center gap-1">
                             <Calendar size={11} />
                             {formatDate(task.due_date)}
@@ -440,7 +506,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
                           value={task.status}
                           onChange={(e) => handleStatusChange(task.id, e.target.value)}
                           className={cn(
-                            "cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-7 text-[10px] font-bold uppercase tracking-wider ring-1 outline-none transition focus:ring-2 focus:ring-indigo-200",
+                            "cursor-pointer appearance-none rounded-full py-1 pl-2.5 pr-7 text-xs font-semibold ring-1 outline-none transition focus:ring-2 focus:ring-ring/20",
                             STATUS_SELECT_COLORS[task.status] ?? STATUS_SELECT_COLORS.pending
                           )}
                           style={{
@@ -459,7 +525,7 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
                       <button
                         type="button"
                         onClick={() => handleDeleteTask(task.id)}
-                        className="text-slate-400 hover:text-red-600 transition cursor-pointer focus:outline-none opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 flex-shrink-0"
+                        className="text-muted-foreground/80 hover:text-danger-foreground transition cursor-pointer focus:outline-none opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-danger-soft flex-shrink-0"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -468,39 +534,40 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-8 border border-slate-200 border-dashed rounded-xl text-center">
-                <p className="text-sm font-semibold text-slate-500">No tasks</p>
-                <p className="text-xs text-slate-400 mt-0.5">
+              <div className="flex flex-col items-center justify-center p-8 border border-border border-dashed rounded-xl text-center">
+                <p className="text-sm font-semibold text-muted-foreground">No tasks</p>
+                <p className="text-xs text-muted-foreground/80 mt-0.5">
                   Link related tasks for follow-ups and shipments to keep track.
                 </p>
               </div>
             )}
           </div>
 
+          {documents}
         </div>
 
         {/* Right Side: Onboarding Checklist */}
         <div className="lg:col-span-1">
           
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sticky top-6">
+          <div className="rounded-card border border-border bg-card p-6 shadow-card sticky top-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-semibold text-foreground">
                 Onboarding Checklist
               </h2>
-              <span className="text-xs font-extrabold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-semibold text-foreground/85 bg-muted px-2 py-0.5 rounded-md">
                 {checkedCount}/{totalCount}
               </span>
             </div>
 
             {/* Progress Bar */}
             <div className="mb-6 space-y-1.5">
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-success rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground/80">
                 <span>Progress</span>
                 <span>{progressPercent}%</span>
               </div>
@@ -515,16 +582,16 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
                     key={item.key}
                     type="button"
                     onClick={() => handleToggleChecklist(item.key)}
-                    className="w-full text-left flex items-start gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition cursor-pointer text-xs font-semibold focus:outline-none"
+                    className="w-full text-left flex items-start gap-3 p-2.5 rounded-xl border border-border hover:border-border hover:bg-subtle/50 transition cursor-pointer text-xs font-semibold focus:outline-none"
                   >
                     <div className="mt-0.5 flex-shrink-0">
                       {isChecked ? (
-                        <CheckCircle2 size={16} className="text-emerald-600 fill-emerald-50" />
+                        <CheckCircle2 size={16} className="text-success-foreground fill-emerald-50" />
                       ) : (
-                        <Circle size={16} className="text-slate-300" />
+                        <Circle size={16} className="text-muted-foreground/60" />
                       )}
                     </div>
-                    <span className={isChecked ? "line-through text-slate-400 font-medium" : "text-slate-700"}>
+                    <span className={isChecked ? "line-through text-muted-foreground/80 font-medium" : "text-foreground/85"}>
                       {item.label}
                     </span>
                   </button>
@@ -538,24 +605,24 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
       </div>
 
       {/* Edit Client Modal */}
-      <Modal open={isEditOpen}>
+      <Modal onClose={() => setIsEditOpen(false)} open={isEditOpen}>
         <div className="relative">
-          <button
+          <button aria-label="Close"
             onClick={() => setIsEditOpen(false)}
-            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute -top-1.5 -right-1.5")}
           >
             <X size={16} />
           </button>
 
           <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-semibold text-foreground">
               Edit Client Information
             </h3>
           </div>
 
           <form onSubmit={handleEditClientSubmit} className="space-y-4 pt-2">
             {clientError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-lg font-medium">
+              <div className="bg-danger-soft border border-danger/30 text-danger-foreground text-xs p-3 rounded-lg font-medium">
                 {clientError}
               </div>
             )}
@@ -567,11 +634,19 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               required
             />
             <Input
-              label="Contact Person"
+              label={statusRequiresContact(client.status) ? "Contact Person" : "Contact Person (optional for leads)"}
               id="edit-contact-person"
               value={editForm.contact_person_name}
               onChange={(e) => setEditForm({ ...editForm, contact_person_name: e.target.value })}
-              required
+              required={statusRequiresContact(client.status)}
+            />
+            <Input
+              label={statusRequiresContact(client.status) ? "Designation" : "Designation (optional for leads)"}
+              id="edit-designation"
+              value={editForm.contact_person_designation}
+              onChange={(e) => setEditForm({ ...editForm, contact_person_designation: e.target.value })}
+              placeholder="e.g. Logistics Manager"
+              required={statusRequiresContact(client.status)}
             />
             <Input
               label="Email"
@@ -581,11 +656,11 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               onChange={(e) => setEditForm({ ...editForm, mail_id: e.target.value })}
             />
             <Input
-              label="Mobile Number"
+              label={statusRequiresContact(client.status) ? "Mobile Number" : "Mobile Number (optional for leads)"}
               id="edit-mobile"
               value={editForm.contact_no}
               onChange={(e) => setEditForm({ ...editForm, contact_no: e.target.value })}
-              required
+              required={statusRequiresContact(client.status)}
             />
             <Input
               label="CR No"
@@ -601,28 +676,28 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               onChange={(e) => setEditForm({ ...editForm, cr_expiry_date: e.target.value })}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-700" htmlFor="edit-notes">
+              <label className="text-xs font-semibold text-foreground/85" htmlFor="edit-notes">
                 Notes
               </label>
               <textarea
                 id="edit-notes"
                 value={editForm.notes}
                 onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                className="w-full text-xs rounded-md border border-slate-300 p-2.5 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 min-h-[80px]"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full py-2.5"
               />
             </div>
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 mt-5">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-border mt-5">
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
-                className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition cursor-pointer rounded-lg active:scale-95"
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSavingClient}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition cursor-pointer rounded-lg shadow disabled:opacity-50 active:scale-95"
+                className={buttonVariants({ size: "sm" })}
               >
                 {isSavingClient && <Loader2 size={12} className="animate-spin" />}
                 <span>Save Changes</span>
@@ -633,24 +708,24 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
       </Modal>
 
       {/* Add Task Modal */}
-      <Modal open={isAddTaskOpen}>
+      <Modal onClose={() => setIsAddTaskOpen(false)} open={isAddTaskOpen}>
         <div className="relative">
-          <button
+          <button aria-label="Close"
             onClick={() => setIsAddTaskOpen(false)}
-            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute -top-1.5 -right-1.5")}
           >
             <X size={16} />
           </button>
 
           <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-semibold text-foreground">
               Create Client Task
             </h3>
           </div>
 
           <form onSubmit={handleAddTaskSubmit} className="space-y-4 pt-2">
             {taskError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-lg font-medium">
+              <div className="bg-danger-soft border border-danger/30 text-danger-foreground text-xs p-3 rounded-lg font-medium">
                 {taskError}
               </div>
             )}
@@ -670,18 +745,18 @@ export function ClientOverview({ client: initialClient, initialTasks, backLink }
               onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
               required
             />
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 mt-5">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-border mt-5">
               <button
                 type="button"
                 onClick={() => setIsAddTaskOpen(false)}
-                className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition cursor-pointer rounded-lg active:scale-95"
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSavingTask}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition cursor-pointer rounded-lg shadow disabled:opacity-50 active:scale-95"
+                className={buttonVariants({ size: "sm" })}
               >
                 {isSavingTask && <Loader2 size={12} className="animate-spin" />}
                 <span>Create Task</span>

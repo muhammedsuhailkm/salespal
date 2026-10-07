@@ -1,5 +1,6 @@
 "use client";
 
+import { CompanySelect, defaultCompanyId, type CompanyOption } from "@/components/clients/CompanySelect";
 import { useState, useTransition, useOptimistic, Fragment, useEffect, useRef, useCallback } from "react";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedParam, useUrlFilters } from "@/hooks/useUrlFilters";
@@ -17,13 +18,18 @@ import { RotateCcw, Plus, X, Loader2, Search, ChevronDown, MapPin, Navigation } 
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Toast } from "@/components/ui/Toast";
-import { clientStatuses } from "@/types/client";
+import { clientStatusLabel, clientStatusLabels, clientStatuses } from "@/types/client";
+import { clientStatusDotClass } from "@/components/clients/client-status-ui";
+import { ContactDetailsDialog, type ContactPromptTarget } from "@/components/clients/ContactDetailsDialog";
+import { missingContactFields, statusRequiresContact } from "@/lib/client-contact";
 
+import { buttonVariants } from "@/components/ui/Button";
 type Client = {
   id: number;
   name: string;
   contact_person_name: string;
   contact_no: string;
+  contact_person_designation?: string | null;
   cr_no: string | null;
   cr_expiry_date: Date | string | null;
   location_coordinates: string | null;
@@ -34,40 +40,20 @@ type Client = {
   organization?: { name: string | null };
 };
 
-const rowColors: Record<string, string> = {
-  lead: "bg-amber-100/45 hover:bg-amber-100/65",
-  contacted: "bg-sky-100/40 hover:bg-sky-100/60",
-  follow_up: "bg-indigo-100/40 hover:bg-indigo-100/60",
-  proposal_sent: "bg-violet-100/40 hover:bg-violet-100/60",
-  negotiation: "bg-orange-100/40 hover:bg-orange-100/60",
-  onboarding_in_progress: "bg-cyan-100/40 hover:bg-cyan-100/60",
-  onboarded: "bg-emerald-100/50 hover:bg-emerald-100/70",
-  active_client: "bg-green-100/40 hover:bg-green-100/60",
-  inactive: "bg-slate-100/40 hover:bg-slate-100/60",
-  lost: "bg-rose-100/45 hover:bg-rose-100/65",
-  cancelled: "bg-red-100/45 hover:bg-red-100/65",
-  pending: "bg-slate-100/40 hover:bg-slate-100/60",
-  in_process: "bg-cyan-100/40 hover:bg-cyan-100/60",
-  achieved: "bg-emerald-100/50 hover:bg-emerald-100/70",
-  unsuccessful: "bg-red-100/45 hover:bg-red-100/65",
-};
 
 const dropdownItemColors: Record<string, string> = {
-  lead: "bg-amber-100/40 hover:bg-amber-100/65 text-amber-900 focus:bg-amber-100/50 focus:text-amber-900 border-l-[3px] border-amber-500",
-  contacted: "bg-sky-100/30 hover:bg-sky-100/50 text-sky-900 focus:bg-sky-100/40 focus:text-sky-900 border-l-[3px] border-sky-500",
-  follow_up: "bg-indigo-100/30 hover:bg-indigo-100/50 text-indigo-900 focus:bg-indigo-100/40 focus:text-indigo-900 border-l-[3px] border-indigo-500",
-  proposal_sent: "bg-violet-100/30 hover:bg-violet-100/50 text-violet-900 focus:bg-violet-100/40 focus:text-violet-900 border-l-[3px] border-violet-500",
-  negotiation: "bg-orange-100/30 hover:bg-orange-100/50 text-orange-900 focus:bg-orange-100/40 focus:text-orange-900 border-l-[3px] border-orange-500",
-  onboarding_in_progress: "bg-cyan-100/30 hover:bg-cyan-100/50 text-cyan-900 focus:bg-cyan-100/40 focus:text-cyan-900 border-l-[3px] border-cyan-500",
-  onboarded: "bg-emerald-100/40 hover:bg-emerald-100/60 text-emerald-900 focus:bg-emerald-100/50 focus:text-emerald-900 border-l-[3px] border-emerald-500",
-  active_client: "bg-green-100/30 hover:bg-green-100/50 text-green-900 focus:bg-green-100/40 focus:text-green-900 border-l-[3px] border-green-500",
-  inactive: "bg-slate-100/40 hover:bg-slate-100/60 text-slate-900 focus:bg-slate-100/50 focus:text-slate-900 border-l-[3px] border-slate-400",
-  lost: "bg-rose-100/40 hover:bg-rose-100/60 text-rose-900 focus:bg-rose-100/50 focus:text-rose-900 border-l-[3px] border-rose-500",
-  cancelled: "bg-red-100/40 hover:bg-red-100/60 text-red-900 focus:bg-red-100/50 focus:text-red-900 border-l-[3px] border-red-500",
-  pending: "bg-slate-100/40 hover:bg-slate-100/60 text-slate-900 focus:bg-slate-100/50 focus:text-slate-900 border-l-[3px] border-slate-400",
-  in_process: "bg-cyan-100/30 hover:bg-cyan-100/50 text-cyan-900 focus:bg-cyan-100/40 focus:text-cyan-900 border-l-[3px] border-cyan-500",
-  achieved: "bg-emerald-100/40 hover:bg-emerald-100/60 text-emerald-900 focus:bg-emerald-100/50 focus:text-emerald-900 border-l-[3px] border-emerald-500",
-  unsuccessful: "bg-red-100/40 hover:bg-red-100/60 text-red-900 focus:bg-red-100/50 focus:text-red-900 border-l-[3px] border-red-500",
+  lead: "bg-warning-soft/40 hover:bg-warning-soft/65 text-warning-foreground focus:bg-warning-soft/50 focus:text-warning-foreground border-l-[3px] border-warning",
+  contacted: "bg-info-soft/30 hover:bg-info-soft/50 text-info-foreground focus:bg-info-soft/40 focus:text-info-foreground border-l-[3px] border-info",
+  follow_up: "bg-primary-soft/30 hover:bg-primary-soft/50 text-primary focus:bg-primary-soft/40 focus:text-primary border-l-[3px] border-primary",
+  enquiry: "bg-primary-soft/30 hover:bg-primary-soft/50 text-primary focus:bg-primary-soft/40 focus:text-primary border-l-[3px] border-primary",
+  onboarded: "bg-success-soft/40 hover:bg-success-soft/60 text-success-foreground focus:bg-success-soft/50 focus:text-success-foreground border-l-[3px] border-success",
+  dormant: "bg-muted/40 hover:bg-muted/60 text-foreground focus:bg-muted/50 focus:text-foreground border-l-[3px] border-border-strong",
+  lost: "bg-danger-soft/40 hover:bg-danger-soft/60 text-danger-foreground focus:bg-danger-soft/50 focus:text-danger-foreground border-l-[3px] border-danger",
+  blacklisted: "bg-muted/60 hover:bg-muted/80 text-foreground focus:bg-muted/70 focus:text-foreground border-l-[3px] border-foreground",
+  pending: "bg-muted/40 hover:bg-muted/60 text-foreground focus:bg-muted/50 focus:text-foreground border-l-[3px] border-border-strong",
+  in_process: "bg-info-soft/30 hover:bg-info-soft/50 text-info-foreground focus:bg-info-soft/40 focus:text-info-foreground border-l-[3px] border-info",
+  achieved: "bg-success-soft/40 hover:bg-success-soft/60 text-success-foreground focus:bg-success-soft/50 focus:text-success-foreground border-l-[3px] border-success",
+  unsuccessful: "bg-danger-soft/40 hover:bg-danger-soft/60 text-danger-foreground focus:bg-danger-soft/50 focus:text-danger-foreground border-l-[3px] border-danger",
 };
 
 interface SalesmanClientsListProps {
@@ -76,9 +62,11 @@ interface SalesmanClientsListProps {
   total: number;
   page: number;
   pageSize: number;
+  /** Companies the salesman works for. */
+  companies: CompanyOption[];
 }
 
-export function SalesmanClientsList({ initialClients, total, page, pageSize }: SalesmanClientsListProps) {
+export function SalesmanClientsList({ initialClients, total, page, pageSize, companies }: SalesmanClientsListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -99,12 +87,15 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
+  // Status change past Lead on a client with no contact details asks for them first
+  const [contactPrompt, setContactPrompt] = useState<ContactPromptTarget | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
 
   // Form states
   const [addForm, setAddForm] = useState({
     name: "",
     contact_person_name: "",
+    contact_person_designation: "",
     mail_id: "",
     contact_no: "",
     cr_no: "",
@@ -112,6 +103,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
     status: "lead",
     notes: "",
     location_coordinates: "",
+    org_id: defaultCompanyId(companies),
   });
 
   // Action states
@@ -153,6 +145,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
         body: JSON.stringify({
           name: addForm.name,
           contact_person_name: addForm.contact_person_name,
+          contact_person_designation: addForm.contact_person_designation || null,
           mail_id: addForm.mail_id || null,
           contact_no: addForm.contact_no,
           cr_no: addForm.cr_no || null,
@@ -160,6 +153,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
           status: addForm.status,
           notes: addForm.notes || null,
           location_coordinates: addForm.location_coordinates || null,
+          org_id: addForm.org_id ? Number(addForm.org_id) : undefined,
         }),
       });
 
@@ -172,6 +166,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
       setAddForm({
         name: "",
         contact_person_name: "",
+        contact_person_designation: "",
         mail_id: "",
         contact_no: "",
         cr_no: "",
@@ -179,6 +174,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
         status: "lead",
         notes: "",
         location_coordinates: "",
+        org_id: defaultCompanyId(companies),
       });
       setIsAddOpen(false);
       router.refresh();
@@ -192,6 +188,11 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
   async function handleStatusChange(clientId: number, newStatus: string) {
     const clientToUpdate = optimisticClients.find((c) => c.id === clientId);
     if (!clientToUpdate) return;
+
+    if (statusRequiresContact(newStatus) && missingContactFields(clientToUpdate).length > 0) {
+      setContactPrompt({ client: clientToUpdate, status: newStatus });
+      return;
+    }
 
     const updatedClient = { ...clientToUpdate, status: newStatus };
 
@@ -207,7 +208,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
         if (!res.ok) {
           throw new Error(data.error || "Failed to update status");
         }
-        triggerToast(`Status updated to ${newStatus.replace('_', ' ')}!`);
+        triggerToast(`Status updated to ${clientStatusLabel(newStatus)}!`);
         router.refresh();
       } catch (err: any) {
         triggerToast(`Error: ${err.message}`);
@@ -223,17 +224,17 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
 
   return (
     <div className="space-y-4">
-      {/* Top Header Row with Add Button */}
-      <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-200/60 shadow-sm flex-wrap gap-3">
+      {/* Count + actions */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Client List ({total.toLocaleString()})</h2>
+          <p className="text-sm text-muted-foreground"><span className="font-semibold tabular-nums text-foreground">{total.toLocaleString()}</span> {total === 1 ? "client" : "clients"}</p>
         </div>
         <button
           onClick={() => {
             setErrorMsg(null);
             setIsAddOpen(true);
           }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+          className={buttonVariants({ size: "sm" })}
         >
           <Plus size={14} />
           <span>Add Client</span>
@@ -241,10 +242,10 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
       </div>
 
       {/* Search and Filters Toolbar */}
-      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col gap-4 bg-card p-4 rounded-card border border-border/80 shadow-card">
         {/* Search Bar */}
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground/80">
             <Search size={16} />
           </div>
           <input
@@ -252,12 +253,12 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
             placeholder="Search clients by name or CR no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400/50 font-medium"
+            className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 w-full pl-10 pr-10"
           />
           {searchQuery && (
-            <button
+            <button aria-label="Close"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute right-3 top-1/2")}
             >
               <X size={16} />
             </button>
@@ -265,11 +266,11 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
         </div>
 
         {/* Filters Selectors Row */}
-        <div className="flex flex-wrap items-end gap-4 border-t border-slate-100/70 pt-3.5">
+        <div className="flex flex-wrap items-end gap-4 border-t border-border/70 pt-3.5">
           {/* Status Filter */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
             <label
-              className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+              className="text-xs font-semibold text-muted-foreground"
               htmlFor="status-filter"
             >
               Status
@@ -278,27 +279,19 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
               id="status-filter"
               value={statusFilter}
               onChange={(e) => set({ status: e.target.value })}
-              className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
             >
               <option value="all">All Statuses</option>
-              <option value="lead">Lead</option>
-              <option value="contacted">Contacted</option>
-              <option value="follow_up">Follow Up</option>
-              <option value="proposal_sent">Proposal Sent</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="onboarding_in_progress">Onboarding In Progress</option>
-              <option value="onboarded">Onboarded</option>
-              <option value="active_client">Active Client</option>
-              <option value="inactive">Inactive</option>
-              <option value="lost">Lost</option>
-              <option value="cancelled">Cancelled</option>
+              {clientStatuses.map((st) => (
+                <option key={st} value={st}>{clientStatusLabels[st]}</option>
+              ))}
             </select>
           </div>
 
           {/* Date Filter Range */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
             <label
-              className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+              className="text-xs font-semibold text-muted-foreground"
               htmlFor="date-filter"
             >
               Date Added
@@ -307,7 +300,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
               id="date-filter"
               value={dateFilterRange}
               onChange={(e) => set({ date: e.target.value, day: e.target.value === "custom" ? customDate : null })}
-              className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+              className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
             >
               <option value="all">All Dates</option>
               <option value="today">Today</option>
@@ -320,9 +313,9 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
 
           {/* Custom Date Input */}
           {dateFilterRange === "custom" && (
-            <div className="flex flex-col gap-1.5 min-w-[140px] animate-in fade-in duration-200">
+            <div className="flex flex-col gap-1.5 min-w-[140px] animate-page-in">
               <label
-                className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                className="text-xs font-semibold text-muted-foreground"
                 htmlFor="custom-date"
               >
                 Select Calendar Date
@@ -332,7 +325,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                 type="date"
                 value={customDate}
                 onChange={(e) => set({ date: "custom", day: e.target.value })}
-                className="h-10 px-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/50 outline-none bg-slate-50 text-slate-700 font-medium transition cursor-pointer"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10"
               />
             </div>
           )}
@@ -342,7 +335,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
             <button
               type="button"
               onClick={handleReset}
-              className="h-10 px-3 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 rounded-lg flex items-center gap-1.5 transition duration-150 cursor-pointer ml-auto bg-white"
+              className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "ml-auto")}
             >
               <RotateCcw size={14} />
               <span>Reset</span>
@@ -354,9 +347,9 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
       {/* Table Section */}
       {filteredClients.length > 0 ? (
         <div className={cn("space-y-1 transition-opacity", isNavigating && "opacity-60")} aria-busy={isNavigating}>
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-card border border-border bg-card shadow-card">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+            <thead className="bg-subtle text-xs text-muted-foreground font-medium">
               <tr>
                 <th className="w-10 px-2 py-3 sm:hidden"></th>
                 <th className="px-4 py-3">Client</th>
@@ -369,13 +362,13 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-border">
               {filteredClients.map((client) => {
                 const isExpanded = expandedClientId === client.id;
                 return (
                   <Fragment key={client.id}>
                     <tr
-                      className={cn("transition group border-b border-slate-100", rowColors[client.status] ?? "bg-white hover:bg-slate-50/60")}
+                      className={cn("transition group border-b border-border", "bg-card hover:bg-subtle/70")}
                     >
                       <td
                         className="w-10 px-2 py-3 text-center sm:hidden"
@@ -387,8 +380,8 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                         <div className={cn(
                           "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-200 mx-auto",
                           isExpanded
-                            ? "bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200"
-                            : "bg-slate-100/80 text-slate-500 hover:bg-slate-200 hover:text-slate-700 ring-1 ring-slate-200/50"
+                            ? "bg-primary-soft text-primary ring-1 ring-primary/30"
+                            : "bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground/85 ring-1 ring-border/50"
                         )}>
                           <ChevronDown
                             size={15}
@@ -403,24 +396,24 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                         <Link
                           href={`/dashboard/salesman/clients/${client.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="font-bold text-slate-900 hover:text-indigo-600 transition"
+                          className="font-semibold text-foreground hover:text-primary transition"
                         >
                           {client.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {formatPhoneNumber(client.contact_no)}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 hidden md:table-cell font-medium">
+                      <td className="px-4 py-3 text-foreground/85 hidden md:table-cell font-medium">
                         {client.cr_no ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap hidden lg:table-cell">
                         {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
+                      <td className="px-4 py-3 text-foreground/70 hidden md:table-cell">
                         {client.organization?.name ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden sm:table-cell">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                         {formatDate(client.created_at)}
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
@@ -429,14 +422,14 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg transition duration-150 shadow hover:shadow-md cursor-pointer border border-indigo-700/20 active:scale-95"
+                            className={buttonVariants({ variant: "secondary", size: "sm" })}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Navigation size={12} className="fill-current" />
+                            <Navigation size={12} />
                             <span>Navigate</span>
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-400">-</span>
+                          <span className="text-xs text-muted-foreground/80">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3 relative">
@@ -448,17 +441,20 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Badge value={client.status} />
-                              <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition" />
+                              <ChevronDown size={12} className="text-muted-foreground/80 group-hover:text-foreground/70 transition" />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent 
-                            className="w-48 bg-white border border-slate-200/80 shadow-2xl rounded-xl p-1 z-50 animate-in fade-in slide-in-from-top-2 max-h-[300px] overflow-y-auto" 
+                            className="w-48 bg-card border border-border/80 shadow-2xl rounded-card p-1 z-50 animate-pop-in max-h-[300px] overflow-y-auto" 
                             align="end"
                             side="bottom"
                             sideOffset={6}
                             collisionPadding={8}
                           >
-                            {clientStatuses.map((st) => (
+                            {client.status === "blacklisted" && (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">Only a manager can take a client off the black list.</p>
+                            )}
+                            {client.status !== "blacklisted" && clientStatuses.filter((st) => st !== "blacklisted").map((st) => (
                               <DropdownMenuItem
                                 key={st}
                                 onClick={(e) => {
@@ -466,17 +462,15 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                                   handleStatusChange(client.id, st);
                                 }}
                                 className={cn(
-                                  "px-3 py-2 text-xs font-bold transition flex items-center gap-2 cursor-pointer outline-none rounded-lg my-0.5 mx-1",
-                                  dropdownItemColors[st] ?? "text-slate-700 focus:bg-slate-50",
-                                  client.status === st ? "ring-2 ring-indigo-500/40 ring-offset-1 font-extrabold" : ""
+                                  "px-3 py-2 text-xs font-semibold transition flex items-center gap-2 cursor-pointer outline-none rounded-lg my-0.5 mx-1",
+                                  dropdownItemColors[st] ?? "text-foreground/85 focus:bg-subtle",
+                                  client.status === st ? "ring-2 ring-primary/40 ring-offset-1 font-semibold" : ""
                                 )}
                               >
                                 <span className={cn("h-1.5 w-1.5 rounded-full shrink-0",
-                                  st === "onboarded" || st === "active_client" ? "bg-emerald-500" :
-                                  st === "lost" || st === "cancelled" ? "bg-red-500" :
-                                  st === "lead" || st === "contacted" ? "bg-amber-500" : "bg-blue-500"
+                                  clientStatusDotClass(st)
                                 )} />
-                                {st.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                {clientStatusLabels[st]}
                               </DropdownMenuItem>
                             ))}
                           </DropdownMenuContent>
@@ -484,47 +478,47 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className={cn("sm:hidden", rowColors[client.status] ?? "bg-slate-50/30")}>
-                        <td colSpan={5} className="px-4 py-3 text-xs text-slate-600 space-y-2 border-t border-slate-100/50">
+                      <tr className={cn("sm:hidden", "bg-card hover:bg-subtle/70")}>
+                        <td colSpan={5} className="px-4 py-3 text-xs text-foreground/70 space-y-2 border-t border-border/50">
                           <div>
-                            <span className="font-semibold text-slate-500">CR No:</span>{" "}
-                            <span className="text-slate-800">{client.cr_no ?? "-"}</span>
+                            <span className="font-semibold text-muted-foreground">CR No:</span>{" "}
+                            <span className="text-foreground">{client.cr_no ?? "-"}</span>
                           </div>
                           <div>
-                            <span className="font-semibold text-slate-500">CR Expiry:</span>{" "}
-                            <span className="text-slate-800">
+                            <span className="font-semibold text-muted-foreground">CR Expiry:</span>{" "}
+                            <span className="text-foreground">
                               {client.cr_expiry_date ? formatDate(client.cr_expiry_date) : "-"}
                             </span>
                           </div>
                           <div>
-                            <span className="font-semibold text-slate-500">Company:</span>{" "}
-                            <span className="text-slate-800">{client.organization?.name ?? "-"}</span>
+                            <span className="font-semibold text-muted-foreground">Company:</span>{" "}
+                            <span className="text-foreground">{client.organization?.name ?? "-"}</span>
                           </div>
                           <div>
-                            <span className="font-semibold text-slate-500">Date Added:</span>{" "}
-                            <span className="text-slate-800">{formatDate(client.created_at)}</span>
+                            <span className="font-semibold text-muted-foreground">Date Added:</span>{" "}
+                            <span className="text-foreground">{formatDate(client.created_at)}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-500">Navigation:</span>{" "}
+                            <span className="font-semibold text-muted-foreground">Navigation:</span>{" "}
                             {client.location_coordinates ? (
                               <a
                                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.location_coordinates)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg transition duration-150 shadow hover:shadow-md cursor-pointer active:scale-95 ml-1"
+                                className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "ml-1")}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <Navigation size={12} className="fill-current" />
+                                <Navigation size={12} />
                                 <span>Navigate</span>
                               </a>
                             ) : (
-                              <span className="text-slate-400 ml-1">-</span>
+                              <span className="text-muted-foreground/80 ml-1">-</span>
                             )}
                           </div>
                           {client.notes && (
                             <div>
-                              <span className="font-semibold text-slate-500">Notes:</span>
-                              <p className="mt-1 text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200/50 leading-relaxed shadow-sm">
+                              <span className="font-semibold text-muted-foreground">Notes:</span>
+                              <p className="mt-1 text-foreground/85 bg-card p-2.5 rounded-card border border-border/50 leading-relaxed shadow-card">
                                 {client.notes}
                               </p>
                             </div>
@@ -542,18 +536,18 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
         </div>
       ) : (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200 border-dashed text-center">
-          <p className="text-sm font-medium text-slate-600">
+        <div className="flex flex-col items-center justify-center p-12 bg-card rounded-card border border-border border-dashed text-center">
+          <p className="text-sm font-medium text-foreground/70">
             No clients match your filter/search criteria.
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground/80 mt-1">
             Try resetting the status, date filters, or search term to show all
             clients.
           </p>
           <button
             type="button"
             onClick={handleReset}
-            className="mt-4 inline-flex items-center gap-1.5 px-4.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition duration-150 cursor-pointer shadow"
+            className={cn(buttonVariants({ size: "sm" }), "mt-4")}
           >
             <RotateCcw size={14} />
             <span>Clear Filters</span>
@@ -562,26 +556,26 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
       )}
 
       {/* Add Client Modal */}
-      <Modal open={isAddOpen}>
+      <Modal onClose={() => setIsAddOpen(false)} open={isAddOpen}>
         <div className="relative">
-          <button
+          <button aria-label="Close"
             onClick={() => setIsAddOpen(false)}
-            className="absolute -top-1.5 -right-1.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute -top-1.5 -right-1.5")}
           >
             <X size={16} />
           </button>
 
           <div className="mb-4">
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-semibold text-foreground">
               Add New Client
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Create a client card. It will automatically assign to you.
             </p>
           </div>
 
           {errorMsg && (
-            <div className="mb-4 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 font-medium">
+            <div className="mb-4 p-2.5 bg-danger-soft border border-danger/30 rounded-lg text-xs text-danger-foreground font-medium">
               {errorMsg}
             </div>
           )}
@@ -598,14 +592,24 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
             />
 
             <Input
-              label="Contact Person"
+              label={statusRequiresContact(addForm.status) ? "Contact Person" : "Contact Person (optional for leads)"}
               type="text"
-              required
+              required={statusRequiresContact(addForm.status)}
               value={addForm.contact_person_name}
               onChange={(e) =>
                 setAddForm({ ...addForm, contact_person_name: e.target.value })
               }
               placeholder="Full Name"
+              className="text-xs"
+            />
+
+            <Input
+              label={statusRequiresContact(addForm.status) ? "Designation" : "Designation (optional for leads)"}
+              type="text"
+              required={statusRequiresContact(addForm.status)}
+              value={addForm.contact_person_designation}
+              onChange={(e) => setAddForm({ ...addForm, contact_person_designation: e.target.value })}
+              placeholder="e.g. Logistics Manager"
               className="text-xs"
             />
 
@@ -621,9 +625,9 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
             />
 
             <Input
-              label="Phone Number"
+              label={statusRequiresContact(addForm.status) ? "Phone Number" : "Phone Number (optional for leads)"}
               type="tel"
-              required
+              required={statusRequiresContact(addForm.status)}
               value={addForm.contact_no}
               onChange={(e) =>
                 setAddForm({ ...addForm, contact_no: e.target.value })
@@ -662,7 +666,7 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
 
             <div className="flex flex-col gap-1">
               <label
-                className="text-xs font-semibold text-slate-700"
+                className="text-xs font-semibold text-foreground/85"
                 htmlFor="add-status"
               >
                 Status
@@ -673,25 +677,19 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                 onChange={(e) =>
                   setAddForm({ ...addForm, status: e.target.value })
                 }
-                className="h-10 px-3 text-xs rounded-md border border-slate-300 bg-white outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100 cursor-pointer"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
               >
-                <option value="lead">Lead</option>
-                <option value="contacted">Contacted</option>
-                <option value="follow_up">Follow Up</option>
-                <option value="proposal_sent">Proposal Sent</option>
-                <option value="negotiation">Negotiation</option>
-                <option value="onboarding_in_progress">Onboarding In Progress</option>
-                <option value="onboarded">Onboarded</option>
-                <option value="active_client">Active Client</option>
-                <option value="inactive">Inactive</option>
-                <option value="lost">Lost</option>
-                <option value="cancelled">Cancelled</option>
+                {clientStatuses.filter((st) => st !== "blacklisted").map((st) => (
+                  <option key={st} value={st}>{clientStatusLabels[st]}</option>
+                ))}
               </select>
             </div>
 
+            <CompanySelect id="add-company" companies={companies} value={addForm.org_id} onChange={(org_id) => setAddForm({ ...addForm, org_id })} />
+
             <div className="flex flex-col gap-1">
               <label
-                className="text-xs font-semibold text-slate-700"
+                className="text-xs font-semibold text-foreground/85"
                 htmlFor="add-notes"
               >
                 Notes
@@ -704,23 +702,23 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
                 }
                 placeholder="Details of conversations, expectations, etc."
                 rows={3}
-                className="w-full rounded-md border border-slate-300 bg-white p-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 w-full py-2.5"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
               <button
                 type="button"
                 onClick={() => setIsAddOpen(false)}
                 disabled={isSaving}
-                className="px-4 py-2 text-xs font-semibold border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold border border-border hover:bg-subtle text-foreground/70 rounded-lg transition disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer shadow-sm"
+                className={buttonVariants({ size: "sm" })}
               >
                 {isSaving && <Loader2 size={12} className="animate-spin" />}
                 <span>Save Client</span>
@@ -731,6 +729,16 @@ export function SalesmanClientsList({ initialClients, total, page, pageSize }: S
       </Modal>
 
 
+
+      <ContactDetailsDialog
+        target={contactPrompt}
+        onClose={() => setContactPrompt(null)}
+        onSaved={(status) => {
+          setContactPrompt(null);
+          triggerToast(`Status updated to ${clientStatusLabel(status)}!`);
+          router.refresh();
+        }}
+      />
 
       <Toast message={toastMsg || undefined} />
     </div>

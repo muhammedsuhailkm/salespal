@@ -1,18 +1,34 @@
 import type { InputHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
+import { controlBase, controlHeight, errorClass, hintClass, labelClass } from "@/components/ui/field-styles";
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & { label?: string };
+type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  label?: string;
+  /** Helper text under the field. */
+  hint?: string;
+  /** Error text under the field; also marks the input invalid. */
+  error?: string;
+};
 
-export function Input({ label, className, id, ...props }: InputProps) {
+export function Input({ label, hint, error, className, id, ...props }: InputProps) {
+  // Same id rule as before (explicit id → name → label slug) so existing selectors keep working.
   const inputId = id ?? props.name ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const describedBy = error || hint ? `${inputId}-desc` : undefined;
   return (
-    <label className="block text-sm font-medium text-slate-700" htmlFor={inputId}>
-      {label ? <span className="mb-1 block">{label}</span> : null}
+    <label className="block" htmlFor={inputId}>
+      {label ? <span className={labelClass}>{label}</span> : null}
       <input
         id={inputId}
-        className={cn("h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200", className)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className={cn(controlBase, controlHeight, className)}
         {...props}
       />
+      {error ? (
+        <span id={describedBy} className={cn(errorClass, "block")}>{error}</span>
+      ) : hint ? (
+        <span id={describedBy} className={cn(hintClass, "block")}>{hint}</span>
+      ) : null}
     </label>
   );
 }

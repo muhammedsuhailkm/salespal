@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { enquiryRef } from "@/types/enquiry";
+import { ACTIVE_ENQUIRY_STATUSES, enquiryRef } from "@/types/enquiry";
 
 /** An enquiry still open this many days after it was raised (or last followed up) gets a follow-up task. */
 export const FOLLOW_UP_AFTER_DAYS = 30;
@@ -18,11 +18,10 @@ export function nextFollowUpDate(from = todayUtc()) {
   return new Date(from.getTime() + FOLLOW_UP_AFTER_DAYS * DAY_MS);
 }
 
-/** Open, not-yet-converted enquiries whose follow-up date has passed. */
+/** Enquiries still in an active stage whose follow-up date has passed. */
 function dueForFollowUp(today: Date): Prisma.EnquiryWhereInput {
   return {
-    status: "open",
-    order: null,
+    status: { in: [...ACTIVE_ENQUIRY_STATUSES] },
     OR: [
       { next_follow_up_at: { lte: today } },
       { next_follow_up_at: null, enquiry_date: { lte: new Date(today.getTime() - FOLLOW_UP_AFTER_DAYS * DAY_MS) } },
@@ -60,7 +59,7 @@ export async function ensureEnquiryFollowUpTasks(userId: number) {
         enquiry_id: enquiry.id,
         assigned_to_id: userId,
         created_by_id: userId,
-        description: `Follow up on enquiry ${enquiryRef(enquiry.id)} for ${enquiry.client.name} — still open after ${days} days. Add a follow-up comment, or cancel the enquiry with a reason.`,
+        description: `Follow up on enquiry ${enquiryRef(enquiry.id)} for ${enquiry.client.name} — still active after ${days} days. Add a follow-up comment, move it to the next stage, or mark it lost with a reason.`,
         due_date: today,
         status: "pending",
         notification: true,

@@ -4,8 +4,26 @@ export type OrderMode = (typeof orderModes)[number];
 export const orderPaymentModes = ["card", "cash", "credit"] as const;
 export type OrderPaymentMode = (typeof orderPaymentModes)[number];
 
-export const orderStatuses = ["draft", "cancelled", "completed"] as const;
+export const orderStatuses = ["transit", "delivered", "completed", "revision_requested", "cancelled"] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
+
+export const orderStatusLabels: Record<OrderStatus, string> = {
+  transit: "Transit",
+  delivered: "Delivered",
+  completed: "Completed",
+  revision_requested: "Revision requested",
+  cancelled: "Cancelled",
+};
+
+export function orderStatusLabel(status: string) {
+  return orderStatusLabels[status as OrderStatus] ?? status;
+}
+
+/** Orders that no longer count: excluded from totals, receivables and targets. */
+export const VOID_ORDER_STATUSES: readonly OrderStatus[] = ["cancelled", "revision_requested"];
+
+/** Orders still in play (not closed out by completion, revision or cancellation). */
+export const OPEN_ORDER_STATUSES: readonly OrderStatus[] = ["transit", "delivered"];
 
 export const orderApprovalStatuses = ["pending", "approved", "rejected"] as const;
 export type OrderApprovalStatus = (typeof orderApprovalStatuses)[number];
@@ -37,6 +55,12 @@ export type OrderListItem = {
   updated_at: string | Date;
   client?: { name: string };
   createdBy?: { name: string };
+  /** Set when an order was cancelled or sent back for revision. */
+  closed_reason?: string | null;
+  /** The enquiry it was created from (kept after a revision request). */
+  origin_enquiry_id?: number | null;
+  /** The source enquiry's figures, for accounts to start from. */
+  quote?: { cost: number | null; profit: number | null; actual_cost: number | null; actual_profit: number | null; credit_days: number | null } | null;
 };
 
 export const orderPaymentMethods = ["cash", "card", "bank_transfer", "cheque"] as const;

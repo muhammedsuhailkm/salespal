@@ -93,73 +93,73 @@
      DESIGN TOKENS (semantic aliases)
      ═══════════════════════════════════════ */
 
-  /* ─── Brand ─── */
-  --ds-color-brand: var(--ss-blue-600);
-  --ds-color-brand-hover: var(--ss-blue-700);
-  --ds-color-brand-subtle: var(--ss-blue-50);
-  --ds-color-brand-muted: var(--ss-blue-100);
+  /* ─── Brand (follows the app theme — see app/globals.css) ─── */
+  --ds-color-brand: var(--primary);
+  --ds-color-brand-hover: var(--primary-hover);
+  --ds-color-brand-subtle: var(--primary-soft);
+  --ds-color-brand-muted: var(--primary-soft);
 
   /* ─── Text ─── */
-  --ds-text-primary: var(--ss-slate-900);
-  --ds-text-secondary: var(--ss-slate-600);
-  --ds-text-muted: var(--ss-slate-400);
-  --ds-text-inverse: var(--ss-slate-0);
-  --ds-text-brand: var(--ss-blue-600);
+  --ds-text-primary: var(--foreground);
+  --ds-text-secondary: var(--muted-foreground);
+  --ds-text-muted: var(--muted-foreground);
+  --ds-text-inverse: var(--primary-foreground);
+  --ds-text-brand: var(--primary);
 
   /* ─── Surfaces ─── */
-  --ds-surface-page: var(--ss-slate-100);
-  --ds-surface-card: var(--ss-slate-0);
-  --ds-surface-card-hover: var(--ss-slate-50);
-  --ds-surface-raised: var(--ss-slate-0);
-  --ds-surface-sunken: var(--ss-slate-100);
-  --ds-surface-header: var(--ss-navy-900);
-  --ds-surface-selected: var(--ss-blue-50);
-  --ds-surface-selected-strong: var(--ss-blue-100);
-  --ds-surface-stripe: var(--ss-slate-50);
+  --ds-surface-page: var(--background);
+  --ds-surface-card: var(--card);
+  --ds-surface-card-hover: var(--subtle);
+  --ds-surface-raised: var(--card);
+  --ds-surface-sunken: var(--muted);
+  --ds-surface-header: var(--primary);
+  --ds-surface-selected: var(--primary-soft);
+  --ds-surface-selected-strong: var(--primary-soft);
+  --ds-surface-stripe: var(--subtle);
 
   /* ─── Borders ─── */
-  --ds-border-default: var(--ss-slate-200);
-  --ds-border-subtle: var(--ss-slate-100);
-  --ds-border-strong: var(--ss-slate-300);
-  --ds-border-brand: var(--ss-blue-600);
-  --ds-border-selected: var(--ss-blue-500);
+  --ds-border-default: var(--border);
+  --ds-border-subtle: var(--border);
+  --ds-border-strong: var(--border-strong);
+  --ds-border-brand: var(--primary);
+  --ds-border-selected: var(--primary);
 
   /* ─── Status: positive ─── */
-  --ds-status-positive-bg: var(--ss-green-50);
-  --ds-status-positive-border: var(--ss-green-200);
-  --ds-status-positive-text: var(--ss-green-700);
+  --ds-status-positive-bg: var(--success-soft);
+  --ds-status-positive-border: color-mix(in srgb, var(--success) 30%, transparent);
+  --ds-status-positive-text: var(--success-foreground);
 
   /* ─── Status: warning ─── */
-  --ds-status-warning-bg: var(--ss-amber-50);
-  --ds-status-warning-border: var(--ss-amber-200);
-  --ds-status-warning-text: var(--ss-amber-700);
+  --ds-status-warning-bg: var(--warning-soft);
+  --ds-status-warning-border: color-mix(in srgb, var(--warning) 30%, transparent);
+  --ds-status-warning-text: var(--warning-foreground);
 
   /* ─── Status: negative ─── */
-  --ds-status-negative-bg: var(--ss-red-50);
-  --ds-status-negative-border: var(--ss-red-200);
-  --ds-status-negative-text: var(--ss-red-700);
+  --ds-status-negative-bg: var(--danger-soft);
+  --ds-status-negative-border: color-mix(in srgb, var(--danger) 30%, transparent);
+  --ds-status-negative-text: var(--danger-foreground);
 
   /* ─── Status: info ─── */
-  --ds-status-info-bg: var(--ss-blue-50);
-  --ds-status-info-border: var(--ss-blue-200);
-  --ds-status-info-text: var(--ss-blue-700);
+  --ds-status-info-bg: var(--info-soft);
+  --ds-status-info-border: color-mix(in srgb, var(--info) 30%, transparent);
+  --ds-status-info-text: var(--info-foreground);
 
   /* ─── Status: accent ─── */
-  --ds-status-accent-bg: var(--ss-teal-50);
+  --ds-status-accent-bg: var(--primary-soft);
   --ds-status-accent-border: var(--ss-teal-200);
-  --ds-status-accent-text: var(--ss-teal-700);
+  --ds-status-accent-text: var(--primary-soft-foreground);
 
   /* ─── Price ─── */
-  --ds-price-primary: var(--ss-slate-900);
-  --ds-price-savings: var(--ss-green-600);
-  --ds-price-expensive: var(--ss-red-600);
-  --ds-price-muted: var(--ss-slate-400);
+  --ds-price-primary: var(--foreground);
+  --ds-price-savings: var(--success);
+  --ds-price-expensive: var(--danger);
+  --ds-price-muted: var(--muted-foreground);
 
   /* ─── Shadows ─── */
   --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
   --ds-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
-  --ds-shadow-ring: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  --ds-shadow-ring: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent);
 
   /* ─── Radii ─── */
   --ds-radius-sm: 0.25rem;
@@ -184,6 +184,6 @@
   --ds-space-3xl: 3rem;
 
   /* ─── Typography ─── */
-  --ds-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --ds-font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --ds-font-tabular: 'tnum' 1;
 }

@@ -21,7 +21,7 @@ export default async function AccountantEnquiriesPage({ searchParams }: { search
       {companies.length === 0 ? (
         <NoAssignedCompanies />
       ) : (
-        <EnquiriesClient data={data} canCreate={false} canConvert />
+        <EnquiriesClient data={data} role="accountant" canCreate={false} />
       )}
     </>
   );

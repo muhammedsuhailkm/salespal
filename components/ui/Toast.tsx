@@ -1,6 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { toast } from "sonner";
+
+const FAILURE = /\b(fail|failed|error|couldn't|could not|unable|invalid|not allowed|denied)\b/i;
+
+/**
+ * Legacy inline toast API (`<Toast message={…} />`), now routed to the app-wide toaster so
+ * every confirmation looks and animates the same. New code can call `toast()` from "sonner" directly.
+ */
 export function Toast({ message }: { message?: string }) {
-  if (!message) return null;
-  return <div className="fixed bottom-4 right-4 rounded-md bg-slate-950 px-4 py-3 text-sm text-white shadow-lg">{message}</div>;
+  useEffect(() => {
+    if (!message) return;
+    if (FAILURE.test(message)) toast.error(message);
+    else toast.success(message);
+  }, [message]);
+  return null;
 }

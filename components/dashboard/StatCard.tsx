@@ -1,11 +1,26 @@
-import { TrendingUp, TrendingDown, Minus, MoreHorizontal, type LucideIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatCardTheme {
-  /** Solid Tailwind background class, e.g. "bg-teal-600" — needs to carry white text at AA contrast. */
+  /** Tone of the icon chip, given as the solid class it maps from (bg-primary, bg-info, bg-warning, bg-danger, bg-success). */
   bg: string;
 }
 
+const chip: Record<string, string> = {
+  "bg-primary": "bg-primary-soft text-primary-soft-foreground",
+  "bg-success": "bg-success-soft text-success-foreground",
+  "bg-info": "bg-info-soft text-info-foreground",
+  "bg-warning": "bg-warning-soft text-warning-foreground",
+  "bg-danger": "bg-danger-soft text-danger-foreground",
+};
+
+const trend = {
+  up: "bg-success-soft text-success-foreground",
+  down: "bg-danger-soft text-danger-foreground",
+  flat: "bg-muted text-muted-foreground",
+} as const;
+
+/** Dashboard metric: tinted icon, label, figure, trend pill and an optional caption. */
 export function StatCard({
   icon: Icon,
   label,
@@ -25,32 +40,30 @@ export function StatCard({
   caption?: React.ReactNode;
   theme: StatCardTheme;
 }) {
-  const TrendIcon =
-    badgeDirection === "up" ? TrendingUp : badgeDirection === "down" ? TrendingDown : Minus;
+  const TrendIcon = badgeDirection === "up" ? TrendingUp : badgeDirection === "down" ? TrendingDown : Minus;
 
   return (
-    <div className={cn("rounded-3xl p-5 text-white shadow-sm", theme.bg)}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-white/90">
-          <Icon size={15} strokeWidth={2.25} />
-          {label}
-        </div>
-        <MoreHorizontal size={18} className="text-white/50" aria-hidden />
+    <div className="@container flex h-full flex-col rounded-card border border-border bg-card p-5 text-left shadow-card">
+      <div className="flex items-center gap-2.5">
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-[10px]", chip[theme.bg] ?? chip["bg-primary"])}>
+          <Icon size={16} strokeWidth={2.25} aria-hidden />
+        </span>
+        <span className="truncate text-sm font-medium text-muted-foreground">{label}</span>
       </div>
 
-      <div className="mt-5 flex items-end justify-between gap-2">
-        <p className="text-3xl font-semibold leading-none tabular-nums">{value}</p>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
+        <p className="text-2xl font-semibold leading-none tracking-tight text-foreground tabular-nums @[15rem]:text-[28px]">
+          {typeof value === "number" ? value.toLocaleString() : value}
+        </p>
         {badgeLabel && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[11px] font-semibold">
-            <TrendIcon size={11} strokeWidth={2.5} />
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums", trend[badgeDirection ?? "flat"])}>
+            <TrendIcon size={11} strokeWidth={2.5} aria-hidden />
             {badgeLabel}
           </span>
         )}
       </div>
 
-      {caption && (
-        <div className="mt-4 border-t border-white/15 pt-3 text-xs text-white/70">{caption}</div>
-      )}
+      {caption && <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">{caption}</div>}
     </div>
   );
 }

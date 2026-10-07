@@ -12,7 +12,7 @@ export function ApprovalBadge({
   className?: string;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground", className)}>
       {label}
       <Badge value={status} />
     </span>

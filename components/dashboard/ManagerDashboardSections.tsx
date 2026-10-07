@@ -67,14 +67,14 @@ function teamCounts(team: TeamMember[]) {
 
 /* ─── Utility: avatar initials ─── */
 const AVATAR_COLORS = [
-  "bg-emerald-500",
-  "bg-blue-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-teal-500",
-  "bg-indigo-500",
-  "bg-pink-500",
+  "bg-success",
+  "bg-info",
+  "bg-primary",
+  "bg-warning",
+  "bg-danger",
+  "bg-primary",
+  "bg-primary",
+  "bg-danger",
 ];
 
 function getAvatarColor(name: string) {
@@ -162,7 +162,7 @@ export async function ManagerKpiCardsRow({
       badgeLabel: `${onboardedPct > 0 ? "+" : ""}${onboardedPct}% vs last month`,
       direction: onboardedPct > 0 ? "up" : onboardedPct < 0 ? "down" : "flat",
       Icon: UserCheck,
-      bg: "bg-teal-600",
+      bg: "bg-primary",
       items: k.onboardedLogs.map((l) => ({
         id: l.id,
         primary: l.client?.name ?? "Client",
@@ -179,7 +179,7 @@ export async function ManagerKpiCardsRow({
       badgeLabel: `+${weekNew} this week`,
       direction: weekNew > 0 ? "up" : "flat",
       Icon: Users,
-      bg: "bg-blue-600",
+      bg: "bg-info",
       items: k.pipeline.map((c) => ({
         id: c.id,
         primary: c.name,
@@ -197,7 +197,7 @@ export async function ManagerKpiCardsRow({
       badgeLabel: `${kpiChangePct > 0 ? "+" : ""}${kpiChangePct}% change`,
       direction: kpiChangePct > 0 ? "up" : kpiChangePct < 0 ? "down" : "flat",
       Icon: BarChart3,
-      bg: "bg-violet-600",
+      bg: "bg-primary",
       items: sortedSalesmen.map((s) => ({
         id: s.id,
         primary: s.name,
@@ -215,7 +215,7 @@ export async function ManagerKpiCardsRow({
       badgeLabel: `${overdueCount} pending`,
       direction: overdueCount > 0 ? "up" : "flat",
       Icon: XCircle,
-      bg: "bg-slate-800",
+      bg: "bg-primary",
       items: k.overdue.map((t) => ({
         id: t.id,
         primary: t.description,
@@ -280,13 +280,13 @@ export async function SalesmanPerformanceSection({
     return (
       <div className="space-y-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-foreground">
             Salesman Performance
           </h2>
-          <p className="text-xs text-slate-500">this month</p>
+          <p className="text-xs text-muted-foreground">this month</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-10 text-center">
-          <p className="text-sm text-slate-500">
+        <div className="rounded-2xl border border-foreground bg-primary p-10 text-center">
+          <p className="text-sm text-muted-foreground">
             No salesmen assigned to your team yet.
           </p>
         </div>
@@ -323,22 +323,22 @@ export async function SalesmanPerformanceSection({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-base font-semibold text-slate-900">
-          <Link href="/dashboard/manager/team" className="transition hover:text-indigo-600 hover:underline underline-offset-4">
+        <h2 className="text-base font-semibold text-foreground">
+          <Link href="/dashboard/manager/team" className="transition hover:text-primary hover:underline underline-offset-4">
             Salesman Performance
           </Link>
         </h2>
-        <p className="text-xs text-slate-500">this month</p>
+        <p className="text-xs text-muted-foreground">this month</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
         {/* ── LEFT: Top Performer Spotlight ── */}
-        <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-          <span className="absolute inset-x-0 top-0 h-[3px] bg-emerald-500" aria-hidden />
+        <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-foreground bg-primary">
+          <span className="absolute inset-x-0 top-0 h-[3px] bg-success" aria-hidden />
 
           <div className="p-4 pt-5 flex flex-col flex-1">
             {/* Top badge */}
-            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-emerald-500/20 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase tracking-wide mb-3">
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-success/20 bg-success/15 px-2.5 py-1 text-xs font-semibold text-success-foreground mb-3">
               <Trophy size={11} strokeWidth={2.5} />
               Top Performer
             </span>
@@ -347,7 +347,7 @@ export async function SalesmanPerformanceSection({
             <div className="flex items-center gap-3 mb-4">
               <div
                 className={cn(
-                  "h-11 w-11 shrink-0 flex items-center justify-center rounded-full text-white text-sm font-bold ring-2 ring-emerald-500/40",
+                  "h-11 w-11 shrink-0 flex items-center justify-center rounded-full text-white text-sm font-semibold ring-2 ring-success/40",
                   getAvatarColor(topSalesman.name)
                 )}
               >
@@ -357,13 +357,13 @@ export async function SalesmanPerformanceSection({
                 <p className="text-sm font-semibold text-white truncate">
                   {topSalesman.name}
                 </p>
-                <p className="text-xs text-slate-400 truncate">Salesman · {orgName}</p>
+                <p className="text-xs text-muted-foreground/80 truncate">Salesman · {orgName}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-display text-2xl font-bold leading-none text-emerald-400 tabular-nums">
+                <p className="font-display text-2xl font-semibold leading-none text-success-foreground tabular-nums">
                   {topSalesman.kpiScore}
                 </p>
-                <p className="text-[9px] text-slate-500 font-medium uppercase tracking-wider mt-1">
+                <p className="text-xs text-muted-foreground font-medium mt-1">
                   KPI Score
                 </p>
               </div>
@@ -371,35 +371,35 @@ export async function SalesmanPerformanceSection({
 
             {/* 4 stat boxes */}
             <div className="grid grid-cols-4 gap-1.5 mb-4">
-              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
-                <p className="font-display text-sm font-bold text-emerald-400">
+              <div className="rounded-lg border border-white/5 bg-card/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-semibold text-success-foreground">
                   {topOnboarded}
                 </p>
-                <p className="text-[8px] font-semibold text-slate-500 uppercase">
+                <p className="text-[11px] font-semibold text-muted-foreground">
                   Onboarded
                 </p>
               </div>
-              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
-                <p className="font-display text-sm font-bold text-violet-400">
+              <div className="rounded-lg border border-white/5 bg-card/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-semibold text-primary">
                   {topFollowUp}
                 </p>
-                <p className="text-[8px] font-semibold text-slate-500 uppercase">
+                <p className="text-[11px] font-semibold text-muted-foreground">
                   Follow-up
                 </p>
               </div>
-              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
-                <p className="font-display text-sm font-bold text-amber-400">
+              <div className="rounded-lg border border-white/5 bg-card/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-semibold text-warning-foreground">
                   {topNewLead}
                 </p>
-                <p className="text-[8px] font-semibold text-slate-500 uppercase">
+                <p className="text-[11px] font-semibold text-muted-foreground">
                   New Lead
                 </p>
               </div>
-              <div className="rounded-lg border border-white/5 bg-white/[0.04] px-1.5 py-1.5 text-center">
-                <p className="font-display text-sm font-bold text-rose-400">
+              <div className="rounded-lg border border-white/5 bg-card/[0.04] px-1.5 py-1.5 text-center">
+                <p className="font-display text-sm font-semibold text-danger-foreground">
                   {topSalesman.counts.lost ?? 0}
                 </p>
-                <p className="text-[8px] font-semibold text-slate-500 uppercase">
+                <p className="text-[11px] font-semibold text-muted-foreground">
                   Lost
                 </p>
               </div>
@@ -411,29 +411,29 @@ export async function SalesmanPerformanceSection({
                 {
                   label: "Onboarded",
                   value: topOnboarded,
-                  color: "bg-emerald-500",
+                  color: "bg-success",
                 },
                 {
                   label: "Follow-up",
                   value: topFollowUp,
-                  color: "bg-violet-500",
+                  color: "bg-primary",
                 },
                 {
                   label: "New Lead",
                   value: topNewLead,
-                  color: "bg-amber-500",
+                  color: "bg-warning",
                 },
               ].map((bar) => (
                 <div key={bar.label}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-medium text-slate-400">
+                    <span className="text-[11px] font-medium text-muted-foreground/80">
                       {bar.label}
                     </span>
-                    <span className="text-[11px] font-bold text-white">
+                    <span className="text-[11px] font-semibold text-white">
                       {bar.value}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-primary">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-500",
@@ -452,20 +452,20 @@ export async function SalesmanPerformanceSection({
             </div>
 
             {/* Footer */}
-            <div className="mt-auto flex items-center justify-between border-t border-slate-800 pt-3">
+            <div className="mt-auto flex items-center justify-between border-t border-foreground pt-3">
               <div>
-                <p className="text-[9px] text-slate-500 font-medium uppercase">
+                <p className="text-[11px] text-muted-foreground font-medium">
                   Tasks Completed
                 </p>
-                <p className="text-xs font-semibold text-slate-200">
+                <p className="text-xs font-semibold text-muted-foreground/60">
                   {topStats.completed}/{topStats.total}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[9px] text-slate-500 font-medium uppercase">
+                <p className="text-[11px] text-muted-foreground font-medium">
                   Last Active
                 </p>
-                <p className="text-xs font-semibold text-slate-200">
+                <p className="text-xs font-semibold text-muted-foreground/60">
                   {topLastActive ? getTimeAgo(topLastActive) : "No activity"}
                 </p>
               </div>
@@ -474,42 +474,42 @@ export async function SalesmanPerformanceSection({
         </div>
 
         {/* ── RIGHT: Team Leaderboard ── */}
-        <div className="h-full flex flex-col rounded-2xl border border-slate-800 bg-slate-950 p-4">
+        <div className="h-full flex flex-col rounded-2xl border border-foreground bg-primary p-4">
           <div className="mb-3 shrink-0">
             <div className="flex items-center gap-2">
-              <Trophy size={14} className="text-amber-400" />
+              <Trophy size={14} className="text-warning-foreground" />
               <h3 className="text-sm font-semibold text-white">
                 Team Leaderboard
               </h3>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               all salesmen ranked by KPI score
             </p>
           </div>
 
-          <div className="space-y-0 divide-y divide-slate-800 overflow-y-auto flex-1 min-h-0 max-h-[420px] pr-1">
+          <div className="space-y-0 divide-y divide-foreground overflow-y-auto flex-1 min-h-0 max-h-[420px] pr-1">
             {sortedSalesmen.map((s, idx) => {
               const lastActive = lastActiveMap.get(s.id);
               const isActive24h =
                 lastActive && lastActive >= twentyFourHoursAgo;
               const statusDotColor = isActive24h
-                ? "bg-emerald-500"
+                ? "bg-success"
                 : s.kpiScore < 60
-                  ? "bg-amber-500"
-                  : "bg-slate-600";
+                  ? "bg-warning"
+                  : "bg-muted-foreground";
 
               const barColor =
                 s.kpiScore >= 75
-                  ? "bg-emerald-500"
+                  ? "bg-success"
                   : s.kpiScore >= 50
-                    ? "bg-amber-500"
-                    : "bg-rose-500";
+                    ? "bg-warning"
+                    : "bg-danger";
               const scoreColor =
                 s.kpiScore >= 75
-                  ? "text-emerald-400"
+                  ? "text-success-foreground"
                   : s.kpiScore >= 50
-                    ? "text-amber-400"
-                    : "text-rose-400";
+                    ? "text-warning-foreground"
+                    : "text-danger-foreground";
 
               const rankIcon =
                 idx === 0 ? "🥇" : idx === 1 ? "🥈" : null;
@@ -524,7 +524,7 @@ export async function SalesmanPerformanceSection({
                     {rankIcon ? (
                       rankIcon
                     ) : (
-                      <span className="text-[11px] font-semibold text-slate-500">
+                      <span className="text-[11px] font-semibold text-muted-foreground">
                         #{idx + 1}
                       </span>
                     )}
@@ -534,7 +534,7 @@ export async function SalesmanPerformanceSection({
                   <div className="relative shrink-0">
                     <div
                       className={cn(
-                        "h-7 w-7 flex items-center justify-center rounded-full text-white text-[10px] font-bold",
+                        "h-7 w-7 flex items-center justify-center rounded-full text-white text-[10px] font-semibold",
                         getAvatarColor(s.name)
                       )}
                     >
@@ -542,7 +542,7 @@ export async function SalesmanPerformanceSection({
                     </div>
                     <span
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950",
+                        "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-foreground",
                         statusDotColor
                       )}
                     />
@@ -553,7 +553,7 @@ export async function SalesmanPerformanceSection({
                     <p className="text-xs font-semibold text-white truncate">
                       {s.name}
                     </p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-muted-foreground">
                       {lastActive ? getTimeAgo(lastActive) : "No activity"}
                     </p>
                   </div>
@@ -561,26 +561,26 @@ export async function SalesmanPerformanceSection({
                   {/* Mini stats */}
                   <div className="hidden sm:flex items-center gap-2.5 shrink-0">
                     <div className="text-center">
-                      <p className="text-xs font-bold text-slate-300 tabular-nums">
+                      <p className="text-xs font-semibold text-muted-foreground/60 tabular-nums">
                         {s.totalClients}
                       </p>
-                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
+                      <p className="text-[11px] font-semibold text-muted-foreground">
                         CLIENTS
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-bold text-emerald-400 tabular-nums">
+                      <p className="text-xs font-semibold text-success-foreground tabular-nums">
                         {s.counts.onboarded ?? 0}
                       </p>
-                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
+                      <p className="text-[11px] font-semibold text-muted-foreground">
                         ON
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-bold text-rose-400 tabular-nums">
+                      <p className="text-xs font-semibold text-danger-foreground tabular-nums">
                         {s.counts.lost ?? 0}
                       </p>
-                      <p className="text-[7px] font-semibold text-slate-500 uppercase">
+                      <p className="text-[11px] font-semibold text-muted-foreground">
                         LOST
                       </p>
                     </div>
@@ -588,7 +588,7 @@ export async function SalesmanPerformanceSection({
 
                   {/* Score bar + score */}
                   <div className="w-16 shrink-0">
-                    <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden mb-1">
+                    <div className="h-1.5 rounded-full bg-primary overflow-hidden mb-1">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
@@ -604,7 +604,7 @@ export async function SalesmanPerformanceSection({
                     </div>
                     <p
                       className={cn(
-                        "text-[11px] font-bold text-right tabular-nums",
+                        "text-[11px] font-semibold text-right tabular-nums",
                         scoreColor
                       )}
                     >
@@ -667,28 +667,28 @@ export async function FunnelAndTasksSection({
     if (diffDays < 0) {
       return {
         label: `Overdue ${Math.abs(diffDays)}d`,
-        color: "text-red-600",
-        dotColor: "bg-red-500",
+        color: "text-danger-foreground",
+        dotColor: "bg-danger",
       };
     }
     if (diffDays === 0) {
       return {
         label: "Due today",
-        color: "text-amber-600",
-        dotColor: "bg-amber-500",
+        color: "text-warning-foreground",
+        dotColor: "bg-warning",
       };
     }
     if (diffDays === 1) {
       return {
         label: "Due tomorrow",
-        color: "text-slate-300",
-        dotColor: "bg-indigo-500",
+        color: "text-muted-foreground/60",
+        dotColor: "bg-primary",
       };
     }
     return {
       label: `Due in ${diffDays}d`,
-      color: "text-slate-300",
-      dotColor: "bg-indigo-500",
+      color: "text-muted-foreground/60",
+      dotColor: "bg-primary",
     };
   }
 
@@ -703,31 +703,31 @@ export async function FunnelAndTasksSection({
               label: "New Leads",
               count: newLeads,
               pct: 100,
-              color: "bg-indigo-500",
+              color: "bg-primary",
             },
             {
               label: "Follow-up",
               count: followUp,
               pct: followUpPct,
-              color: "bg-violet-500",
+              color: "bg-primary",
             },
             {
               label: "Onboarded",
               count: onboarded,
               pct: onboardedPct,
-              color: "bg-emerald-500",
+              color: "bg-success",
             },
           ].map((bar) => (
             <div key={bar.label}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-medium text-slate-600">
+                <span className="text-[11px] font-medium text-foreground/70">
                   {bar.label}
                 </span>
-                <span className="text-[11px] font-bold text-slate-800">
+                <span className="text-[11px] font-semibold text-foreground">
                   {bar.count}
                 </span>
               </div>
-              <div className="h-8 rounded-lg overflow-hidden bg-slate-100">
+              <div className="h-8 rounded-lg overflow-hidden bg-muted">
                 <div
                   className={cn(
                     "h-full rounded-lg transition-all duration-500 flex items-center px-3",
@@ -738,7 +738,7 @@ export async function FunnelAndTasksSection({
                   }}
                 >
                   {bar.count > 0 && (
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-semibold text-white">
                       {bar.count}
                     </span>
                   )}
@@ -748,11 +748,11 @@ export async function FunnelAndTasksSection({
           ))}
 
           {/* Divider + conversion rate */}
-          <div className="border-t border-slate-100 pt-4 text-center">
-            <p className="text-3xl font-bold text-emerald-600 tabular-nums">
+          <div className="border-t border-border pt-4 text-center">
+            <p className="text-3xl font-semibold text-success-foreground tabular-nums">
               {conversionRate}%
             </p>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-1">
+            <p className="text-xs font-medium text-muted-foreground/80 mt-1">
               Team Conversion Rate
             </p>
           </div>
@@ -767,7 +767,7 @@ export async function FunnelAndTasksSection({
         className="h-auto lg:h-[420px] flex flex-col"
         bodyClassName="flex-1 min-h-0"
       >
-        <div className="space-y-0 divide-y divide-slate-100 overflow-y-auto h-full pr-1">
+        <div className="space-y-0 divide-y divide-border overflow-y-auto h-full pr-1">
           {pendingTasks.length > 0 ? (
             pendingTasks.map((task) => {
               const due = getDueLabel(task.due_date);
@@ -783,16 +783,16 @@ export async function FunnelAndTasksSection({
                     )}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-800 truncate">
+                    <p className="text-xs font-medium text-foreground truncate">
                       {task.description}
                     </p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-muted-foreground/80">
                       {task.assignedTo.name?.split(" ")[0] ?? "Unassigned"}
                     </p>
                   </div>
                   <span
                     className={cn(
-                      "text-[11px] font-bold shrink-0",
+                      "text-[11px] font-semibold shrink-0",
                       due.color
                     )}
                   >
@@ -802,7 +802,7 @@ export async function FunnelAndTasksSection({
               );
             })
           ) : (
-            <p className="text-xs text-slate-400 text-center py-6">
+            <p className="text-xs text-muted-foreground/80 text-center py-6">
               No pending tasks 🎉
             </p>
           )}
@@ -821,10 +821,10 @@ const ACTION_ICON_MAP: Record<
   string,
   { bg: string; Icon: typeof Check }
 > = {
-  onboarded: { bg: "bg-emerald-500", Icon: Check },
-  follow_up: { bg: "bg-blue-500", Icon: RefreshCw },
-  lead: { bg: "bg-amber-500", Icon: Target },
-  lost: { bg: "bg-red-500", Icon: X },
+  onboarded: { bg: "bg-success", Icon: Check },
+  follow_up: { bg: "bg-info", Icon: RefreshCw },
+  lead: { bg: "bg-warning", Icon: Target },
+  lost: { bg: "bg-danger", Icon: X },
 };
 
 function getActionIcon(action: string) {
@@ -835,7 +835,7 @@ function getActionIcon(action: string) {
     return ACTION_ICON_MAP.lead;
   if (lower.includes("lost") || lower.includes("cancel"))
     return ACTION_ICON_MAP.lost;
-  return { bg: "bg-slate-400", Icon: Clock };
+  return { bg: "bg-muted-foreground", Icon: Clock };
 }
 
 export async function ManagerActivityFeed({
@@ -847,8 +847,8 @@ export async function ManagerActivityFeed({
   const activityFeed = await getCachedManagerActivityFeed(team.map((s) => s.id));
 
   return (
-    <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-blue-500" href="/dashboard/manager/clients">
-      <div className="space-y-0 divide-y divide-slate-100">
+    <SectionCard title="Team Activity" subtitle="live feed" icon={Clock} iconClassName="text-info-foreground" href="/dashboard/manager/clients">
+      <div className="space-y-0 divide-y divide-border">
         {activityFeed.length > 0 ? (
           activityFeed.map((log) => {
             const iconData = getActionIcon(log.action);
@@ -867,22 +867,22 @@ export async function ManagerActivityFeed({
                   <Icon size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-700 leading-relaxed">
-                    <span className="font-semibold text-slate-900">
+                  <p className="text-xs text-foreground/85 leading-relaxed">
+                    <span className="font-semibold text-foreground">
                       {log.author.name.split(" ")[0]}
                     </span>{" "}
-                    <span className="text-slate-500">{log.action}</span>
+                    <span className="text-muted-foreground">{log.action}</span>
                     {log.client.name && (
                       <>
                         {" "}
                         for{" "}
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold text-foreground">
                           {log.client.name}
                         </span>
                       </>
                     )}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[10px] text-muted-foreground/80 mt-0.5">
                     {getTimeAgo(log.created_at)}
                   </p>
                 </div>
@@ -890,7 +890,7 @@ export async function ManagerActivityFeed({
             );
           })
         ) : (
-          <p className="text-xs text-slate-400 text-center py-6">
+          <p className="text-xs text-muted-foreground/80 text-center py-6">
             No recent activity
           </p>
         )}
@@ -941,7 +941,7 @@ export function ManagerKpiSkeleton() {
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-3xl border border-slate-200 bg-white p-5 animate-pulse">
+        <div key={i} className="rounded-card border border-border bg-card p-5 animate-pulse">
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-4 w-4 rounded-full" />
@@ -957,7 +957,7 @@ export function ManagerKpiSkeleton() {
 }
 
 export function ManagerPerfSkeleton() {
-  const dark = "animate-pulse rounded-lg bg-slate-800";
+  const dark = "animate-pulse rounded-lg bg-primary";
   return (
     <div className="space-y-3">
       <div className="space-y-1">
@@ -965,7 +965,7 @@ export function ManagerPerfSkeleton() {
         <Skeleton className="h-3 w-20" />
       </div>
       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+        <div className="rounded-2xl border border-foreground bg-primary p-4 space-y-3">
           <div className={cn(dark, "h-4 w-24 rounded-full")} />
           <div className="flex items-center gap-3">
             <div className={cn(dark, "h-11 w-11 rounded-full shrink-0")} />
@@ -985,7 +985,7 @@ export function ManagerPerfSkeleton() {
           ))}
           <div className={cn(dark, "h-10 rounded-lg")} />
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+        <div className="rounded-2xl border border-foreground bg-primary p-4 space-y-3">
           <div className={cn(dark, "h-4 w-32")} />
           {Array.from({ length: 5 }).map((_, j) => (
             <div key={j} className="flex items-center gap-2.5">
@@ -1005,7 +1005,7 @@ export function ManagerPerfSkeleton() {
 export function ManagerFunnelTasksSkeleton() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="rounded-card border border-border bg-card p-5 space-y-4">
         <Skeleton className="h-5 w-40" />
         {Array.from({ length: 3 }).map((_, j) => (
           <div key={j} className="space-y-1.5">
@@ -1015,7 +1015,7 @@ export function ManagerFunnelTasksSkeleton() {
         ))}
         <Skeleton className="h-10 w-16 mx-auto" />
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="rounded-card border border-border bg-card p-5 space-y-4">
         <Skeleton className="h-5 w-28" />
         {Array.from({ length: 5 }).map((_, j) => (
           <div key={j} className="flex items-center gap-3">
@@ -1034,7 +1034,7 @@ export function ManagerFunnelTasksSkeleton() {
 
 export function ManagerActivitySkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+    <div className="rounded-card border border-border bg-card p-5 space-y-4">
       <Skeleton className="h-5 w-28" />
       {Array.from({ length: 5 }).map((_, j) => (
         <div key={j} className="flex items-start gap-3">
@@ -1051,7 +1051,7 @@ export function ManagerActivitySkeleton() {
 
 export function ManagerOrderStatsSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+    <div className="rounded-card border border-border bg-card p-5 space-y-4">
       <Skeleton className="h-4 w-56" />
       <Skeleton className="h-[280px] w-full rounded-xl" />
     </div>

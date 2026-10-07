@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { CheckCircle2, Download, FileUp, Loader2, X, XCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { CompanySelect, defaultCompanyId, type CompanyOption } from "@/components/clients/CompanySelect";
 
-type SalesmanItem = { id: number; name: string };
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+type SalesmanItem = { id: number; name: string; org_ids: number[] };
 
 const TEMPLATE_HEADERS = [
   "name",
@@ -77,12 +80,18 @@ export function BulkImportClientsModal({
   onClose,
   onImported,
   salesmen,
+  companies,
 }: {
   open: boolean;
   onClose: () => void;
   onImported: (count: number) => void;
   salesmen: SalesmanItem[];
+  /** The manager's companies; with several, the import asks which one the clients belong to. */
+  companies: CompanyOption[];
 }) {
+  const [orgId, setOrgId] = useState(() => defaultCompanyId(companies));
+  // Salesmen who can take clients of the chosen company.
+  const eligible = salesmen.filter((s) => !orgId || s.org_ids.includes(Number(orgId)));
   const [fileName, setFileName] = useState("");
   const [rows, setRows] = useState<{ line: number; data: Row }[]>([]);
   const [defaultSalesmanId, setDefaultSalesmanId] = useState("");
@@ -136,7 +145,9 @@ export function BulkImportClientsModal({
   function resolveSalesman(data: Row): number | string {
     if (data.salesman_name) {
       const match = salesmen.find((s) => s.name.trim().toLowerCase() === data.salesman_name.toLowerCase());
-      return match ? match.id : `Salesman "${data.salesman_name}" is not on your team`;
+      if (!match) return `Salesman "${data.salesman_name}" is not on your team`;
+      if (!eligible.includes(match)) return `${match.name} doesn't work for the selected company`;
+      return match.id;
     }
     return defaultSalesmanId ? Number(defaultSalesmanId) : "No salesman in row and no default selected";
   }
@@ -169,6 +180,7 @@ export function BulkImportClientsModal({
               location_coordinates: data.location_coordinates || null,
               notes: data.notes || null,
               assigned_salesman_id: salesman,
+              org_id: orgId ? Number(orgId) : undefined,
               status: "lead",
             }),
           });
@@ -191,64 +203,76 @@ export function BulkImportClientsModal({
   const failed = results?.filter((r) => !r.ok) ?? [];
 
   return (
-    <Modal open={open}>
+    <Modal onClose={close} open={open}>
       <div className="space-y-4">
-        <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div className="flex items-start justify-between border-b border-border pb-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900">Import clients</h3>
-            <p className="text-xs text-slate-500">Upload a CSV file. Every imported client starts with status Lead.</p>
+            <h3 className="text-base font-semibold text-foreground">Import clients</h3>
+            <p className="text-xs text-muted-foreground">Upload a CSV file. Every imported client starts with status Lead.</p>
           </div>
-          <button type="button" onClick={close} aria-label="Close" className="cursor-pointer rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+          <button type="button" onClick={close} aria-label="Close" className={buttonVariants({ variant: "ghost", size: "icon-sm" })}>
             <X size={16} />
           </button>
         </div>
 
         {!results && (
           <>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs text-slate-600">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-subtle p-3">
+              <p className="text-xs text-foreground/70">
                 Required: <span className="font-semibold">name, contact_person_name, contact_no</span>. Dates as YYYY-MM-DD.
               </p>
-              <button type="button" onClick={downloadTemplate} className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100">
+              <button type="button" onClick={downloadTemplate} className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "shrink-0")}>
                 <Download size={13} />
                 <span>Template</span>
               </button>
             </div>
 
-            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white p-6 text-center transition hover:border-slate-400 hover:bg-slate-50">
-              <FileUp size={22} className="text-slate-400" />
-              <span className="text-sm font-semibold text-slate-700">{fileName || "Choose a CSV file"}</span>
-              {rows.length > 0 && <span className="text-xs text-slate-500">{rows.length} client row(s) found</span>}
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-strong bg-card p-6 text-center transition hover:border-border-strong hover:bg-subtle">
+              <FileUp size={22} className="text-muted-foreground/80" />
+              <span className="text-sm font-semibold text-foreground/85">{fileName || "Choose a CSV file"}</span>
+              {rows.length > 0 && <span className="text-xs text-muted-foreground">{rows.length} client row(s) found</span>}
               <input type="file" accept=".csv,text/csv" className="sr-only" disabled={running} onChange={(e) => handleFile(e.target.files?.[0])} />
             </label>
 
-            {parseError && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{parseError}</p>}
+            {parseError && <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-xs font-medium text-danger-foreground">{parseError}</p>}
+
+            <CompanySelect
+              id="import-company"
+              companies={companies}
+              value={orgId}
+              onChange={(value) => {
+                setOrgId(value);
+                const s = salesmen.find((x) => String(x.id) === defaultSalesmanId);
+                if (value && s && !s.org_ids.includes(Number(value))) setDefaultSalesmanId("");
+              }}
+              hint="Every imported client is added under this company."
+            />
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="import-salesman" className="text-xs font-semibold text-slate-700">Default salesman</label>
+              <label htmlFor="import-salesman" className="text-xs font-semibold text-foreground/85">Default salesman</label>
               <select
                 id="import-salesman"
                 value={defaultSalesmanId}
                 onChange={(e) => setDefaultSalesmanId(e.target.value)}
-                className="h-10 cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-xs outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-100"
+                className="w-full rounded-control border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border-strong focus:border-ring focus:ring-3 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 h-10 cursor-pointer"
               >
                 <option value="">Select a salesman...</option>
-                {salesmen.map((s) => (
+                {eligible.map((s) => (
                   <option key={s.id} value={s.id.toString()}>{s.name}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-500">Used for rows with an empty salesman_name column.</p>
+              <p className="text-[11px] text-muted-foreground">Used for rows with an empty salesman_name column.</p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
-              <button type="button" onClick={close} disabled={running} className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">
+            <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+              <button type="button" onClick={close} disabled={running} className="cursor-pointer rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-subtle disabled:opacity-50">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={runImport}
-                disabled={running || rows.length === 0}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={running || rows.length === 0 || (companies.length > 1 && !orgId)}
+                className={buttonVariants({ size: "sm" })}
               >
                 {running && <Loader2 size={12} className="animate-spin" />}
                 <span>{running ? `Importing ${progress}/${rows.length}` : `Import ${rows.length || ""} clients`}</span>
@@ -260,31 +284,31 @@ export function BulkImportClientsModal({
         {results && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-800">
+              <div className="flex items-center gap-2 rounded-lg bg-success-soft p-3 text-success-foreground">
                 <CheckCircle2 size={18} />
                 <span className="text-sm font-semibold">{created} imported</span>
               </div>
-              <div className={`flex items-center gap-2 rounded-lg p-3 ${failed.length ? "bg-red-50 text-red-800" : "bg-slate-50 text-slate-500"}`}>
+              <div className={`flex items-center gap-2 rounded-lg p-3 ${failed.length ? "bg-danger-soft text-danger-foreground" : "bg-subtle text-muted-foreground"}`}>
                 <XCircle size={18} />
                 <span className="text-sm font-semibold">{failed.length} skipped</span>
               </div>
             </div>
             {failed.length > 0 && (
-              <ul className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 text-xs">
+              <ul className="max-h-60 divide-y divide-border overflow-y-auto rounded-lg border border-border text-xs">
                 {failed.map((r) => (
                   <li key={r.line} className="flex gap-3 px-3 py-2">
-                    <span className="shrink-0 font-semibold text-slate-500">Row {r.line}</span>
-                    <span className="font-semibold text-slate-800">{r.name}</span>
-                    <span className="ml-auto text-right text-red-600">{r.message}</span>
+                    <span className="shrink-0 font-semibold text-muted-foreground">Row {r.line}</span>
+                    <span className="font-semibold text-foreground">{r.name}</span>
+                    <span className="ml-auto text-right text-danger-foreground">{r.message}</span>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <button type="button" onClick={reset} className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
+              <button type="button" onClick={reset} className="cursor-pointer rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-subtle">
                 Import another file
               </button>
-              <button type="button" onClick={close} className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800">
+              <button type="button" onClick={close} className={buttonVariants({ size: "sm" })}>
                 Done
               </button>
             </div>

@@ -17,18 +17,9 @@ export const getCachedSalesmanInfo = unstable_cache(
       where: { id: userId },
       select: {
         name: true,
+        // Companies the salesman works for (one link per company).
         salesmanManager: {
-          select: {
-            manager: {
-              select: {
-                managerOrgs: {
-                  select: { org: { select: { name: true } } },
-                  take: 1,
-                },
-              },
-            },
-          },
-          take: 1,
+          select: { managerOrg: { select: { org: { select: { name: true } } } } },
         },
       },
     });
@@ -287,6 +278,7 @@ export const getCachedAdminCompaniesPageRelations = unstable_cache(
       select: {
         manager_id: true,
         salesman_id: true,
+        org_id: true,
       },
     });
   },
@@ -325,7 +317,7 @@ export const getCachedAdminManagersList = unstable_cache(
 export const getCachedAdminRelationsList = unstable_cache(
   async () => {
     return prisma.managerSalesman.findMany({
-      select: { manager_id: true, salesman_id: true },
+      select: { manager_id: true, salesman_id: true, org_id: true },
     });
   },
   ["admin-relations-list"],

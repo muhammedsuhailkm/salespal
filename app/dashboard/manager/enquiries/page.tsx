@@ -11,7 +11,7 @@ export default async function ManagerEnquiriesPage({ searchParams }: { searchPar
   return (
     <>
       <PageHeader title="Enquiries" subtitle="Enquiries from you and your team, from quote to order." />
-      <EnquiriesClient data={data} canCreate canConvert={false} canFollowUp />
+      <EnquiriesClient data={data} role="manager" canCreate canFollowUp />
     </>
   );
 }

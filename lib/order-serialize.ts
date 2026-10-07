@@ -32,8 +32,9 @@ type PaymentRow = {
  * payments; balance = amount - paid. Neither is persisted, to avoid drift.
  */
 export function serializeOrder<
-  T extends { amount: Prisma.Decimal; advance_amount: Prisma.Decimal; payments?: PaymentRow[] }
+  T extends { amount: Prisma.Decimal; advance_amount: Prisma.Decimal; paid_total?: Prisma.Decimal; payments?: PaymentRow[] }
 >(order: T) {
+  const { paid_total, ...rest } = order;
   const amount = order.amount.toNumber();
   const advance_amount = order.advance_amount.toNumber();
   const payments = (order.payments ?? []).map((p) => ({
@@ -46,5 +47,13 @@ export function serializeOrder<
     recorded_by: p.recordedBy.name,
   }));
   const paid_amount = advance_amount + payments.reduce((sum, p) => sum + p.amount, 0);
-  return { ...order, amount, advance_amount, payments, paid_amount, balance: amount - paid_amount };
+  return {
+    ...rest,
+    ...(paid_total !== undefined && { paid_total: paid_total.toNumber() }),
+    amount,
+    advance_amount,
+    payments,
+    paid_amount,
+    balance: amount - paid_amount,
+  };
 }
